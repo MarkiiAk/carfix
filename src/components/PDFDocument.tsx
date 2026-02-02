@@ -768,9 +768,10 @@ export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
                     
                     const getEstadoColor = (estado: string) => {
                       const estadoNorm = estado.toLowerCase();
-                      if (estadoNorm === 'ok' || estadoNorm === 'bueno') return COLORS.success;
-                      if (estadoNorm === 'revisar' || estadoNorm === 'revisión' || estadoNorm === 'atencion' || estadoNorm === 'atención') return COLORS.warning;
-                      return COLORS.danger;
+                      if (estadoNorm === 'bueno') return COLORS.success; // Verde
+                      if (estadoNorm === 'recomendado') return COLORS.warning; // Amarillo/Naranja
+                      if (estadoNorm === 'urgente') return COLORS.danger; // Rojo
+                      return COLORS.mediumGray; // Default gris
                     };
 
                     return (
