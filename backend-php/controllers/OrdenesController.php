@@ -796,18 +796,24 @@ class OrdenesController {
         // Obtener puntos de seguridad de la orden - columnas reales: punto_seguridad_id, notas
         $orden['puntosSeguridad'] = [];
         try {
+            // Usar LEFT JOIN para que no falle si no encuentra el catálogo/estado
             $stmt = $this->db->prepare('
                 SELECT ops.id, ops.orden_id, ops.punto_seguridad_id, ops.estado_id, ops.notas,
-                       ps.nombre as punto_nombre, ps.categoria,
-                       es.nombre as estado_nombre, es.color, es.icono
+                       IFNULL(ps.nombre, CONCAT("Punto ", ops.punto_seguridad_id)) as punto_nombre, 
+                       IFNULL(ps.categoria, "General") as categoria,
+                       IFNULL(es.nombre, "Sin estado") as estado_nombre, 
+                       IFNULL(es.color, "#gray") as color, 
+                       IFNULL(es.icono, "circle") as icono
                 FROM orden_puntos_seguridad ops
-                JOIN puntos_seguridad_catalogo ps ON ops.punto_seguridad_id = ps.id
-                JOIN estados_seguridad es ON ops.estado_id = es.id
+                LEFT JOIN puntos_seguridad_catalogo ps ON ops.punto_seguridad_id = ps.id
+                LEFT JOIN estados_seguridad es ON ops.estado_id = es.id
                 WHERE ops.orden_id = ?
                 ORDER BY ops.id
             ');
             $stmt->execute([$orden['id']]);
             $puntosDB = $stmt->fetchAll();
+            
+            error_log('Puntos encontrados para orden ' . $orden['id'] . ': ' . count($puntosDB));
             
             foreach ($puntosDB as $punto) {
                 $orden['puntosSeguridad'][] = [
