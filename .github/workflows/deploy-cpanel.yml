@@ -116,8 +116,8 @@ jobs:
           local-dir: deploy-temp/gestion/
           server-dir: ./gestion/
           
-          # Limpiar solo la carpeta gestion/ antes de subir
-          dangerous-clean-slate: true
+          # NO limpiar para preservar archivos existentes (backend-php, .htaccess)
+          dangerous-clean-slate: false
           
           exclude: |
             **/.git*
@@ -125,6 +125,7 @@ jobs:
             **/node_modules/**
             **/.vscode/**
             **/.DS_Store
+            **/backend-php/**
           
           security: strict
           timeout: 600000
