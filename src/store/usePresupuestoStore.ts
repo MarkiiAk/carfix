@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Presupuesto, Servicio, Refaccion, ManoDeObra, ThemeMode, InspeccionVehiculo } from '../types';
+import { Presupuesto, Servicio, Refaccion, ManoDeObra, ThemeMode, InspeccionVehiculo, PuntoSeguridadOrden } from '../types';
 
 interface PresupuestoState {
   // Estado del presupuesto
@@ -16,6 +16,9 @@ interface PresupuestoState {
   updateTaller: (data: Partial<Presupuesto['taller']>) => void;
   updateCliente: (data: Partial<Presupuesto['cliente']>) => void;
   updateVehiculo: (data: Partial<Presupuesto['vehiculo']>) => void;
+  
+  // Puntos de Seguridad
+  updatePuntosSeguridad: (puntos: PuntoSeguridadOrden[]) => void;
   
   // Servicios
   addServicio: (servicio: Omit<Servicio, 'id'>) => void;
@@ -139,6 +142,7 @@ const initialPresupuesto: Presupuesto = {
     anticipo: 0,
     restante: 0,
   },
+  puntosSeguridad: [],
 };
 
 export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
@@ -175,6 +179,17 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
       presupuesto: {
         ...state.presupuesto,
         vehiculo: { ...state.presupuesto.vehiculo, ...data },
+      },
+      hasUnsavedChanges: true,
+    }));
+  },
+  
+  // Actualizar puntos de seguridad
+  updatePuntosSeguridad: (puntos) => {
+    set((state) => ({
+      presupuesto: {
+        ...state.presupuesto,
+        puntosSeguridad: puntos,
       },
       hasUnsavedChanges: true,
     }));
@@ -556,6 +571,7 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
         refacciones: orden.refacciones || [],
         manoDeObra: orden.manoDeObra || [],
         resumen: resumen,
+        puntosSeguridad: orden.puntosSeguridad || [],
       },
       hasUnsavedChanges: false,
     });

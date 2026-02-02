@@ -761,24 +761,39 @@ export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
                   <Text style={[styles.tableHeaderText, { width: '70%', fontSize: 7 }]}>VERIFICACIÓN</Text>
                   <Text style={[styles.tableHeaderText, { width: '30%', fontSize: 7 }, styles.colCenter]}>ESTADO</Text>
                 </View>
-                {[
-                  { punto: 'Líquido de frenos verificado', estado: 'OK' },
-                  { punto: 'Presión de llantas revisada', estado: 'OK' },
-                  { punto: 'Luces de seguridad funcionando', estado: 'OK' },
-                  { punto: 'Cinturones de seguridad operativos', estado: 'REVISIÓN' },
-                ].map((item, idx) => (
-                  <View key={idx} style={[styles.tableRow, idx % 2 !== 0 ? styles.tableRowAlt : {}, { paddingVertical: 3 }]}>
-                    <Text style={[styles.tableCell, { width: '70%', fontSize: 7 }]}>{item.punto}</Text>
-                    <Text style={[
-                      styles.tableCell, 
-                      styles.tableCellBold, 
-                      { width: '30%', fontSize: 7, color: item.estado === 'OK' ? COLORS.success : COLORS.warning }, 
-                      styles.colCenter
-                    ]}>
-                      {item.estado}
+                {presupuesto.puntosSeguridad && presupuesto.puntosSeguridad.length > 0 ? (
+                  presupuesto.puntosSeguridad.map((puntoOrden, idx) => {
+                    const nombrePunto = puntoOrden.punto?.nombre || 'Punto desconocido';
+                    const nombreEstado = puntoOrden.estado?.nombre || 'N/A';
+                    
+                    const getEstadoColor = (estado: string) => {
+                      const estadoNorm = estado.toLowerCase();
+                      if (estadoNorm === 'ok' || estadoNorm === 'bueno') return COLORS.success;
+                      if (estadoNorm === 'revisar' || estadoNorm === 'revisión' || estadoNorm === 'atencion' || estadoNorm === 'atención') return COLORS.warning;
+                      return COLORS.danger;
+                    };
+
+                    return (
+                      <View key={puntoOrden.id} style={[styles.tableRow, idx % 2 !== 0 ? styles.tableRowAlt : {}, { paddingVertical: 3 }]}>
+                        <Text style={[styles.tableCell, { width: '70%', fontSize: 6.5 }]}>{nombrePunto}</Text>
+                        <Text style={[
+                          styles.tableCell, 
+                          styles.tableCellBold, 
+                          { width: '30%', fontSize: 6.5, color: getEstadoColor(nombreEstado) }, 
+                          styles.colCenter
+                        ]}>
+                          {nombreEstado.toUpperCase()}
+                        </Text>
+                      </View>
+                    );
+                  })
+                ) : (
+                  <View style={{ padding: 8, backgroundColor: COLORS.ultraLightGray, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 7, color: COLORS.mediumGray, fontStyle: 'italic' }}>
+                      No hay puntos de seguridad registrados
                     </Text>
                   </View>
-                ))}
+                )}
               </View>
             </View>
           )}

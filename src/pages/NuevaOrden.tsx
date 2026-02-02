@@ -15,6 +15,7 @@ import {
   ManoObraSection,
   ResumenSection,
   GarantiaSection,
+  PuntosSeguridadSection,
 } from '../components/sections';
 import { Button } from '../components/ui';
 import { PDFDocument } from '../components/PDFDocument';
@@ -83,6 +84,7 @@ export const NuevaOrden = () => {
         refacciones: presupuesto.refacciones,
         manoDeObra: presupuesto.manoDeObra,
         resumen: presupuesto.resumen,
+        puntosSeguridad: presupuesto.puntosSeguridad || [],
         fechaSalida: presupuesto.fechaSalida?.toISOString() || null,
         fechaEntrada: presupuesto.fechaEntrada?.toISOString() || presupuesto.fecha.toISOString(),
         estado: 'abierta' as const,
@@ -204,6 +206,12 @@ export const NuevaOrden = () => {
 
           {/* Inspección Visual del Vehículo */}
           <InspeccionSection />
+
+          {/* Puntos de Seguridad */}
+          <PuntosSeguridadSection 
+            puntosSeguridad={presupuesto.puntosSeguridad || []}
+            onChange={(puntos) => usePresupuestoStore.getState().updatePuntosSeguridad(puntos)}
+          />
 
           {/* Problema y Diagnóstico */}
           <ProblemaSection />

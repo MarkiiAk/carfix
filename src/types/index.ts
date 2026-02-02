@@ -114,6 +114,7 @@ export interface Presupuesto {
   refacciones: Refaccion[];
   manoDeObra: ManoDeObra[];
   resumen: ResumenFinanciero;
+  puntosSeguridad?: PuntoSeguridadOrden[];
 }
 
 export interface PolizaGarantia {
@@ -142,6 +143,41 @@ export interface AppState {
 
 // Tipos para el sistema de gestión de órdenes
 
+// Nuevos tipos para Puntos de Seguridad
+
+export interface EstadoSeguridad {
+  id: number;
+  nombre: string;
+  color: string;
+  icono: string;
+  descripcion: string;
+  orden: number;
+  activo: boolean;
+}
+
+export interface PuntoSeguridadCatalogo {
+  id: number;
+  nombre: string;
+  categoria: string;
+  descripcion: string;
+  ubicacion: string;
+  orden: number;
+  activo: boolean;
+}
+
+export interface PuntoSeguridadOrden {
+  id: number;
+  ordenId: number;
+  puntoId: number;
+  estadoId: number;
+  observaciones: string;
+  fotoUrl?: string;
+  fechaRevision: string;
+  revisadoPor?: string;
+  punto?: PuntoSeguridadCatalogo;
+  estado?: EstadoSeguridad;
+}
+
 export interface Orden {
   id: string;
   folio: string;
@@ -161,6 +197,7 @@ export interface Orden {
   refacciones: Refaccion[];
   manoDeObra: ManoDeObra[];
   resumen: ResumenFinanciero;
+  puntosSeguridad?: PuntoSeguridadOrden[];
 }
 
 export interface Usuario {

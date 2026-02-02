@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Orden } from '../types';
+import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -142,6 +142,70 @@ export const ordenesAPI = {
 
   getStats: async () => {
     const response = await api.get('/ordenes/stats');
+    return response.data;
+  },
+};
+
+export const estadosSeguridadAPI = {
+  getAll: async () => {
+    const response = await api.get<EstadoSeguridad[]>('/estados-seguridad');
+    return response.data;
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get<EstadoSeguridad>(`/estados-seguridad/${id}`);
+    return response.data;
+  },
+
+  create: async (estado: Omit<EstadoSeguridad, 'id'>) => {
+    const response = await api.post<EstadoSeguridad>('/admin/estados-seguridad', estado);
+    return response.data;
+  },
+
+  update: async (id: number, estado: Partial<EstadoSeguridad>) => {
+    const response = await api.put<EstadoSeguridad>(`/admin/estados-seguridad/${id}`, estado);
+    return response.data;
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/admin/estados-seguridad/${id}`);
+    return response.data;
+  },
+};
+
+export const puntosSeguridadAPI = {
+  getCatalogo: async () => {
+    const response = await api.get<PuntoSeguridadCatalogo[]>('/puntos-seguridad/catalogo');
+    return response.data;
+  },
+
+  getPuntoById: async (id: number) => {
+    const response = await api.get<PuntoSeguridadCatalogo>(`/puntos-seguridad/catalogo/${id}`);
+    return response.data;
+  },
+
+  getPuntosByOrden: async (ordenId: string) => {
+    const response = await api.get<PuntoSeguridadOrden[]>(`/ordenes/${ordenId}/puntos-seguridad`);
+    return response.data;
+  },
+
+  savePuntosByOrden: async (ordenId: string, puntos: Omit<PuntoSeguridadOrden, 'id' | 'fechaRevision'>[]) => {
+    const response = await api.post<{ success: boolean; message: string }>(`/ordenes/${ordenId}/puntos-seguridad`, { puntos });
+    return response.data;
+  },
+
+  createPunto: async (punto: Omit<PuntoSeguridadCatalogo, 'id'>) => {
+    const response = await api.post<PuntoSeguridadCatalogo>('/admin/puntos-seguridad/catalogo', punto);
+    return response.data;
+  },
+
+  updatePunto: async (id: number, punto: Partial<PuntoSeguridadCatalogo>) => {
+    const response = await api.put<PuntoSeguridadCatalogo>(`/admin/puntos-seguridad/catalogo/${id}`, punto);
+    return response.data;
+  },
+
+  deletePunto: async (id: number) => {
+    const response = await api.delete(`/admin/puntos-seguridad/catalogo/${id}`);
     return response.data;
   },
 };

@@ -7,3 +7,4 @@ export { RefaccionesSection } from './RefaccionesSection';
 export { ManoObraSection } from './ManoObraSection';
 export { ResumenSection } from './ResumenSection';
 export { GarantiaSection } from './GarantiaSection';
+export { PuntosSeguridadSection } from './PuntosSeguridadSection';

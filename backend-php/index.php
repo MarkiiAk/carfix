@@ -24,6 +24,8 @@ require_once __DIR__ . '/config/jwt.php';
 // Cargar controladores
 require_once __DIR__ . '/controllers/AuthController.php';
 require_once __DIR__ . '/controllers/OrdenesController.php';
+require_once __DIR__ . '/controllers/EstadosSeguridadController.php';
+require_once __DIR__ . '/controllers/PuntosSeguridadController.php';
 
 // Obtener la ruta y método
 $request_uri = $_SERVER['REQUEST_URI'];
@@ -72,6 +74,63 @@ try {
     elseif (preg_match('#^ordenes/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
         $controller = new OrdenesController();
         $controller->delete($matches[1]);
+    }
+    
+    // Rutas de Estados de Seguridad
+    elseif ($path === 'estados-seguridad' && $request_method === 'GET') {
+        $controller = new EstadosSeguridadController($db);
+        $controller->getEstados();
+    }
+    elseif (preg_match('#^estados-seguridad/([0-9]+)$#', $path, $matches) && $request_method === 'GET') {
+        $controller = new EstadosSeguridadController($db);
+        $controller->getEstadoById($matches[1]);
+    }
+    elseif ($path === 'admin/estados-seguridad' && $request_method === 'POST') {
+        $controller = new EstadosSeguridadController($db);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $controller->createEstado($data);
+    }
+    elseif (preg_match('#^admin/estados-seguridad/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $controller = new EstadosSeguridadController($db);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $controller->updateEstado($matches[1], $data);
+    }
+    elseif (preg_match('#^admin/estados-seguridad/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new EstadosSeguridadController($db);
+        $controller->deleteEstado($matches[1]);
+    }
+    
+    // Rutas de Puntos de Seguridad
+    elseif ($path === 'puntos-seguridad/catalogo' && $request_method === 'GET') {
+        $controller = new PuntosSeguridadController($db);
+        $controller->getCatalogo();
+    }
+    elseif (preg_match('#^puntos-seguridad/catalogo/([0-9]+)$#', $path, $matches) && $request_method === 'GET') {
+        $controller = new PuntosSeguridadController($db);
+        $controller->getPuntoById($matches[1]);
+    }
+    elseif (preg_match('#^ordenes/([0-9]+)/puntos-seguridad$#', $path, $matches) && $request_method === 'GET') {
+        $controller = new PuntosSeguridadController($db);
+        $controller->getPuntosByOrden($matches[1]);
+    }
+    elseif (preg_match('#^ordenes/([0-9]+)/puntos-seguridad$#', $path, $matches) && $request_method === 'POST') {
+        $controller = new PuntosSeguridadController($db);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $controller->savePuntosByOrden($matches[1], $data);
+    }
+    elseif ($path === 'admin/puntos-seguridad/catalogo' && $request_method === 'POST') {
+        $controller = new PuntosSeguridadController($db);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $controller->createPunto($data);
+    }
+    elseif (preg_match('#^admin/puntos-seguridad/catalogo/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $controller = new PuntosSeguridadController($db);
+        $data = json_decode(file_get_contents('php://input'), true);
+        $controller->updatePunto($matches[1], $data);
+    }
+    elseif (preg_match('#^admin/puntos-seguridad/catalogo/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new PuntosSeguridadController($db);
+        $controller->deletePunto($matches[1]);
     }
     
     // Ruta de salud
