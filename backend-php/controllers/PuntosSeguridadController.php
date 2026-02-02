@@ -13,10 +13,10 @@ class PuntosSeguridadController {
      */
     public function getCatalogo() {
         try {
-            $query = "SELECT id, nombre, descripcion, orden 
+            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo 
                       FROM puntos_seguridad_catalogo 
                       WHERE activo = 1 
-                      ORDER BY orden ASC";
+                      ORDER BY orden_visualizacion ASC";
             
             $stmt = $this->db->prepare($query);
             $stmt->execute();
@@ -27,22 +27,22 @@ class PuntosSeguridadController {
                 return [
                     'id' => (int)$punto['id'],
                     'nombre' => $punto['nombre'],
+                    'categoria' => $punto['categoria'],
                     'descripcion' => $punto['descripcion'],
-                    'orden' => (int)$punto['orden']
+                    'orden' => (int)$punto['orden_visualizacion'],
+                    'esCritico' => (bool)$punto['es_critico'],
+                    'activo' => (bool)$punto['activo'],
+                    'ubicacion' => null // No existe en la tabla pero frontend lo espera
                 ];
             }, $puntos);
 
             http_response_code(200);
-            echo json_encode([
-                'success' => true,
-                'data' => $puntosFormatted
-            ]);
+            echo json_encode($puntosFormatted);
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode([
-                'success' => false,
-                'message' => 'Error al obtener catálogo de puntos de seguridad',
-                'error' => $e->getMessage()
+                'error' => 'Error al obtener catálogo de puntos de seguridad',
+                'message' => $e->getMessage()
             ]);
         }
     }
@@ -53,7 +53,7 @@ class PuntosSeguridadController {
      */
     public function getPuntoById($id) {
         try {
-            $query = "SELECT id, nombre, descripcion, orden, activo 
+            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo 
                       FROM puntos_seguridad_catalogo 
                       WHERE id = :id";
             
@@ -65,8 +65,7 @@ class PuntosSeguridadController {
             if (!$punto) {
                 http_response_code(404);
                 echo json_encode([
-                    'success' => false,
-                    'message' => 'Punto de seguridad no encontrado'
+                    'error' => 'Punto de seguridad no encontrado'
                 ]);
                 return;
             }
@@ -74,22 +73,21 @@ class PuntosSeguridadController {
             $puntoFormatted = [
                 'id' => (int)$punto['id'],
                 'nombre' => $punto['nombre'],
+                'categoria' => $punto['categoria'],
                 'descripcion' => $punto['descripcion'],
-                'orden' => (int)$punto['orden'],
-                'activo' => (bool)$punto['activo']
+                'orden' => (int)$punto['orden_visualizacion'],
+                'esCritico' => (bool)$punto['es_critico'],
+                'activo' => (bool)$punto['activo'],
+                'ubicacion' => null
             ];
 
             http_response_code(200);
-            echo json_encode([
-                'success' => true,
-                'data' => $puntoFormatted
-            ]);
+            echo json_encode($puntoFormatted);
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode([
-                'success' => false,
-                'message' => 'Error al obtener punto de seguridad',
-                'error' => $e->getMessage()
+                'error' => 'Error al obtener punto de seguridad',
+                'message' => $e->getMessage()
             ]);
         }
     }
@@ -106,14 +104,14 @@ class PuntosSeguridadController {
                         ops.estado_id as estadoId,
                         ops.notas,
                         psc.nombre as puntoNombre,
-                        es.nombre_display as estadoNombre,
-                        es.color_hex as estadoColor,
-                        es.codigo as estadoCodigo
+                        psc.categoria,
+                        es.nombre as estadoNombre,
+                        es.color as estadoColor
                       FROM orden_puntos_seguridad ops
                       INNER JOIN puntos_seguridad_catalogo psc ON ops.punto_seguridad_id = psc.id
                       INNER JOIN estados_seguridad es ON ops.estado_id = es.id
                       WHERE ops.orden_id = :orden_id
-                      ORDER BY psc.orden ASC";
+                      ORDER BY psc.orden_visualizacion ASC";
             
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':orden_id', $ordenId, PDO::PARAM_INT);
@@ -127,24 +125,21 @@ class PuntosSeguridadController {
                     'puntoId' => (int)$punto['puntoId'],
                     'estadoId' => (int)$punto['estadoId'],
                     'puntoNombre' => $punto['puntoNombre'],
+                    'categoria' => $punto['categoria'],
                     'estadoNombre' => $punto['estadoNombre'],
                     'estadoColor' => $punto['estadoColor'],
-                    'estadoCodigo' => $punto['estadoCodigo'],
-                    'notas' => $punto['notas']
+                    'notas' => $punto['notas'],
+                    'observaciones' => $punto['notas'] // Alias para frontend
                 ];
             }, $puntos);
 
             http_response_code(200);
-            echo json_encode([
-                'success' => true,
-                'data' => $puntosFormatted
-            ]);
+            echo json_encode($puntosFormatted);
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode([
-                'success' => false,
-                'message' => 'Error al obtener puntos de seguridad de la orden',
-                'error' => $e->getMessage()
+                'error' => 'Error al obtener puntos de seguridad de la orden',
+                'message' => $e->getMessage()
             ]);
         }
     }
@@ -156,18 +151,19 @@ class PuntosSeguridadController {
      */
     public function savePuntosByOrden($ordenId, $data) {
         try {
-            // Validar que vengan datos
-            if (!isset($data['puntos']) || !is_array($data['puntos'])) {
+            // Validar que vengan datos (puede ser array directo o envuelto en 'puntos')
+            $puntos = isset($data['puntos']) ? $data['puntos'] : $data;
+            
+            if (!is_array($puntos) || empty($puntos)) {
                 http_response_code(400);
                 echo json_encode([
-                    'success' => false,
-                    'message' => 'Se requiere un array de puntos'
+                    'error' => 'Se requiere un array de puntos'
                 ]);
                 return;
             }
 
             // Verificar que la orden existe
-            $checkOrden = "SELECT id FROM ordenes WHERE id = :orden_id";
+            $checkOrden = "SELECT id FROM ordenes_servicio WHERE id = :orden_id";
             $stmtCheck = $this->db->prepare($checkOrden);
             $stmtCheck->bindParam(':orden_id', $ordenId, PDO::PARAM_INT);
             $stmtCheck->execute();
@@ -175,8 +171,7 @@ class PuntosSeguridadController {
             if (!$stmtCheck->fetch()) {
                 http_response_code(404);
                 echo json_encode([
-                    'success' => false,
-                    'message' => 'Orden no encontrada'
+                    'error' => 'Orden no encontrada'
                 ]);
                 return;
             }
@@ -196,7 +191,7 @@ class PuntosSeguridadController {
                                 VALUES (:orden_id, :punto_id, :estado_id, :notas)";
                 $stmtInsert = $this->db->prepare($insertQuery);
 
-                foreach ($data['puntos'] as $punto) {
+                foreach ($puntos as $punto) {
                     // Validar campos requeridos
                     if (!isset($punto['puntoId']) || !isset($punto['estadoId'])) {
                         throw new Exception('Cada punto debe tener puntoId y estadoId');
@@ -205,7 +200,8 @@ class PuntosSeguridadController {
                     $stmtInsert->bindParam(':orden_id', $ordenId, PDO::PARAM_INT);
                     $stmtInsert->bindParam(':punto_id', $punto['puntoId'], PDO::PARAM_INT);
                     $stmtInsert->bindParam(':estado_id', $punto['estadoId'], PDO::PARAM_INT);
-                    $stmtInsert->bindValue(':notas', $punto['notas'] ?? null);
+                    $notas = $punto['observaciones'] ?? $punto['notas'] ?? null;
+                    $stmtInsert->bindValue(':notas', $notas);
                     $stmtInsert->execute();
                 }
 
@@ -215,10 +211,8 @@ class PuntosSeguridadController {
                 echo json_encode([
                     'success' => true,
                     'message' => 'Puntos de seguridad guardados exitosamente',
-                    'data' => [
-                        'ordenId' => (int)$ordenId,
-                        'puntosGuardados' => count($data['puntos'])
-                    ]
+                    'ordenId' => (int)$ordenId,
+                    'puntosGuardados' => count($puntos)
                 ]);
             } catch (Exception $e) {
                 $this->db->rollBack();
@@ -227,170 +221,8 @@ class PuntosSeguridadController {
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode([
-                'success' => false,
-                'message' => 'Error al guardar puntos de seguridad',
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * POST /api/admin/puntos-seguridad/catalogo
-     * Crear un nuevo punto en el catálogo (Admin)
-     */
-    public function createPunto($data) {
-        try {
-            // Validar datos requeridos
-            if (empty($data['nombre'])) {
-                http_response_code(400);
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'El campo nombre es requerido'
-                ]);
-                return;
-            }
-
-            // Insertar nuevo punto
-            $query = "INSERT INTO puntos_seguridad_catalogo (nombre, descripcion, orden) 
-                      VALUES (:nombre, :descripcion, :orden)";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':nombre', $data['nombre']);
-            $stmt->bindValue(':descripcion', $data['descripcion'] ?? null);
-            $stmt->bindValue(':orden', $data['orden'] ?? 0, PDO::PARAM_INT);
-            
-            $stmt->execute();
-            $newId = $this->db->lastInsertId();
-
-            http_response_code(201);
-            echo json_encode([
-                'success' => true,
-                'message' => 'Punto de seguridad creado exitosamente',
-                'data' => ['id' => (int)$newId]
-            ]);
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Error al crear punto de seguridad',
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * PUT /api/admin/puntos-seguridad/catalogo/:id
-     * Actualizar un punto del catálogo (Admin)
-     */
-    public function updatePunto($id, $data) {
-        try {
-            // Verificar que el punto existe
-            $checkQuery = "SELECT id FROM puntos_seguridad_catalogo WHERE id = :id";
-            $checkStmt = $this->db->prepare($checkQuery);
-            $checkStmt->bindParam(':id', $id, PDO::PARAM_INT);
-            $checkStmt->execute();
-            
-            if (!$checkStmt->fetch()) {
-                http_response_code(404);
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Punto de seguridad no encontrado'
-                ]);
-                return;
-            }
-
-            // Construir query de actualización
-            $fieldsToUpdate = [];
-            $params = [':id' => $id];
-
-            if (isset($data['nombre'])) {
-                $fieldsToUpdate[] = "nombre = :nombre";
-                $params[':nombre'] = $data['nombre'];
-            }
-            if (isset($data['descripcion'])) {
-                $fieldsToUpdate[] = "descripcion = :descripcion";
-                $params[':descripcion'] = $data['descripcion'];
-            }
-            if (isset($data['orden'])) {
-                $fieldsToUpdate[] = "orden = :orden";
-                $params[':orden'] = $data['orden'];
-            }
-            if (isset($data['activo'])) {
-                $fieldsToUpdate[] = "activo = :activo";
-                $params[':activo'] = $data['activo'] ? 1 : 0;
-            }
-
-            if (empty($fieldsToUpdate)) {
-                http_response_code(400);
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'No hay campos para actualizar'
-                ]);
-                return;
-            }
-
-            $query = "UPDATE puntos_seguridad_catalogo SET " . implode(', ', $fieldsToUpdate) . " WHERE id = :id";
-            $stmt = $this->db->prepare($query);
-            
-            foreach ($params as $key => $value) {
-                $stmt->bindValue($key, $value);
-            }
-            
-            $stmt->execute();
-
-            http_response_code(200);
-            echo json_encode([
-                'success' => true,
-                'message' => 'Punto de seguridad actualizado exitosamente'
-            ]);
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Error al actualizar punto de seguridad',
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * DELETE /api/admin/puntos-seguridad/catalogo/:id
-     * Desactivar un punto del catálogo (soft delete) (Admin)
-     */
-    public function deletePunto($id) {
-        try {
-            // Verificar que el punto existe
-            $checkQuery = "SELECT id FROM puntos_seguridad_catalogo WHERE id = :id";
-            $checkStmt = $this->db->prepare($checkQuery);
-            $checkStmt->bindParam(':id', $id, PDO::PARAM_INT);
-            $checkStmt->execute();
-            
-            if (!$checkStmt->fetch()) {
-                http_response_code(404);
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Punto de seguridad no encontrado'
-                ]);
-                return;
-            }
-
-            // Soft delete
-            $query = "UPDATE puntos_seguridad_catalogo SET activo = 0 WHERE id = :id";
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-            $stmt->execute();
-
-            http_response_code(200);
-            echo json_encode([
-                'success' => true,
-                'message' => 'Punto de seguridad desactivado exitosamente'
-            ]);
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Error al desactivar punto de seguridad',
-                'error' => $e->getMessage()
+                'error' => 'Error al guardar puntos de seguridad',
+                'message' => $e->getMessage()
             ]);
         }
     }
