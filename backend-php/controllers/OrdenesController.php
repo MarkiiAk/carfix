@@ -793,53 +793,78 @@ class OrdenesController {
             'restante' => $total - $anticipo
         ];
         
-        // Obtener puntos de seguridad de la orden - columnas reales: punto_seguridad_id, notas
+        // Obtener puntos de seguridad de la orden
         $orden['puntosSeguridad'] = [];
+        
+        error_log('🔍 DEBUG: Iniciando obtención de puntos para orden: ' . $orden['id']);
+        
         try {
-            // Usar LEFT JOIN para que no falle si no encuentra el catálogo/estado
-            $stmt = $this->db->prepare('
-                SELECT ops.id, ops.orden_id, ops.punto_seguridad_id, ops.estado_id, ops.notas,
-                       IFNULL(ps.nombre, CONCAT("Punto ", ops.punto_seguridad_id)) as punto_nombre, 
-                       IFNULL(ps.categoria, "General") as categoria,
-                       IFNULL(es.nombre, "Sin estado") as estado_nombre, 
-                       IFNULL(es.color, "#gray") as color, 
-                       IFNULL(es.icono, "circle") as icono
-                FROM orden_puntos_seguridad ops
-                LEFT JOIN puntos_seguridad_catalogo ps ON ops.punto_seguridad_id = ps.id
-                LEFT JOIN estados_seguridad es ON ops.estado_id = es.id
-                WHERE ops.orden_id = ?
-                ORDER BY ops.id
-            ');
-            $stmt->execute([$orden['id']]);
-            $puntosDB = $stmt->fetchAll();
+            // PASO 1: Query básico sin JOINs para ver si hay datos
+            $basicStmt = $this->db->prepare('SELECT * FROM orden_puntos_seguridad WHERE orden_id = ?');
+            $basicStmt->execute([$orden['id']]);
+            $basicPuntos = $basicStmt->fetchAll();
             
-            error_log('Puntos encontrados para orden ' . $orden['id'] . ': ' . count($puntosDB));
+            error_log('📊 DEBUG: Puntos básicos encontrados: ' . count($basicPuntos));
+            error_log('📋 DEBUG: Datos básicos: ' . json_encode($basicPuntos));
             
-            foreach ($puntosDB as $punto) {
-                $orden['puntosSeguridad'][] = [
-                    'id' => (int)$punto['id'],
-                    'ordenId' => (int)$punto['orden_id'],
-                    'puntoId' => (int)$punto['punto_seguridad_id'],
-                    'estadoId' => (int)$punto['estado_id'],
-                    'observaciones' => $punto['notas'] ?? '',
-                    'punto' => [
-                        'id' => (int)$punto['punto_seguridad_id'],
-                        'nombre' => $punto['punto_nombre'],
-                        'categoria' => $punto['categoria']
-                    ],
-                    'estado' => [
-                        'id' => (int)$punto['estado_id'],
-                        'nombre' => $punto['estado_nombre'],
-                        'color' => $punto['color'],
-                        'icono' => $punto['icono']
-                    ]
-                ];
+            if (count($basicPuntos) > 0) {
+                // PASO 2: Si hay datos básicos, intentar query completo
+                error_log('🔧 DEBUG: Intentando query completo...');
+                
+                $stmt = $this->db->prepare('
+                    SELECT ops.id, ops.orden_id, ops.punto_seguridad_id, ops.estado_id, ops.notas,
+                           IFNULL(ps.nombre, CONCAT("Punto ", ops.punto_seguridad_id)) as punto_nombre, 
+                           IFNULL(ps.categoria, "General") as categoria,
+                           IFNULL(es.nombre, "Sin estado") as estado_nombre, 
+                           IFNULL(es.color, "#gray") as color, 
+                           IFNULL(es.icono, "circle") as icono
+                    FROM orden_puntos_seguridad ops
+                    LEFT JOIN puntos_seguridad_catalogo ps ON ops.punto_seguridad_id = ps.id
+                    LEFT JOIN estados_seguridad es ON ops.estado_id = es.id
+                    WHERE ops.orden_id = ?
+                    ORDER BY ops.id
+                ');
+                $stmt->execute([$orden['id']]);
+                $puntosDB = $stmt->fetchAll();
+                
+                error_log('✅ DEBUG: Puntos con JOINs encontrados: ' . count($puntosDB));
+                error_log('📄 DEBUG: Datos completos: ' . json_encode($puntosDB));
+                
+                foreach ($puntosDB as $punto) {
+                    $puntoProcessed = [
+                        'id' => (int)$punto['id'],
+                        'ordenId' => (int)$punto['orden_id'],
+                        'puntoId' => (int)$punto['punto_seguridad_id'],
+                        'estadoId' => (int)$punto['estado_id'],
+                        'observaciones' => $punto['notas'] ?? '',
+                        'punto' => [
+                            'id' => (int)$punto['punto_seguridad_id'],
+                            'nombre' => $punto['punto_nombre'],
+                            'categoria' => $punto['categoria']
+                        ],
+                        'estado' => [
+                            'id' => (int)$punto['estado_id'],
+                            'nombre' => $punto['estado_nombre'],
+                            'color' => $punto['color'],
+                            'icono' => $punto['icono']
+                        ]
+                    ];
+                    
+                    $orden['puntosSeguridad'][] = $puntoProcessed;
+                    error_log('➕ DEBUG: Punto procesado: ' . json_encode($puntoProcessed));
+                }
+            } else {
+                error_log('❌ DEBUG: No se encontraron puntos básicos en la tabla orden_puntos_seguridad');
             }
+            
         } catch (Exception $e) {
-            // Si falla el query de puntos, simplemente retornar array vacío
-            error_log('Error obteniendo puntos de seguridad: ' . $e->getMessage());
+            error_log('💥 ERROR obteniendo puntos de seguridad: ' . $e->getMessage());
+            error_log('🔍 ERROR Details: ' . $e->getFile() . ':' . $e->getLine());
+            error_log('📄 ERROR Trace: ' . $e->getTraceAsString());
             $orden['puntosSeguridad'] = [];
         }
+        
+        error_log('🎯 DEBUG: Total puntos finales: ' . count($orden['puntosSeguridad']));
         
         return $orden;
     }
