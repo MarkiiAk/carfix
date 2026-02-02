@@ -816,8 +816,7 @@ class OrdenesController {
                            IFNULL(ps.nombre, CONCAT("Punto ", ops.punto_seguridad_id)) as punto_nombre, 
                            IFNULL(ps.categoria, "General") as categoria,
                            IFNULL(es.nombre, "Sin estado") as estado_nombre, 
-                           IFNULL(es.color, "#gray") as color, 
-                           IFNULL(es.icono, "circle") as icono
+                           IFNULL(es.color, "#gray") as color
                     FROM orden_puntos_seguridad ops
                     LEFT JOIN puntos_seguridad_catalogo ps ON ops.punto_seguridad_id = ps.id
                     LEFT JOIN estados_seguridad es ON ops.estado_id = es.id
@@ -846,7 +845,7 @@ class OrdenesController {
                             'id' => (int)$punto['estado_id'],
                             'nombre' => $punto['estado_nombre'],
                             'color' => $punto['color'],
-                            'icono' => $punto['icono']
+                            'icono' => 'circle' // Default icon since DB doesn't have this field
                         ]
                     ];
                     
