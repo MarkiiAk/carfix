@@ -85,15 +85,6 @@ export function PuntosSeguridadSection({
     );
   }
 
-  // Agrupar por categoría
-  const categorias = catalogo.reduce((acc, punto) => {
-    if (!acc[punto.categoria]) {
-      acc[punto.categoria] = [];
-    }
-    acc[punto.categoria].push(punto);
-    return acc;
-  }, {} as Record<string, PuntoSeguridadCatalogo[]>);
-
   return (
     <Card className="space-y-4">
       {/* Header simple */}
@@ -101,69 +92,59 @@ export function PuntosSeguridadSection({
         🔍 Inspección de Seguridad
       </h2>
 
-      {Object.entries(categorias).map(([categoria, puntos]) => (
-        <div key={categoria} className="space-y-3">
-          {/* Título de categoría */}
-          <h3 className="text-base font-semibold text-gray-300 flex items-center gap-2">
-            <span className="w-1 h-4 bg-red-600 rounded"></span>
-            {categoria}
-          </h3>
+      {/* Grid compacto: 2-3 puntos por fila - SIN categorías */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {catalogo.map(punto => {
+          const puntoEstado = puntosSeguridad.find(p => p.puntoId === punto.id);
           
-          {/* Grid compacto: 2-3 puntos por fila */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {puntos.map(punto => {
-              const puntoEstado = puntosSeguridad.find(p => p.puntoId === punto.id);
-              
-              return (
-                <div 
-                  key={punto.id} 
-                  className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 hover:border-gray-600 transition-colors"
-                >
-                  {/* Nombre del punto */}
-                  <div className="text-sm font-medium text-white mb-2 truncate" title={punto.nombre}>
-                    {punto.nombre}
-                  </div>
+          return (
+            <div 
+              key={punto.id} 
+              className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 hover:border-gray-600 transition-colors"
+            >
+              {/* Nombre del punto */}
+              <div className="text-sm font-medium text-white mb-2 truncate" title={punto.nombre}>
+                {punto.nombre}
+              </div>
 
-                  {/* Botones de estado en fila */}
-                  <div className="flex gap-1">
-                    {estados.map(estado => {
-                      const isSelected = puntoEstado?.estadoId === estado.id;
-                      return (
-                        <button
-                          key={estado.id}
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => handleEstadoChange(punto.id, estado.id)}
-                          className={`
-                            flex-1 flex items-center justify-center gap-1 py-2 px-2 rounded-md
-                            text-xs font-medium transition-all duration-150
-                            ${isSelected 
-                              ? 'ring-2 ring-offset-1 ring-offset-gray-800 shadow-lg scale-[1.02]' 
-                              : 'opacity-60 hover:opacity-100'
-                            }
-                            ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer active:scale-95'}
-                          `}
-                          style={{
-                            backgroundColor: isSelected ? estado.color : 'transparent',
-                            borderColor: estado.color,
-                            border: `1px solid ${estado.color}`,
-                            color: isSelected ? '#fff' : estado.color,
-                            boxShadow: isSelected ? `0 0 0 2px ${estado.color}40` : 'none'
-                          }}
-                          title={estado.nombre}
-                        >
-                          <span className="text-sm">{estado.icono}</span>
-                          <span className="hidden sm:inline">{estado.nombre}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+              {/* Botones de estado en fila */}
+              <div className="flex gap-1">
+                {estados.map(estado => {
+                  const isSelected = puntoEstado?.estadoId === estado.id;
+                  return (
+                    <button
+                      key={estado.id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => handleEstadoChange(punto.id, estado.id)}
+                      className={`
+                        flex-1 flex items-center justify-center gap-1 py-2 px-2 rounded-md
+                        text-xs font-medium transition-all duration-150
+                        ${isSelected 
+                          ? 'shadow-lg scale-[1.02]' 
+                          : 'opacity-60 hover:opacity-100'
+                        }
+                        ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer active:scale-95'}
+                      `}
+                      style={{
+                        backgroundColor: isSelected ? estado.color : 'transparent',
+                        borderColor: estado.color,
+                        border: `1px solid ${estado.color}`,
+                        color: isSelected ? '#fff' : estado.color,
+                        boxShadow: isSelected ? `0 0 0 2px ${estado.color}40` : 'none'
+                      }}
+                      title={estado.nombre}
+                    >
+                      <span className="text-sm">{estado.icono}</span>
+                      <span className="hidden sm:inline">{estado.nombre}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Resumen compacto */}
       <div className="bg-gray-800/30 rounded-lg p-3 mt-4 border border-gray-700">
