@@ -222,6 +222,11 @@ class OrdenesController {
                 $this->insertDanosVehiculo($orden_id, $data['inspeccion']['danosAdicionales']);
             }
             
+            // 9. Insertar puntos de seguridad
+            if (isset($data['puntosSeguridad']) && !empty($data['puntosSeguridad'])) {
+                $this->insertPuntosSeguridad($orden_id, $data['puntosSeguridad']);
+            }
+            
             // Commit transacción
             $this->db->commit();
             
@@ -597,6 +602,16 @@ class OrdenesController {
                 }
             }
             
+            // Actualizar puntos de seguridad si se enviaron
+            if (isset($data['puntosSeguridad'])) {
+                // Eliminar puntos existentes y agregar los nuevos
+                $this->db->prepare('DELETE FROM orden_puntos_seguridad WHERE orden_id = ?')->execute([$id]);
+                if (!empty($data['puntosSeguridad'])) {
+                    $this->insertPuntosSeguridad($id, $data['puntosSeguridad']);
+                    error_log('Puntos de seguridad actualizados: ' . count($data['puntosSeguridad']));
+                }
+            }
+            
             $this->db->commit();
             
             // Retornar orden actualizada
@@ -778,6 +793,48 @@ class OrdenesController {
             'restante' => $total - $anticipo
         ];
         
+        // Obtener puntos de seguridad de la orden
+        $stmt = $this->db->prepare('
+            SELECT ops.*, ps.nombre as punto_nombre, ps.categoria, ps.descripcion as punto_descripcion,
+                   ps.es_critico, ps.orden as punto_orden, ps.ubicacion,
+                   es.nombre as estado_nombre, es.color, es.icono
+            FROM orden_puntos_seguridad ops
+            JOIN puntos_seguridad_catalogo ps ON ops.punto_id = ps.id
+            JOIN estados_seguridad es ON ops.estado_id = es.id
+            WHERE ops.orden_id = ?
+            ORDER BY ps.orden
+        ');
+        $stmt->execute([$orden['id']]);
+        $puntosDB = $stmt->fetchAll();
+        
+        $orden['puntosSeguridad'] = [];
+        foreach ($puntosDB as $punto) {
+            $orden['puntosSeguridad'][] = [
+                'id' => (int)$punto['id'],
+                'ordenId' => (int)$punto['orden_id'],
+                'puntoId' => (int)$punto['punto_id'],
+                'estadoId' => (int)$punto['estado_id'],
+                'observaciones' => $punto['observaciones'] ?? '',
+                'fechaRevision' => $punto['fecha_revision'],
+                'punto' => [
+                    'id' => (int)$punto['punto_id'],
+                    'nombre' => $punto['punto_nombre'],
+                    'categoria' => $punto['categoria'],
+                    'descripcion' => $punto['punto_descripcion'],
+                    'orden' => (int)$punto['punto_orden'],
+                    'esCritico' => (bool)$punto['es_critico'],
+                    'activo' => true,
+                    'ubicacion' => $punto['ubicacion']
+                ],
+                'estado' => [
+                    'id' => (int)$punto['estado_id'],
+                    'nombre' => $punto['estado_nombre'],
+                    'color' => $punto['color'],
+                    'icono' => $punto['icono']
+                ]
+            ];
+        }
+        
         return $orden;
     }
     
@@ -909,6 +966,29 @@ class OrdenesController {
                 $dano['descripcion'] ?? ''
             ]);
         }
+    }
+    
+    private function insertPuntosSeguridad($orden_id, $puntos) {
+        $stmt = $this->db->prepare('
+            INSERT INTO orden_puntos_seguridad (orden_id, punto_id, estado_id, observaciones, fecha_revision)
+            VALUES (?, ?, ?, ?, NOW())
+        ');
+        
+        foreach ($puntos as $punto) {
+            $puntoId = $punto['puntoId'] ?? $punto['punto_id'] ?? null;
+            $estadoId = $punto['estadoId'] ?? $punto['estado_id'] ?? 1;
+            $observaciones = $punto['observaciones'] ?? '';
+            
+            if ($puntoId) {
+                $stmt->execute([
+                    $orden_id,
+                    $puntoId,
+                    $estadoId,
+                    $observaciones
+                ]);
+            }
+        }
+        error_log('Puntos de seguridad insertados: ' . count($puntos) . ' para orden ' . $orden_id);
     }
     
     private function generateNumeroOrden() {
