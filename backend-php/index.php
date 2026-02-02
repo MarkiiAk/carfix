@@ -27,6 +27,9 @@ require_once __DIR__ . '/controllers/OrdenesController.php';
 require_once __DIR__ . '/controllers/EstadosSeguridadController.php';
 require_once __DIR__ . '/controllers/PuntosSeguridadController.php';
 
+// Obtener conexión a base de datos
+$db = Database::getInstance()->getConnection();
+
 // Obtener la ruta y método
 $request_uri = $_SERVER['REQUEST_URI'];
 $request_method = $_SERVER['REQUEST_METHOD'];
