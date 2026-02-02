@@ -796,13 +796,13 @@ class OrdenesController {
         // Obtener puntos de seguridad de la orden
         $stmt = $this->db->prepare('
             SELECT ops.*, ps.nombre as punto_nombre, ps.categoria, ps.descripcion as punto_descripcion,
-                   ps.es_critico, ps.orden as punto_orden, ps.ubicacion,
+                   ps.es_critico, ps.id as punto_orden, ps.ubicacion,
                    es.nombre as estado_nombre, es.color, es.icono
             FROM orden_puntos_seguridad ops
             JOIN puntos_seguridad_catalogo ps ON ops.punto_id = ps.id
             JOIN estados_seguridad es ON ops.estado_id = es.id
             WHERE ops.orden_id = ?
-            ORDER BY ps.orden
+            ORDER BY ps.id
         ');
         $stmt->execute([$orden['id']]);
         $puntosDB = $stmt->fetchAll();
