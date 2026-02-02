@@ -793,46 +793,47 @@ class OrdenesController {
             'restante' => $total - $anticipo
         ];
         
-        // Obtener puntos de seguridad de la orden
-        $stmt = $this->db->prepare('
-            SELECT ops.*, ps.nombre as punto_nombre, ps.categoria, ps.descripcion as punto_descripcion,
-                   ps.es_critico, ps.id as punto_orden, ps.ubicacion,
-                   es.nombre as estado_nombre, es.color, es.icono
-            FROM orden_puntos_seguridad ops
-            JOIN puntos_seguridad_catalogo ps ON ops.punto_id = ps.id
-            JOIN estados_seguridad es ON ops.estado_id = es.id
-            WHERE ops.orden_id = ?
-            ORDER BY ps.id
-        ');
-        $stmt->execute([$orden['id']]);
-        $puntosDB = $stmt->fetchAll();
-        
+        // Obtener puntos de seguridad de la orden - query mínimo con solo columnas seguras
         $orden['puntosSeguridad'] = [];
-        foreach ($puntosDB as $punto) {
-            $orden['puntosSeguridad'][] = [
-                'id' => (int)$punto['id'],
-                'ordenId' => (int)$punto['orden_id'],
-                'puntoId' => (int)$punto['punto_id'],
-                'estadoId' => (int)$punto['estado_id'],
-                'observaciones' => $punto['observaciones'] ?? '',
-                'fechaRevision' => $punto['fecha_revision'],
-                'punto' => [
-                    'id' => (int)$punto['punto_id'],
-                    'nombre' => $punto['punto_nombre'],
-                    'categoria' => $punto['categoria'],
-                    'descripcion' => $punto['punto_descripcion'],
-                    'orden' => (int)$punto['punto_orden'],
-                    'esCritico' => (bool)$punto['es_critico'],
-                    'activo' => true,
-                    'ubicacion' => $punto['ubicacion']
-                ],
-                'estado' => [
-                    'id' => (int)$punto['estado_id'],
-                    'nombre' => $punto['estado_nombre'],
-                    'color' => $punto['color'],
-                    'icono' => $punto['icono']
-                ]
-            ];
+        try {
+            $stmt = $this->db->prepare('
+                SELECT ops.id, ops.orden_id, ops.punto_id, ops.estado_id, ops.observaciones, ops.fecha_revision,
+                       ps.nombre as punto_nombre, ps.categoria,
+                       es.nombre as estado_nombre, es.color, es.icono
+                FROM orden_puntos_seguridad ops
+                JOIN puntos_seguridad_catalogo ps ON ops.punto_id = ps.id
+                JOIN estados_seguridad es ON ops.estado_id = es.id
+                WHERE ops.orden_id = ?
+                ORDER BY ops.id
+            ');
+            $stmt->execute([$orden['id']]);
+            $puntosDB = $stmt->fetchAll();
+            
+            foreach ($puntosDB as $punto) {
+                $orden['puntosSeguridad'][] = [
+                    'id' => (int)$punto['id'],
+                    'ordenId' => (int)$punto['orden_id'],
+                    'puntoId' => (int)$punto['punto_id'],
+                    'estadoId' => (int)$punto['estado_id'],
+                    'observaciones' => $punto['observaciones'] ?? '',
+                    'fechaRevision' => $punto['fecha_revision'],
+                    'punto' => [
+                        'id' => (int)$punto['punto_id'],
+                        'nombre' => $punto['punto_nombre'],
+                        'categoria' => $punto['categoria']
+                    ],
+                    'estado' => [
+                        'id' => (int)$punto['estado_id'],
+                        'nombre' => $punto['estado_nombre'],
+                        'color' => $punto['color'],
+                        'icono' => $punto['icono']
+                    ]
+                ];
+            }
+        } catch (Exception $e) {
+            // Si falla el query de puntos, simplemente retornar array vacío
+            error_log('Error obteniendo puntos de seguridad: ' . $e->getMessage());
+            $orden['puntosSeguridad'] = [];
         }
         
         return $orden;
