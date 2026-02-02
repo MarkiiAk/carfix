@@ -793,15 +793,15 @@ class OrdenesController {
             'restante' => $total - $anticipo
         ];
         
-        // Obtener puntos de seguridad de la orden - query mínimo con solo columnas seguras
+        // Obtener puntos de seguridad de la orden - columnas reales: punto_seguridad_id, notas
         $orden['puntosSeguridad'] = [];
         try {
             $stmt = $this->db->prepare('
-                SELECT ops.id, ops.orden_id, ops.punto_id, ops.estado_id, ops.observaciones, ops.fecha_revision,
+                SELECT ops.id, ops.orden_id, ops.punto_seguridad_id, ops.estado_id, ops.notas,
                        ps.nombre as punto_nombre, ps.categoria,
                        es.nombre as estado_nombre, es.color, es.icono
                 FROM orden_puntos_seguridad ops
-                JOIN puntos_seguridad_catalogo ps ON ops.punto_id = ps.id
+                JOIN puntos_seguridad_catalogo ps ON ops.punto_seguridad_id = ps.id
                 JOIN estados_seguridad es ON ops.estado_id = es.id
                 WHERE ops.orden_id = ?
                 ORDER BY ops.id
@@ -813,12 +813,11 @@ class OrdenesController {
                 $orden['puntosSeguridad'][] = [
                     'id' => (int)$punto['id'],
                     'ordenId' => (int)$punto['orden_id'],
-                    'puntoId' => (int)$punto['punto_id'],
+                    'puntoId' => (int)$punto['punto_seguridad_id'],
                     'estadoId' => (int)$punto['estado_id'],
-                    'observaciones' => $punto['observaciones'] ?? '',
-                    'fechaRevision' => $punto['fecha_revision'],
+                    'observaciones' => $punto['notas'] ?? '',
                     'punto' => [
-                        'id' => (int)$punto['punto_id'],
+                        'id' => (int)$punto['punto_seguridad_id'],
                         'nombre' => $punto['punto_nombre'],
                         'categoria' => $punto['categoria']
                     ],
@@ -970,22 +969,23 @@ class OrdenesController {
     }
     
     private function insertPuntosSeguridad($orden_id, $puntos) {
+        // Columnas reales: orden_id, punto_seguridad_id, estado_id, notas
         $stmt = $this->db->prepare('
-            INSERT INTO orden_puntos_seguridad (orden_id, punto_id, estado_id, observaciones, fecha_revision)
-            VALUES (?, ?, ?, ?, NOW())
+            INSERT INTO orden_puntos_seguridad (orden_id, punto_seguridad_id, estado_id, notas)
+            VALUES (?, ?, ?, ?)
         ');
         
         foreach ($puntos as $punto) {
-            $puntoId = $punto['puntoId'] ?? $punto['punto_id'] ?? null;
+            $puntoId = $punto['puntoId'] ?? $punto['punto_id'] ?? $punto['punto_seguridad_id'] ?? null;
             $estadoId = $punto['estadoId'] ?? $punto['estado_id'] ?? 1;
-            $observaciones = $punto['observaciones'] ?? '';
+            $notas = $punto['observaciones'] ?? $punto['notas'] ?? '';
             
             if ($puntoId) {
                 $stmt->execute([
                     $orden_id,
                     $puntoId,
                     $estadoId,
-                    $observaciones
+                    $notas
                 ]);
             }
         }
