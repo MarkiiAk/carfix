@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../ui';
 import { estadosSeguridadAPI, puntosSeguridadAPI } from '../../services/api';
 import type { EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden } from '../../types';
