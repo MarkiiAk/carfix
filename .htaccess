@@ -1,7 +1,13 @@
 # SAG Garage - Configuración Principal
 RewriteEngine On
 
-# NO redirigir archivos estáticos (CSS, JS, imágenes)
+# ============================================
+# EXCLUIR /gestion/ de TODAS las reglas
+# La carpeta /gestion/ tiene su propio .htaccess
+# ============================================
+RewriteRule ^gestion/ - [L]
+
+# NO redirigir archivos estáticos (CSS, JS, imágenes) de la raíz
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^.*$ - [L]
 
