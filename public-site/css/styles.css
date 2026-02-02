@@ -447,6 +447,26 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 80px;
     color: var(--neon-green);
     border: 2px solid rgba(183, 255, 0, 0.2);
+    background-size: cover;
+    background-position: center;
+    position: relative;
+}
+
+.showcase-image::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(2px);
+    z-index: 1;
+}
+
+.showcase-image i {
+    position: relative;
+    z-index: 2;
 }
 
 .showcase-overlay {
