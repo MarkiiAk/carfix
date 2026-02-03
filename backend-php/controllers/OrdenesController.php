@@ -26,7 +26,7 @@ class OrdenesController {
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v ON o.vehiculo_id = v.id
-                ORDER BY o.fecha_ingreso DESC
+                ORDER BY o.id DESC
             ');
             
             $ordenes = $stmt->fetchAll();
@@ -1025,27 +1025,27 @@ class OrdenesController {
     private function generateNumeroOrden() {
         $prefix = 'OS-';
         $year = date('Y');
-        $month = date('m');
         
-        // Obtener el último numero_orden del mes
+        // Obtener el último numero_orden del año (SIN filtrar por mes)
         $stmt = $this->db->prepare("
             SELECT numero_orden FROM ordenes_servicio 
             WHERE numero_orden LIKE ? 
             ORDER BY id DESC 
             LIMIT 1
         ");
-        $stmt->execute([$prefix . $year . $month . '%']);
+        $stmt->execute([$prefix . $year . '%']);
         $lastOrden = $stmt->fetchColumn();
         
         if ($lastOrden) {
-            // Extraer número del final
-            preg_match('/-(\d+)$/', $lastOrden, $matches);
+            // Extraer número consecutivo del formato OS-YYYY-N
+            preg_match('/OS-\d{4}-(\d+)$/', $lastOrden, $matches);
             $lastNumber = isset($matches[1]) ? (int)$matches[1] : 0;
             $newNumber = $lastNumber + 1;
         } else {
-            $newNumber = 1;
+            $newNumber = 1; // Primera orden del año
         }
         
-        return $prefix . $year . $month . '-' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        // Formato: OS-2026-1, OS-2026-2, OS-2026-3, etc. (SIN padding de ceros)
+        return $prefix . $year . '-' . $newNumber;
     }
 }

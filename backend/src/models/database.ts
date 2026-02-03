@@ -197,7 +197,7 @@ class Database {
         INNER JOIN clientes c ON o.cliente_id = c.id
         INNER JOIN vehiculos v ON o.vehiculo_id = v.id
         INNER JOIN usuarios u ON o.usuario_id = u.id
-        ORDER BY o.fecha_ingreso DESC
+        ORDER BY o.id DESC
       `);
 
       // Convertir a formato Orden
@@ -299,7 +299,13 @@ class Database {
       return result;
     } else {
       const data = await fs.readFile(ORDENES_FILE, 'utf-8');
-      return JSON.parse(data);
+      const ordenes = JSON.parse(data);
+      // Ordenar por ID descendente (más nuevas primero)
+      return ordenes.sort((a: Orden, b: Orden) => {
+        const idA = parseInt(a.id) || 0;
+        const idB = parseInt(b.id) || 0;
+        return idB - idA;
+      });
     }
   }
 
