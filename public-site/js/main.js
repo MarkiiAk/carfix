@@ -162,12 +162,15 @@ window.addEventListener('scroll', function() {
 const manualCard = document.getElementById('manualCard');
 const bankingCard = document.getElementById('bankingCard');
 const bankingModal = document.getElementById('bankingModal');
-const closeModal = document.getElementById('closeModal');
-const downloadBankingInfo = document.getElementById('downloadBankingInfo');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalClose = document.getElementById('modalClose');
 
-// Manual Corporativo - Download PDF
+// Manual Corporativo - SOLO DESCARGA PDF
 if (manualCard) {
-    manualCard.addEventListener('click', function() {
+    manualCard.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
         // Add visual feedback
         const icon = this.querySelector('i');
         const originalClass = icon.className;
@@ -197,9 +200,11 @@ if (manualCard) {
     });
 }
 
-// Banking Card - Open Modal
-if (bankingCard) {
-    bankingCard.addEventListener('click', function() {
+// Banking Card - Abrir Modal
+if (bankingCard && bankingModal) {
+    bankingCard.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         openBankingModal();
     });
 }
@@ -207,61 +212,133 @@ if (bankingCard) {
 // Modal Functions
 function openBankingModal() {
     if (bankingModal) {
-        bankingModal.classList.add('show');
-        document.body.style.overflow = 'hidden'; // Prevent background scroll
+        // Guardar posición actual del scroll
+        const scrollY = window.pageYOffset;
+        
+        // Bloquear scroll del fondo completamente
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.overflow = 'hidden';
+        
+        bankingModal.classList.add('active');
+        console.log('Modal datos bancarios abierto');
     }
 }
 
 function closeBankingModal() {
     if (bankingModal) {
-        bankingModal.classList.remove('show');
-        document.body.style.overflow = ''; // Restore scroll
+        // Restaurar scroll del fondo
+        const scrollY = document.body.style.top;
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.overflow = '';
+        
+        // Restaurar posición de scroll
+        if (scrollY) {
+            window.scrollTo(0, parseInt(scrollY || '0') * -1);
+        }
+        
+        bankingModal.classList.remove('active');
+        console.log('Modal datos bancarios cerrado');
     }
 }
 
-// Close Modal Event Listeners
-if (closeModal) {
-    closeModal.addEventListener('click', closeBankingModal);
+// Modal Close Events
+if (modalClose) {
+    modalClose.addEventListener('click', closeBankingModal);
 }
 
-if (bankingModal) {
-    // Close on overlay click
-    bankingModal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeBankingModal();
-        }
-    });
+if (modalOverlay) {
+    modalOverlay.addEventListener('click', closeBankingModal);
 }
 
-// Download Banking Info Image
-if (downloadBankingInfo) {
-    downloadBankingInfo.addEventListener('click', function() {
-        // Add visual feedback
-        this.classList.add('downloading');
-        
-        // Create download link
-        const link = document.createElement('a');
-        link.href = 'DatosBancarios.jpeg';
-        link.download = 'Datos_Bancarios_SAG_Garage.jpeg';
-        
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Remove downloading state
-        setTimeout(() => {
-            this.classList.remove('downloading');
-        }, 1500);
-        
-        console.log('Datos bancarios descargados');
-    });
-}
-
-// Keyboard Navigation
+// Close modal with ESC key
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && bankingModal && bankingModal.classList.contains('show')) {
+    if (e.key === 'Escape' && bankingModal && bankingModal.classList.contains('active')) {
         closeBankingModal();
+    }
+});
+
+// Prevent modal close when clicking inside modal container
+const modalContainer = document.querySelector('.modal-container');
+if (modalContainer) {
+    modalContainer.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+}
+
+// Copy to Clipboard Function
+function copyToClipboard(text, button) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Visual feedback
+        const originalText = button.textContent;
+        button.textContent = '¡Copiado!';
+        button.classList.add('copied');
+        
+        // Reset after 2 seconds
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('copied');
+        }, 2000);
+        
+        console.log('Texto copiado:', text);
+    }).catch(function(err) {
+        console.error('Error al copiar:', err);
+        // Fallback para navegadores que no soportan clipboard API
+        fallbackCopyTextToClipboard(text, button);
+    });
+}
+
+// Fallback copy function
+function fallbackCopyTextToClipboard(text, button) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        
+        // Visual feedback
+        const originalText = button.textContent;
+        button.textContent = '¡Copiado!';
+        button.classList.add('copied');
+        
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('copied');
+        }, 2000);
+        
+        console.log('Texto copiado (fallback):', text);
+    } catch (err) {
+        console.error('Error en fallback copy:', err);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// Copy Button Event Listeners
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.copy-button')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const button = e.target.closest('.copy-button');
+        const textToCopy = button.getAttribute('data-copy');
+        
+        if (textToCopy) {
+            copyToClipboard(textToCopy, button);
+        }
     }
 });
 
