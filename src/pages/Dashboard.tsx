@@ -13,6 +13,9 @@ export const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<string>('todas');
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
   const { user, logout } = useAuth();
   const { themeMode, toggleTheme } = usePresupuestoStore();
   const navigate = useNavigate();
@@ -32,6 +35,8 @@ export const Dashboard = () => {
 
   useEffect(() => {
     filterOrdenes();
+    // Reiniciar a la página 1 cuando cambien los filtros
+    setCurrentPage(1);
   }, [searchTerm, estadoFilter, ordenes]);
 
   const loadOrdenes = async () => {
@@ -109,6 +114,13 @@ export const Dashboard = () => {
     navigate('/login');
   };
 
+  // Calcular datos de paginación
+  const totalItems = filteredOrdenes.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredOrdenes.slice(startIndex, endIndex);
+
   const stats = {
     total: ordenes.length,
     abiertas: ordenes.filter((o) => {
@@ -122,6 +134,40 @@ export const Dashboard = () => {
       const estado = ordenAny.estado || o.estado;
       return estado === 'cerrada' || estado === 'entregada';
     }).length,
+  };
+
+  // Funciones de navegación de paginación
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const goToPrevious = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
+  const goToNext = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  // Generar números de página para mostrar
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      const startPage = Math.max(1, currentPage - 2);
+      const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
   };
 
   return (
@@ -309,7 +355,7 @@ export const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredOrdenes.map((orden) => {
+                  {currentItems.map((orden) => {
                     // Soportar ambos formatos: backend PHP y frontend
                     const ordenAny = orden as any;
                     const folio = ordenAny.numero_orden || orden.folio || '';
@@ -366,6 +412,60 @@ export const Dashboard = () => {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Controles de Paginación */}
+          {!isLoading && filteredOrdenes.length > 0 && totalPages > 1 && (
+            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                {/* Información de elementos mostrados */}
+                <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                  <span>
+                    Mostrando {startIndex + 1} - {Math.min(endIndex, totalItems)} de {totalItems} órdenes
+                  </span>
+                </div>
+
+                {/* Controles de navegación */}
+                <div className="flex items-center gap-2">
+                  {/* Botón Anterior */}
+                  <Button
+                    onClick={goToPrevious}
+                    disabled={currentPage === 1}
+                    className="!px-3 !py-2 !text-sm bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                  >
+                    
+                    Anterior
+                  </Button>
+
+                  {/* Números de página */}
+                  <div className="flex items-center gap-1">
+                    {getPageNumbers().map((pageNumber) => (
+                      <button
+                        key={pageNumber}
+                        onClick={() => goToPage(pageNumber)}
+                        className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                          pageNumber === currentPage
+                            ? 'bg-sag-500 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {pageNumber}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Botón Siguiente */}
+                  <Button
+                    onClick={goToNext}
+                    disabled={currentPage === totalPages}
+                    className="!px-3 !py-2 !text-sm bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                  >
+                    Siguiente
+                    
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>

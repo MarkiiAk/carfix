@@ -799,14 +799,14 @@ export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
             </View>
           )}
 
-          {/* SECCIÓN INFERIOR: SERVICIOS, RESUMEN Y FIRMAS */}
+          {/* SECCIÓN INFERIOR: SERVICIOS Y DAÑOS ADICIONALES */}
           <View style={{ flexDirection: 'row', gap: 15, marginTop: 10 }}>
             {/* SERVICIOS A REALIZAR */}
             <View style={{ flex: 1 }}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>SERVICIOS A REALIZAR</Text>
               </View>
-              {presupuesto.servicios && presupuesto.servicios.length > 0 && (
+              {presupuesto.servicios && presupuesto.servicios.length > 0 ? (
                 <View style={{ backgroundColor: COLORS.ultraLightGray, padding: 6 }}>
                   {presupuesto.servicios.slice(0, 5).map((servicio, idx) => (
                     <Text key={idx} style={{ fontSize: 7, marginBottom: 2, color: COLORS.darkGray }}>
@@ -818,6 +818,12 @@ export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
                       ...y {presupuesto.servicios.length - 5} más
                     </Text>
                   )}
+                </View>
+              ) : (
+                <View style={{ padding: 8, backgroundColor: COLORS.ultraLightGray, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 7, color: COLORS.mediumGray, fontStyle: 'italic' }}>
+                    No hay servicios registrados
+                  </Text>
                 </View>
               )}
             </View>
@@ -852,84 +858,133 @@ export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
             </View>
           </View>
 
-          {/* TABLA DE VALORES Y FIRMAS - MOVIDOS AL FINAL */}
-          <View style={{ marginTop: 30 }}>
-            {/* RESUMEN FINANCIERO Y FIRMAS EN MISMA LÍNEA */}
-            <View style={{ flexDirection: 'row', gap: 15 }}>
-              {/* TABLA DE PRESUPUESTO/ANTICIPO/SALDO */}
-              <View style={{ width: '50%' }}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>PRESUPUESTO</Text>
+          {/* ESPACIADOR PARA SEPARAR DE LA PÁGINA 3 */}
+   
+
+        </View>
+      </Page>
+
+      {/* ============= PÁGINA 3: PRESUPUESTO Y FIRMAS ============= */}
+      <Page size="A4" style={styles.page}>
+        {renderHeader()}
+
+        <View style={styles.content}>
+          {renderClienteVehiculoCards()}
+
+          {/* CONTENIDO CENTRADO PARA PRESUPUESTO Y FIRMAS */}
+          <View style={{ marginTop: 50, alignItems: 'center' }}>
+            
+            {/* TABLA DE PRESUPUESTO CENTRADA */}
+            <View style={{ width: '60%', marginBottom: 40 }}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>PRESUPUESTO</Text>
+              </View>
+              
+              <View style={{ backgroundColor: COLORS.ultraLightGray, padding: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 11, color: COLORS.darkGray, fontFamily: 'Roboto', fontWeight: 500 }}>Presupuesto:</Text>
+                  <Text style={{ fontSize: 11, fontFamily: 'Roboto', fontWeight: 700, color: COLORS.black }}>
+                    {formatCurrency(presupuesto.resumen?.total || 0)}
+                  </Text>
                 </View>
-                <View style={{ backgroundColor: COLORS.ultraLightGray, padding: 8 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
-                    <Text style={{ fontSize: 9, color: COLORS.darkGray }}>Presupuesto:</Text>
-                    <Text style={{ fontSize: 9, fontFamily: 'Roboto', fontWeight: 700 }}>
-                      {formatCurrency(presupuesto.resumen?.total || 0)}
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
-                    <Text style={{ fontSize: 9, color: COLORS.darkGray }}>Anticipo:</Text>
-                    <Text style={{ fontSize: 9, fontFamily: 'Roboto', fontWeight: 700 }}>
-                      {formatCurrency(presupuesto.resumen?.anticipo || 0)}
-                    </Text>
-                  </View>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      borderTop: `2px solid ${COLORS.accentBlue}`,
-                      paddingTop: 4,
-                      marginTop: 2,
-                    }}
-                  >
-                    <Text style={{ fontSize: 10, fontFamily: 'Roboto', fontWeight: 700, color: COLORS.accentBlue }}>
-                      Saldo:
-                    </Text>
-                    <Text style={{ fontSize: 11, fontFamily: 'Roboto', fontWeight: 700, color: COLORS.accentBlue }}>
-                      {formatCurrency(presupuesto.resumen?.restante || 0)}
-                    </Text>
-                  </View>
-                  <Text
-                    style={{
-                      fontSize: 6.5,
-                      color: COLORS.danger,
-                      fontStyle: 'italic',
-                      marginTop: 4,
-                      textAlign: 'center',
-                    }}
-                  >
-                    Todo trabajo autorizado requiere de un anticipo del 35%
+                
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 11, color: COLORS.darkGray, fontFamily: 'Roboto', fontWeight: 500 }}>Anticipo:</Text>
+                  <Text style={{ fontSize: 11, fontFamily: 'Roboto', fontWeight: 700, color: COLORS.black }}>
+                    {formatCurrency(presupuesto.resumen?.anticipo || 0)}
+                  </Text>
+                </View>
+                
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    borderTop: `3px solid ${COLORS.accentBlue}`,
+                    paddingTop: 8,
+                    marginTop: 8,
+                    paddingVertical: 6,
+                  }}
+                >
+                  <Text style={{ fontSize: 14, fontFamily: 'Roboto', fontWeight: 700, color: COLORS.accentBlue }}>
+                    Saldo:
+                  </Text>
+                  <Text style={{ fontSize: 16, fontFamily: 'Roboto', fontWeight: 700, color: COLORS.accentBlue }}>
+                    {formatCurrency(presupuesto.resumen?.restante || 0)}
+                  </Text>
+                </View>
+                
+                <Text
+                  style={{
+                    fontSize: 8,
+                    color: COLORS.danger,
+                    fontStyle: 'italic',
+                    marginTop: 8,
+                    textAlign: 'center',
+                    fontFamily: 'Roboto',
+                  }}
+                >
+                  Todo trabajo autorizado requiere de un anticipo del 35%
+                </Text>
+              </View>
+            </View>
+
+            {/* SECCIÓN DE FIRMAS ESPACIOSA */}
+            <View style={{ width: '80%', flexDirection: 'row', gap: 60, justifyContent: 'center' }}>
+              {/* FIRMA ENCARGADO */}
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{ height: 80, width: '100%', marginBottom: 10 }} />
+                <View style={{ borderTop: `2px solid ${COLORS.darkGray}`, paddingTop: 6, width: '100%' }}>
+                  <Text style={{ 
+                    fontSize: 10, 
+                    textAlign: 'center', 
+                    color: COLORS.darkGray, 
+                    fontFamily: 'Roboto', 
+                    fontWeight: 700,
+                    marginBottom: 4
+                  }}>
+                    FIRMA ENCARGADO
+                  </Text>
+                  <Text style={{ fontSize: 8, textAlign: 'center', color: COLORS.mediumGray, marginTop: 2 }}>
+                    ENCARGADO
                   </Text>
                 </View>
               </View>
 
-              {/* FIRMAS */}
-              <View style={{ width: '50%', flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <View style={{ height: 45, marginBottom: 5 }} />
-                  <View style={{ borderTop: `2px solid ${COLORS.darkGray}`, paddingTop: 4 }}>
-                    <Text style={{ fontSize: 8, textAlign: 'center', color: COLORS.darkGray, fontFamily: 'Roboto', fontWeight: 700 }}>
-                      FIRMA ENCARGADO
-                    </Text>
-                    <Text style={{ fontSize: 7, textAlign: 'center', color: COLORS.mediumGray, marginTop: 2 }}>
-                      ENCARGADO
-                    </Text>
-                  </View>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ height: 45, marginBottom: 5 }} />
-                  <View style={{ borderTop: `2px solid ${COLORS.darkGray}`, paddingTop: 4 }}>
-                    <Text style={{ fontSize: 8, textAlign: 'center', color: COLORS.darkGray, fontFamily: 'Roboto', fontWeight: 700 }}>
-                      FIRMA CLIENTE
-                    </Text>
-                    <Text style={{ fontSize: 7, textAlign: 'center', color: COLORS.mediumGray, marginTop: 2 }}>
-                      {presupuesto.cliente.nombreCompleto?.toUpperCase() || 'CLIENTE'}
-                    </Text>
-                  </View>
+              {/* FIRMA CLIENTE */}
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{ height: 80, width: '100%', marginBottom: 10 }} />
+                <View style={{ borderTop: `2px solid ${COLORS.darkGray}`, paddingTop: 6, width: '100%' }}>
+                  <Text style={{ 
+                    fontSize: 10, 
+                    textAlign: 'center', 
+                    color: COLORS.darkGray, 
+                    fontFamily: 'Roboto', 
+                    fontWeight: 700,
+                    marginBottom: 4
+                  }}>
+                    FIRMA CLIENTE
+                  </Text>
+                  <Text style={{ fontSize: 8, textAlign: 'center', color: COLORS.mediumGray, marginTop: 2 }}>
+                    {presupuesto.cliente.nombreCompleto?.toUpperCase() || 'CLIENTE'}
+                  </Text>
                 </View>
               </View>
             </View>
+
+            {/* NOTA ADICIONAL */}
+            <View style={{ marginTop: 40, width: '70%', textAlign: 'center' }}>
+              <Text style={{ 
+                fontSize: 9, 
+                color: COLORS.mediumGray, 
+                textAlign: 'center', 
+                fontStyle: 'italic',
+                lineHeight: 1.4
+              }}>
+                Al firmar este documento, el cliente autoriza la realización de los trabajos especificados
+                y acepta los términos y condiciones establecidos en el presupuesto.
+              </Text>
+            </View>
+
           </View>
         </View>
       </Page>
