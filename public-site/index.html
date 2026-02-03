@@ -151,16 +151,18 @@
             </div>
             
             <div class="info-cards">
-                <div class="info-card" data-aos="flip-left" data-aos-delay="100">
-                    <i class="fas fa-file-alt"></i>
+                <div class="info-card manual-card" data-aos="flip-left" data-aos-delay="100" id="manualCard">
+                    <i class="fas fa-download"></i>
                     <h3>Manual Corporativo</h3>
                     <p>Descarga nuestro manual de servicios y políticas</p>
+                    <div class="card-action-hint">Click para descargar</div>
                 </div>
                 
-                <div class="info-card" data-aos="flip-left" data-aos-delay="200">
-                    <i class="fas fa-university"></i>
+                <div class="info-card banking-card" data-aos="flip-left" data-aos-delay="200" id="bankingCard">
+                    <i class="fas fa-credit-card"></i>
                     <h3>Datos Bancarios</h3>
                     <p>Información para transferencias y pagos</p>
+                    <div class="card-action-hint">Click para ver detalles</div>
                 </div>
             </div>
         </div>
@@ -360,6 +362,32 @@
             <p>&copy; 2025 SAG Garage - Servicio Automotriz Gudiño. Todos los derechos reservados.</p>
         </div>
     </footer>
+
+    <!-- Banking Info Modal -->
+    <div class="modal-overlay" id="bankingModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>Datos Bancarios SAG Garage</h3>
+                <button class="modal-close" id="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content">
+                <div class="banking-image-container">
+                    <img src="DatosBancarios.jpeg" alt="Datos Bancarios SAG Garage" class="banking-image" id="bankingImage">
+                </div>
+                <div class="banking-info-text">
+                    <p>Utiliza esta información para realizar transferencias y pagos a SAG Garage</p>
+                    <div class="banking-actions">
+                        <button class="btn btn-secondary" id="downloadBankingInfo">
+                            <i class="fas fa-download"></i>
+                            Descargar Imagen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- AOS Library -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>

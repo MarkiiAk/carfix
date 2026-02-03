@@ -159,21 +159,110 @@ window.addEventListener('scroll', function() {
 // ===================================
 // INFO CARDS CLICK HANDLING
 // ===================================
-const infoCards = document.querySelectorAll('.info-card');
+const manualCard = document.getElementById('manualCard');
+const bankingCard = document.getElementById('bankingCard');
+const bankingModal = document.getElementById('bankingModal');
+const closeModal = document.getElementById('closeModal');
+const downloadBankingInfo = document.getElementById('downloadBankingInfo');
 
-infoCards.forEach(card => {
-    card.addEventListener('click', function() {
-        const title = this.querySelector('h3').textContent;
+// Manual Corporativo - Download PDF
+if (manualCard) {
+    manualCard.addEventListener('click', function() {
+        // Add visual feedback
+        const icon = this.querySelector('i');
+        const originalClass = icon.className;
         
-        // You can customize this behavior based on your needs
-        // For now, showing an alert - could be replaced with modal, download, etc.
-        alert(`Funcionalidad de "${title}" - Próximamente disponible`);
+        // Show downloading state
+        icon.className = 'fas fa-spinner fa-spin';
+        this.style.transform = 'translateY(-8px) scale(1.02)';
         
-        // Example: Trigger file download
-        // if (title.includes('Manual')) {
-        //     window.open('/path/to/manual.pdf', '_blank');
-        // }
+        // Create download link
+        const link = document.createElement('a');
+        link.href = 'ManualCorporativo.pdf';
+        link.download = 'Manual_Corporativo_SAG_Garage.pdf';
+        link.target = '_blank';
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Reset visual state after delay
+        setTimeout(() => {
+            icon.className = originalClass;
+            this.style.transform = '';
+        }, 1500);
+        
+        console.log('Manual Corporativo descargado');
     });
+}
+
+// Banking Card - Open Modal
+if (bankingCard) {
+    bankingCard.addEventListener('click', function() {
+        openBankingModal();
+    });
+}
+
+// Modal Functions
+function openBankingModal() {
+    if (bankingModal) {
+        bankingModal.classList.add('show');
+        document.body.style.overflow = 'hidden'; // Prevent background scroll
+    }
+}
+
+function closeBankingModal() {
+    if (bankingModal) {
+        bankingModal.classList.remove('show');
+        document.body.style.overflow = ''; // Restore scroll
+    }
+}
+
+// Close Modal Event Listeners
+if (closeModal) {
+    closeModal.addEventListener('click', closeBankingModal);
+}
+
+if (bankingModal) {
+    // Close on overlay click
+    bankingModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeBankingModal();
+        }
+    });
+}
+
+// Download Banking Info Image
+if (downloadBankingInfo) {
+    downloadBankingInfo.addEventListener('click', function() {
+        // Add visual feedback
+        this.classList.add('downloading');
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.href = 'DatosBancarios.jpeg';
+        link.download = 'Datos_Bancarios_SAG_Garage.jpeg';
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Remove downloading state
+        setTimeout(() => {
+            this.classList.remove('downloading');
+        }, 1500);
+        
+        console.log('Datos bancarios descargados');
+    });
+}
+
+// Keyboard Navigation
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && bankingModal && bankingModal.classList.contains('show')) {
+        closeBankingModal();
+    }
 });
 
 // ===================================
