@@ -1,95 +1,51 @@
-# SAG Garage - .htaccess Configuration
-# Asegurar que los archivos estáticos se sirvan correctamente
+# SAG Garage - Cache Control Configuration
+# Forza la recarga de archivos críticos para que usuarios siempre vean la versión nueva
 
-# Enable Rewrite Engine
-RewriteEngine On
+# Disable caching for HTML files
+<FilesMatch "\.(html|htm)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</FilesMatch>
 
-# Prevenir redirección de archivos estáticos
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^ - [L]
+# Force revalidation for CSS and JS files
+<FilesMatch "\.(css|js)$">
+    Header set Cache-Control "no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
+    Header set Last-Modified "Thu, 01 Jan 1970 00:00:00 GMT"
+</FilesMatch>
 
-# Asegurar MIME types correctos
-<IfModule mod_mime.c>
-    # CSS
-    AddType text/css .css
-    
-    # JavaScript
-    AddType application/javascript .js
-    AddType application/x-javascript .js
-    AddType text/javascript .js
-    
-    # HTML
-    AddType text/html .html .htm
-    
-    # Imágenes
-    AddType image/jpeg .jpg .jpeg
-    AddType image/png .png
-    AddType image/gif .gif
-    AddType image/svg+xml .svg
-    AddType image/webp .webp
-    
-    # Fuentes
-    AddType font/woff .woff
-    AddType font/woff2 .woff2
-    AddType application/font-woff .woff
-    AddType application/font-woff2 .woff2
-    AddType application/vnd.ms-fontobject .eot
-    AddType font/ttf .ttf
-    AddType font/otf .otf
-</IfModule>
-
-# Comprimir archivos para mejor rendimiento
+# Enable compression for performance (but still force revalidation)
 <IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
     AddOutputFilterByType DEFLATE text/css
-    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
     AddOutputFilterByType DEFLATE application/javascript
     AddOutputFilterByType DEFLATE application/x-javascript
 </IfModule>
 
-# Cache control para archivos estáticos
-<IfModule mod_expires.c>
-    ExpiresActive On
-    
-    # Imágenes
-    ExpiresByType image/jpeg "access plus 1 year"
-    ExpiresByType image/png "access plus 1 year"
-    ExpiresByType image/gif "access plus 1 year"
-    ExpiresByType image/svg+xml "access plus 1 year"
-    ExpiresByType image/webp "access plus 1 year"
-    
-    # CSS y JavaScript
-    ExpiresByType text/css "access plus 1 month"
-    ExpiresByType application/javascript "access plus 1 month"
-    ExpiresByType text/javascript "access plus 1 month"
-    
-    # Fuentes
-    ExpiresByType font/woff "access plus 1 year"
-    ExpiresByType font/woff2 "access plus 1 year"
-    ExpiresByType application/font-woff "access plus 1 year"
-    ExpiresByType application/font-woff2 "access plus 1 year"
-</IfModule>
-
-# Seguridad adicional
+# Security headers
 <IfModule mod_headers.c>
-    # X-Content-Type-Options
-    Header set X-Content-Type-Options "nosniff"
-    
-    # X-Frame-Options
-    Header set X-Frame-Options "SAMEORIGIN"
-    
-    # X-XSS-Protection
-    Header set X-XSS-Protection "1; mode=block"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
 </IfModule>
 
-# DirectoryIndex
-DirectoryIndex index.html
+# Remove ETags (prevents conditional requests)
+<IfModule mod_headers.c>
+    Header unset ETag
+    FileETag None
+</IfModule>
 
-# Prevenir listado de directorios
-Options -Indexes
-
-# Seguir enlaces simbólicos
-Options +FollowSymLinks
-
-# Error pages
-ErrorDocument 404 /index.html
+# Force HTTPS (if available)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
