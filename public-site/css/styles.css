@@ -788,9 +788,10 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 14px;
 }
 
+/* Back to Top Button */
 .back-to-top {
     position: fixed;
-    bottom: 30px;
+    bottom: 110px;
     right: 30px;
     width: 55px;
     height: 55px;
@@ -815,14 +816,35 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .back-to-top:hover {
-    transform: translateY(-5px);
+    transform: translateY(-3px);
     box-shadow: var(--glow-green-strong);
+}
+
+/* MODAL DATOS BANCARIOS */
+.banking-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.banking-modal.active {
+    opacity: 1;
+    visibility: visible;
 }
 
 /* WhatsApp Float Button */
 .whatsapp-float {
     position: fixed;
-    bottom: 220px;
+    bottom: 320px;
     right: 30px;
     width: 60px;
     height: 60px;
@@ -852,7 +874,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Google Reviews Float Button */
 .google-float {
     position: fixed;
-    bottom: 150px;
+    bottom: 210px;
     right: 30px;
     width: 60px;
     height: 60px;
@@ -918,24 +940,9 @@ h1, h2, h3, h4, h5, h6 {
     }
     
     .back-to-top {
+        bottom: 60px;
         right: 20px;
     }
-}
-
-/* MODAL DATOS BANCARIOS */
-.banking-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .banking-modal.active {
