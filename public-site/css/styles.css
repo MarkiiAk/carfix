@@ -822,7 +822,7 @@ h1, h2, h3, h4, h5, h6 {
 /* WhatsApp Float Button */
 .whatsapp-float {
     position: fixed;
-    bottom: 170px;
+    bottom: 220px;
     right: 30px;
     width: 60px;
     height: 60px;
@@ -852,7 +852,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Google Reviews Float Button */
 .google-float {
     position: fixed;
-    bottom: 100px;
+    bottom: 150px;
     right: 30px;
     width: 60px;
     height: 60px;
@@ -908,12 +908,12 @@ h1, h2, h3, h4, h5, h6 {
     }
     
     .whatsapp-float {
-        bottom: 140px;
+        bottom: 180px;
         right: 20px;
     }
     
     .google-float {
-        bottom: 80px;
+        bottom: 120px;
         right: 20px;
     }
     
