@@ -50,13 +50,14 @@ jobs:
           echo "📁 Creando estructura de deploy..."
           mkdir -p deploy-temp
           
-          # Copiar TODO el sitio público (index.html + carpetas css, js + logos) a la raíz
+          # Copiar TODO el sitio público (index.html + carpetas css, js, img + logos) a la raíz
           echo "📄 Copiando sitio público completo..."
           cp public-site/index.html deploy-temp/
           cp public-site/logo.jpg deploy-temp/
           cp public-site/logo.png deploy-temp/
           cp -r public-site/css deploy-temp/
           cp -r public-site/js deploy-temp/
+          cp -r public-site/img deploy-temp/
           
           # Copiar .htaccess de la raíz
           echo "⚙️ Copiando .htaccess raíz..."
@@ -69,9 +70,10 @@ jobs:
           echo "✅ Estructura preparada:"
           ls -la deploy-temp/
           echo ""
-          echo "📂 Carpetas CSS y JS:"
+          echo "📂 Carpetas CSS, JS e IMG:"
           ls -la deploy-temp/css/
           ls -la deploy-temp/js/
+          ls -la deploy-temp/img/
           echo ""
           echo "📂 Contenido de gestion/:"
           ls -la deploy-temp/gestion/
