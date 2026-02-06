@@ -105,15 +105,13 @@ class OrdenesController {
             // 2. Insertar o actualizar vehículo
             $vehiculo_id = $this->upsertVehiculo($data['vehiculo'], $cliente_id);
             
-            // 3. Generar numero_orden
-            $numero_orden = $this->generateNumeroOrden();
-            
-            // 4. Preparar datos de inspección desde frontend - TODOS los campos
+            // 3. Preparar datos de inspección desde frontend - TODOS los campos
             $inspeccionData = $data['inspeccion'] ?? [];
             $exteriores = $inspeccionData['exteriores'] ?? [];
             $interiores = $inspeccionData['interiores'] ?? [];
             
-            // 5. Insertar orden con TODOS los campos del schema (COMPLETO con 20+ checkboxes + IVA + ANTICIPO)
+            // 4. Insertar orden con TODOS los campos del schema (COMPLETO con 20+ checkboxes + IVA + ANTICIPO)
+            // NOTA: numero_orden se generará DESPUÉS del insert usando el ID real
             $stmt = $this->db->prepare('
                 INSERT INTO ordenes_servicio (
                     numero_orden, cliente_id, vehiculo_id, usuario_id,
@@ -146,8 +144,11 @@ class OrdenesController {
                 $fechaSalida = date('Y-m-d H:i:s', strtotime($data['fechaSalida']));
             }
             
+            // Generar numero_orden temporal (se actualizará después)
+            $numero_orden_temp = 'TEMP-' . time();
+            
             $stmt->execute([
-                $numero_orden,
+                $numero_orden_temp,
                 $cliente_id,
                 $vehiculo_id,
                 $userData['userId'],
@@ -202,27 +203,34 @@ class OrdenesController {
             
             $orden_id = $this->db->lastInsertId();
             
-            // 6. Insertar SERVICIOS en servicios_orden (tipo='servicio')
+            // 5. Generar numero_orden real usando el ID obtenido
+            $numero_orden_real = $this->generateNumeroOrden($orden_id);
+            
+            // 6. Actualizar la orden con el numero_orden correcto
+            $updateStmt = $this->db->prepare('UPDATE ordenes_servicio SET numero_orden = ? WHERE id = ?');
+            $updateStmt->execute([$numero_orden_real, $orden_id]);
+            
+            // 7. Insertar SERVICIOS en servicios_orden (tipo='servicio')
             if (isset($data['servicios']) && !empty($data['servicios'])) {
                 $this->insertServiciosOrden($orden_id, $data['servicios'], 'servicio');
             }
             
-            // 6b. Insertar MANO DE OBRA en servicios_orden (tipo='mano_obra')
+            // 7b. Insertar MANO DE OBRA en servicios_orden (tipo='mano_obra')
             if (isset($data['manoDeObra']) && !empty($data['manoDeObra'])) {
                 $this->insertServiciosOrden($orden_id, $data['manoDeObra'], 'mano_obra');
             }
             
-            // 7. Insertar refacciones en refacciones_orden
+            // 8. Insertar refacciones en refacciones_orden
             if (isset($data['refacciones']) && !empty($data['refacciones'])) {
                 $this->insertRefaccionesOrden($orden_id, $data['refacciones']);
             }
             
-            // 8. Insertar daños adicionales del vehículo
+            // 9. Insertar daños adicionales del vehículo
             if (isset($data['inspeccion']['danosAdicionales']) && !empty($data['inspeccion']['danosAdicionales'])) {
                 $this->insertDanosVehiculo($orden_id, $data['inspeccion']['danosAdicionales']);
             }
             
-            // 9. Insertar puntos de seguridad
+            // 10. Insertar puntos de seguridad
             if (isset($data['puntosSeguridad']) && !empty($data['puntosSeguridad'])) {
                 $this->insertPuntosSeguridad($orden_id, $data['puntosSeguridad']);
             }
@@ -1022,30 +1030,12 @@ class OrdenesController {
         error_log('Puntos de seguridad insertados: ' . count($puntos) . ' para orden ' . $orden_id);
     }
     
-    private function generateNumeroOrden() {
+    private function generateNumeroOrden($id) {
         $prefix = 'OS-';
         $year = date('Y');
         
-        // Obtener el último numero_orden del año (SIN filtrar por mes)
-        $stmt = $this->db->prepare("
-            SELECT numero_orden FROM ordenes_servicio 
-            WHERE numero_orden LIKE ? 
-            ORDER BY id DESC 
-            LIMIT 1
-        ");
-        $stmt->execute([$prefix . $year . '%']);
-        $lastOrden = $stmt->fetchColumn();
-        
-        if ($lastOrden) {
-            // Extraer número consecutivo del formato OS-YYYY-N
-            preg_match('/OS-\d{4}-(\d+)$/', $lastOrden, $matches);
-            $lastNumber = isset($matches[1]) ? (int)$matches[1] : 0;
-            $newNumber = $lastNumber + 1;
-        } else {
-            $newNumber = 1; // Primera orden del año
-        }
-        
-        // Formato: OS-2026-1, OS-2026-2, OS-2026-3, etc. (SIN padding de ceros)
-        return $prefix . $year . '-' . $newNumber;
+        // Formato: OS-YYYY-ID_REAL
+        // Ejemplo: OS-2026-1650, OS-2026-1651, etc.
+        return $prefix . $year . '-' . $id;
     }
 }
