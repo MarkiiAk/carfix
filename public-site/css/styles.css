@@ -10,6 +10,13 @@
     --accent-dark: #1a1a1a;
     --glow-green: 0 0 30px rgba(183, 255, 0, 0.6);
     --glow-green-strong: 0 0 50px rgba(183, 255, 0, 0.8);
+    
+    /* Float Spacing Variables */
+    --social-gap: 18px;
+    --float-gap-desktop: 75px;
+    --float-gap-mobile: 70px;
+    --float-button-size: 60px;
+    --social-button-size: 50px;
 }
 
 * {
@@ -256,12 +263,12 @@ h1, h2, h3, h4, h5, h6 {
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: var(--social-gap);
 }
 
 .social-icon {
-    width: 50px;
-    height: 50px;
+    width: var(--social-button-size);
+    height: var(--social-button-size);
     background: var(--card-bg);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(183, 255, 0, 0.2);
@@ -280,6 +287,19 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--dark-bg);
     transform: translateX(-5px);
     box-shadow: var(--glow-green);
+}
+
+/* Google Reviews en Social Float */
+.social-icon.google-reviews {
+    background: linear-gradient(135deg, #4285F4 0%, #34A853 50%, #FBBC05 100%);
+    color: white;
+}
+
+.social-icon.google-reviews:hover {
+    background: linear-gradient(135deg, #3367D6 0%, #2D7D32 50%, #F9A825 100%);
+    color: white;
+    transform: translateX(-5px);
+    box-shadow: 0 0 20px rgba(66, 133, 244, 0.5);
 }
 
 /* Services Section */
@@ -844,10 +864,10 @@ h1, h2, h3, h4, h5, h6 {
 /* WhatsApp Float Button */
 .whatsapp-float {
     position: fixed;
-    bottom: 320px;
+    bottom: calc(20px + (var(--float-gap-desktop) * 2));
     right: 30px;
-    width: 60px;
-    height: 60px;
+    width: var(--float-button-size);
+    height: var(--float-button-size);
     background: #25D366;
     border-radius: 50%;
     display: flex;
@@ -874,10 +894,10 @@ h1, h2, h3, h4, h5, h6 {
 /* Google Reviews Float Button */
 .google-float {
     position: fixed;
-    bottom: 210px;
+    bottom: calc(20px + var(--float-gap-desktop));
     right: 30px;
-    width: 60px;
-    height: 60px;
+    width: var(--float-button-size);
+    height: var(--float-button-size);
     background: linear-gradient(135deg, #4285F4 0%, #34A853 50%, #FBBC05 100%);
     border-radius: 50%;
     display: flex;
@@ -902,19 +922,68 @@ h1, h2, h3, h4, h5, h6 {
     50% { transform: scale(1.05); }
 }
 
-/* Responsive */
+/* Back to Top Button */
+.back-to-top {
+    position: fixed;
+    bottom: 20px;
+    right: 30px;
+    width: var(--float-button-size);
+    height: var(--float-button-size);
+    background: var(--neon-green);
+    color: var(--dark-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0;
+    visibility: hidden;
+    z-index: 999;
+    box-shadow: var(--glow-green);
+}
+
+.back-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.back-to-top:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--glow-green-strong);
+}
+
+/* Responsive Design */
 @media (max-width: 968px) {
+    /* Ocultar social-float en móvil */
     .social-float {
-        right: 15px;
-        gap: 10px;
+        display: none;
     }
     
-    .social-icon {
-        width: 45px;
-        height: 45px;
-        font-size: 18px;
+    /* Reposicionar botones grandes para móvil */
+    .whatsapp-float {
+        bottom: calc(20px + (var(--float-gap-mobile) * 2));
+        right: 20px;
+        width: var(--float-button-size);
+        height: var(--float-button-size);
     }
     
+    .google-float {
+        bottom: calc(20px + var(--float-gap-mobile));
+        right: 20px;
+        width: var(--float-button-size);
+        height: var(--float-button-size);
+    }
+    
+    .back-to-top {
+        bottom: 20px;
+        right: 20px;
+        width: var(--float-button-size);
+        height: var(--float-button-size);
+    }
+    
+    /* Ajustes generales móvil */
     .contact-grid {
         grid-template-columns: 1fr;
         gap: 40px;
@@ -927,21 +996,6 @@ h1, h2, h3, h4, h5, h6 {
     
     .footer-social {
         justify-content: center;
-    }
-    
-    .whatsapp-float {
-        bottom: 180px;
-        right: 20px;
-    }
-    
-    .google-float {
-        bottom: 120px;
-        right: 20px;
-    }
-    
-    .back-to-top {
-        bottom: 60px;
-        right: 20px;
     }
 }
 
