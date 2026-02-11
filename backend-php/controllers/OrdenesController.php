@@ -96,6 +96,18 @@ class OrdenesController {
             $userData = requireAuth();
             $data = json_decode(file_get_contents('php://input'), true);
             
+            // VALIDAR DATOS ANTES DE PROCESAR
+            $validationErrors = $this->validateOrdenData($data);
+            if (!empty($validationErrors)) {
+                http_response_code(400);
+                echo json_encode([
+                    'error' => 'Datos inválidos',
+                    'validation_errors' => $validationErrors,
+                    'message' => 'Por favor corrige los siguientes campos:'
+                ]);
+                return;
+            }
+            
             // Iniciar transacción
             $this->db->beginTransaction();
             
@@ -886,28 +898,14 @@ class OrdenesController {
             throw new Exception('Nombre y teléfono del cliente son requeridos');
         }
         
-        // Buscar cliente existente por teléfono
-        $stmt = $this->db->prepare('SELECT id FROM clientes WHERE telefono = ? LIMIT 1');
-        $stmt->execute([$telefono]);
-        $existing = $stmt->fetch();
-        
-        if ($existing) {
-            // Actualizar
-            $stmt = $this->db->prepare('
-                UPDATE clientes SET nombre = ?, email = ?, direccion = ?
-                WHERE id = ?
-            ');
-            $stmt->execute([$nombre, $email, $direccion, $existing['id']]);
-            return $existing['id'];
-        } else {
-            // Insertar
-            $stmt = $this->db->prepare('
-                INSERT INTO clientes (nombre, telefono, email, direccion)
-                VALUES (?, ?, ?, ?)
-            ');
-            $stmt->execute([$nombre, $telefono, $email, $direccion]);
-            return $this->db->lastInsertId();
-        }
+        // SIEMPRE INSERTAR NUEVO CLIENTE - No buscar por teléfono
+        // Cada orden tiene su propio cliente, aunque compartan teléfono
+        $stmt = $this->db->prepare('
+            INSERT INTO clientes (nombre, telefono, email, direccion)
+            VALUES (?, ?, ?, ?)
+        ');
+        $stmt->execute([$nombre, $telefono, $email, $direccion]);
+        return $this->db->lastInsertId();
     }
     
     private function upsertVehiculo($vehiculoData, $cliente_id) {
@@ -1037,5 +1035,196 @@ class OrdenesController {
         // Formato: OS-YYYY-ID_REAL
         // Ejemplo: OS-2026-1650, OS-2026-1651, etc.
         return $prefix . $year . '-' . $id;
+    }
+    
+    /**
+     * Validar datos de la orden antes de crear/actualizar
+     * Retorna array de errores específicos por campo
+     */
+    private function validateOrdenData($data) {
+        $errors = [];
+        
+        // ========== VALIDACIÓN CLIENTE ==========
+        if (!isset($data['cliente'])) {
+            $errors['cliente'] = 'Los datos del cliente son obligatorios';
+        } else {
+            $cliente = $data['cliente'];
+            
+            // Nombre obligatorio (VARCHAR 200)
+            if (empty($cliente['nombreCompleto'])) {
+                $errors['cliente.nombreCompleto'] = 'El nombre del cliente es obligatorio';
+            } elseif (strlen($cliente['nombreCompleto']) < 2) {
+                $errors['cliente.nombreCompleto'] = 'El nombre debe tener al menos 2 caracteres';
+            } elseif (strlen($cliente['nombreCompleto']) > 200) {
+                $errors['cliente.nombreCompleto'] = 'El nombre no puede exceder 200 caracteres';
+            }
+            
+            // Teléfono (VARCHAR 20) - Validar formato si se proporciona
+            if (!empty($cliente['telefono'])) {
+                // Remover espacios y guiones para validar
+                $telefonoLimpio = preg_replace('/[\s\-\(\)]/', '', $cliente['telefono']);
+                if (!preg_match('/^\d{10}$/', $telefonoLimpio)) {
+                    $errors['cliente.telefono'] = 'El teléfono debe tener 10 dígitos';
+                }
+                if (strlen($cliente['telefono']) > 20) {
+                    $errors['cliente.telefono'] = 'El teléfono no puede exceder 20 caracteres';
+                }
+            }
+            
+            // Email (VARCHAR 150) - Validar formato si se proporciona
+            if (!empty($cliente['email'])) {
+                if (!filter_var($cliente['email'], FILTER_VALIDATE_EMAIL)) {
+                    $errors['cliente.email'] = 'El formato del email no es válido';
+                } elseif (strlen($cliente['email']) > 150) {
+                    $errors['cliente.email'] = 'El email no puede exceder 150 caracteres';
+                }
+            }
+        }
+        
+        // ========== VALIDACIÓN VEHÍCULO ==========
+        if (!isset($data['vehiculo'])) {
+            $errors['vehiculo'] = 'Los datos del vehículo son obligatorios';
+        } else {
+            $vehiculo = $data['vehiculo'];
+            
+            // Marca obligatoria (VARCHAR 100)
+            if (empty($vehiculo['marca'])) {
+                $errors['vehiculo.marca'] = 'La marca del vehículo es obligatoria';
+            } elseif (strlen($vehiculo['marca']) > 100) {
+                $errors['vehiculo.marca'] = 'La marca no puede exceder 100 caracteres';
+            }
+            
+            // Modelo obligatorio (VARCHAR 100)
+            if (empty($vehiculo['modelo'])) {
+                $errors['vehiculo.modelo'] = 'El modelo del vehículo es obligatorio';
+            } elseif (strlen($vehiculo['modelo']) > 100) {
+                $errors['vehiculo.modelo'] = 'El modelo no puede exceder 100 caracteres';
+            }
+            
+            // Año (YEAR) - Validar si se proporciona
+            if (!empty($vehiculo['anio'])) {
+                $anio = intval($vehiculo['anio']);
+                if ($anio < 1900 || $anio > 2030) {
+                    $errors['vehiculo.anio'] = 'El año debe estar entre 1900 y 2030';
+                }
+            }
+            
+            // Placas (VARCHAR 20) - Validar si se proporciona
+            if (!empty($vehiculo['placas'])) {
+                if (strlen($vehiculo['placas']) > 20) {
+                    $errors['vehiculo.placas'] = 'Las placas no pueden exceder 20 caracteres';
+                }
+            }
+            
+            // NIV (VARCHAR 50) - Validar si se proporciona
+            if (!empty($vehiculo['niv'])) {
+                if (strlen($vehiculo['niv']) > 50) {
+                    $errors['vehiculo.niv'] = 'El NIV no puede exceder 50 caracteres';
+                }
+            }
+            
+            // Kilometraje entrada (VARCHAR 20) - Solo números si se proporciona
+            if (!empty($vehiculo['kilometrajeEntrada'])) {
+                $km = preg_replace('/[^\d]/', '', $vehiculo['kilometrajeEntrada']);
+                if (!is_numeric($km)) {
+                    $errors['vehiculo.kilometrajeEntrada'] = 'El kilometraje de entrada debe contener solo números';
+                }
+                if (strlen($vehiculo['kilometrajeEntrada']) > 20) {
+                    $errors['vehiculo.kilometrajeEntrada'] = 'El kilometraje no puede exceder 20 caracteres';
+                }
+            }
+            
+            // Kilometraje salida (VARCHAR 20) - Solo números si se proporciona
+            if (!empty($vehiculo['kilometrajeSalida'])) {
+                $km = preg_replace('/[^\d]/', '', $vehiculo['kilometrajeSalida']);
+                if (!is_numeric($km)) {
+                    $errors['vehiculo.kilometrajeSalida'] = 'El kilometraje de salida debe contener solo números';
+                }
+                if (strlen($vehiculo['kilometrajeSalida']) > 20) {
+                    $errors['vehiculo.kilometrajeSalida'] = 'El kilometraje no puede exceder 20 caracteres';
+                }
+            }
+            
+            // Nivel de combustible (DECIMAL 5,2) - Entre 0 y 100
+            if (isset($vehiculo['nivelCombustible'])) {
+                $nivel = floatval($vehiculo['nivelCombustible']);
+                if ($nivel < 0 || $nivel > 100) {
+                    $errors['vehiculo.nivelCombustible'] = 'El nivel de combustible debe estar entre 0 y 100';
+                }
+            }
+        }
+        
+        // ========== VALIDACIÓN PROBLEMA REPORTADO ==========
+        // Campo obligatorio (TEXT NOT NULL)
+        if (empty($data['problemaReportado'])) {
+            $errors['problemaReportado'] = 'El problema reportado es obligatorio';
+        }
+        
+        // ========== VALIDACIÓN RESUMEN FINANCIERO ==========
+        if (isset($data['resumen'])) {
+            $resumen = $data['resumen'];
+            
+            // Validar montos - deben ser números positivos o cero
+            $camposMonetarios = ['servicios', 'manoDeObra', 'refacciones', 'iva', 'total', 'anticipo'];
+            
+            foreach ($camposMonetarios as $campo) {
+                if (isset($resumen[$campo])) {
+                    $valor = $resumen[$campo];
+                    if (!is_numeric($valor) || $valor < 0) {
+                        $errors["resumen.{$campo}"] = "El campo {$campo} debe ser un número positivo";
+                    }
+                    // Validar que no exceda DECIMAL(10,2)
+                    if ($valor > 99999999.99) {
+                        $errors["resumen.{$campo}"] = "El campo {$campo} excede el límite máximo";
+                    }
+                }
+            }
+            
+            // Validar que el anticipo no sea mayor que el total
+            if (isset($resumen['anticipo']) && isset($resumen['total'])) {
+                if (floatval($resumen['anticipo']) > floatval($resumen['total'])) {
+                    $errors['resumen.anticipo'] = 'El anticipo no puede ser mayor que el total';
+                }
+            }
+        }
+        
+        // ========== VALIDACIÓN SERVICIOS Y REFACCIONES ==========
+        if (isset($data['servicios'])) {
+            foreach ($data['servicios'] as $index => $servicio) {
+                if (empty($servicio['descripcion'])) {
+                    $errors["servicios.{$index}.descripcion"] = 'La descripción del servicio es obligatoria';
+                }
+                if (!isset($servicio['precio']) || !is_numeric($servicio['precio']) || $servicio['precio'] < 0) {
+                    $errors["servicios.{$index}.precio"] = 'El precio debe ser un número positivo';
+                }
+            }
+        }
+        
+        if (isset($data['manoDeObra'])) {
+            foreach ($data['manoDeObra'] as $index => $mano) {
+                if (empty($mano['descripcion'])) {
+                    $errors["manoDeObra.{$index}.descripcion"] = 'La descripción de mano de obra es obligatoria';
+                }
+                if (!isset($mano['precio']) || !is_numeric($mano['precio']) || $mano['precio'] < 0) {
+                    $errors["manoDeObra.{$index}.precio"] = 'El precio debe ser un número positivo';
+                }
+            }
+        }
+        
+        if (isset($data['refacciones'])) {
+            foreach ($data['refacciones'] as $index => $refaccion) {
+                if (empty($refaccion['nombre'])) {
+                    $errors["refacciones.{$index}.nombre"] = 'El nombre de la refacción es obligatorio';
+                }
+                if (!isset($refaccion['cantidad']) || !is_numeric($refaccion['cantidad']) || $refaccion['cantidad'] <= 0) {
+                    $errors["refacciones.{$index}.cantidad"] = 'La cantidad debe ser un número mayor a 0';
+                }
+                if (!isset($refaccion['precioVenta']) || !is_numeric($refaccion['precioVenta']) || $refaccion['precioVenta'] < 0) {
+                    $errors["refacciones.{$index}.precioVenta"] = 'El precio de venta debe ser un número positivo';
+                }
+            }
+        }
+        
+        return $errors;
     }
 }

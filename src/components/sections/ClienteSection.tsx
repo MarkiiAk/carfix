@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Phone, Mail } from 'lucide-react';
-import { Card, Input } from '../ui';
+import { Card, FormField } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 
 interface ClienteSectionProps {
@@ -11,10 +11,8 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
   const { presupuesto, updateCliente } = usePresupuestoStore();
   const { cliente } = presupuesto;
 
-  const handleChange = (field: keyof typeof cliente) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    updateCliente({ [field]: e.target.value });
+  const handleChange = (field: keyof typeof cliente) => (value: string) => {
+    updateCliente({ [field]: value });
   };
 
   return (
@@ -24,35 +22,53 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
       className="p-6"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Input
-          label="Nombre Completo"
+        <FormField
+          name="nombreCompleto"
+          label="👤 Nombre Completo"
           placeholder="Ej: Juan Pérez García"
           value={cliente.nombreCompleto}
           onChange={handleChange('nombreCompleto')}
-          icon={<User size={20} />}
           required
           disabled={disabled}
+          validation={{
+            required: true,
+            minLength: 2,
+            maxLength: 100,
+          }}
         />
         
-        <Input
-          label="Teléfono"
+        <FormField
+          name="telefono"
+          label="📞 Teléfono"
+          type="tel"
           placeholder="Ej: 555-123-4567"
           value={cliente.telefono}
           onChange={handleChange('telefono')}
-          icon={<Phone size={20} />}
           required
           disabled={disabled}
+          validation={{
+            required: true,
+            phone: true,
+            minLength: 10,
+            maxLength: 15,
+          }}
         />
         
-        <Input
-          label="Correo Electrónico"
-          type="email"
-          placeholder="correo@ejemplo.com"
-          value={cliente.email}
-          onChange={handleChange('email')}
-          icon={<Mail size={20} />}
-          disabled={disabled}
-        />
+        <div className="md:col-span-2">
+          <FormField
+            name="email"
+            label="📧 Correo Electrónico"
+            type="email"
+            placeholder="correo@ejemplo.com"
+            value={cliente.email}
+            onChange={handleChange('email')}
+            disabled={disabled}
+            validation={{
+              email: true,
+              maxLength: 100,
+            }}
+          />
+        </div>
       </div>
     </Card>
   );

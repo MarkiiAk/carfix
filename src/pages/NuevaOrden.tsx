@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { ordenesAPI } from '../services/api';
 import { GarageLoader } from '../components/ui/GarageLoader';
+import { useToastContext } from '../contexts/ToastContext';
+import { handleAPIError } from '../utils/errorHandler';
 import {
   ClienteSection,
   VehiculoSection,
@@ -23,6 +25,7 @@ import { PDFDocument } from '../components/PDFDocument';
 export const NuevaOrden = () => {
   const navigate = useNavigate();
   const { presupuesto, themeMode, toggleTheme, resetPresupuesto, markAsSaved } = usePresupuestoStore();
+  const { showSuccess, showError } = useToastContext();
   const [showLoader, setShowLoader] = useState(false);
 
   // Limpiar formulario al montar el componente
@@ -57,13 +60,98 @@ export const NuevaOrden = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      
+      showSuccess(
+        'PDF Generado',
+        'El archivo PDF se ha descargado correctamente'
+      );
     } catch (error) {
       console.error('Error al generar PDF:', error);
-      alert('Hubo un error al generar el PDF. Por favor intenta de nuevo.');
+      showError(
+        'Error al generar PDF',
+        'No se pudo generar el archivo PDF. Intenta de nuevo.'
+      );
     }
   };
 
+  // Función para validar campos requeridos del cliente
+  const validateCliente = () => {
+    const errors: string[] = [];
+    
+    if (!presupuesto.cliente.nombreCompleto?.trim()) {
+      errors.push('El nombre completo del cliente es requerido');
+    } else if (presupuesto.cliente.nombreCompleto.length < 2) {
+      errors.push('El nombre debe tener al menos 2 caracteres');
+    } else if (!/^[A-Za-zÀ-ÿ\u00f1\u00d1\s]+$/.test(presupuesto.cliente.nombreCompleto)) {
+      errors.push('El nombre solo puede contener letras y espacios');
+    }
+    
+    if (!presupuesto.cliente.telefono?.trim()) {
+      errors.push('El teléfono del cliente es requerido');
+    } else if (presupuesto.cliente.telefono.length < 10) {
+      errors.push('El teléfono debe tener al menos 10 dígitos');
+    }
+    
+    if (presupuesto.cliente.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(presupuesto.cliente.email)) {
+      errors.push('El formato del correo electrónico no es válido');
+    }
+    
+    return errors;
+  };
+
+  // Función para validar campos requeridos del vehículo
+  const validateVehiculo = () => {
+    const errors: string[] = [];
+    
+    if (!presupuesto.vehiculo.marca?.trim()) {
+      errors.push('La marca del vehículo es requerida');
+    }
+    
+    if (!presupuesto.vehiculo.modelo?.trim()) {
+      errors.push('El modelo del vehículo es requerido');
+    }
+    
+    if (!presupuesto.vehiculo.placas?.trim()) {
+      errors.push('Las placas del vehículo son requeridas');
+    } else if (presupuesto.vehiculo.placas.length < 6) {
+      errors.push('Las placas deben tener al menos 6 caracteres');
+    }
+    
+    if (!presupuesto.vehiculo.kilometrajeEntrada?.trim()) {
+      errors.push('El kilometraje de entrada es requerido');
+    } else if (isNaN(Number(presupuesto.vehiculo.kilometrajeEntrada)) || Number(presupuesto.vehiculo.kilometrajeEntrada) < 0) {
+      errors.push('El kilometraje de entrada debe ser un número válido');
+    }
+    
+    return errors;
+  };
+
+  // Función para validar todos los campos
+  const validateForm = () => {
+    const clienteErrors = validateCliente();
+    const vehiculoErrors = validateVehiculo();
+    
+    const allErrors = [...clienteErrors, ...vehiculoErrors];
+    
+    if (allErrors.length > 0) {
+      showError(
+        'Errores de validación',
+        'Por favor corrige los siguientes errores:',
+        allErrors
+      );
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSaveOrden = async () => {
+    // Primero validar los campos del lado del cliente
+    if (!validateForm()) {
+      return; // Detener ejecución si hay errores de validación
+    }
+
+    // Si las validaciones pasan, entonces mostrar loading y proceder
     try {
       setShowLoader(true);
       
@@ -93,13 +181,18 @@ export const NuevaOrden = () => {
       };
       
       console.log('💾 Guardando orden en API...');
-      await ordenesAPI.create(orden);
+      const result = await ordenesAPI.create(orden);
       console.log('✅ Orden guardada exitosamente');
+      
       markAsSaved();
+      showSuccess(
+        'Orden guardada exitosamente',
+        `La orden ${result.folio} ha sido creada correctamente`
+      );
     } catch (error) {
       console.error('Error al guardar la orden:', error);
       setShowLoader(false);
-      alert('Hubo un error al guardar la orden. Por favor intenta de nuevo.');
+      handleAPIError(error, showError, 'Error al guardar la orden');
     }
   };
 

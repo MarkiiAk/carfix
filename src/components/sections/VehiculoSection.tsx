@@ -1,6 +1,6 @@
 import React from 'react';
 import { Car, Palette, CreditCard, Gauge, Hash } from 'lucide-react';
-import { Card, Input, FuelGauge } from '../ui';
+import { Card, FormField, FuelGauge, Input } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 
 interface VehiculoSectionProps {
@@ -11,10 +11,8 @@ export const VehiculoSection: React.FC<VehiculoSectionProps> = ({ disabled = fal
   const { presupuesto, updateVehiculo } = usePresupuestoStore();
   const { vehiculo } = presupuesto;
 
-  const handleChange = (field: keyof typeof vehiculo) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    updateVehiculo({ [field]: e.target.value });
+  const handleChange = (field: keyof typeof vehiculo) => (value: string) => {
+    updateVehiculo({ [field]: value });
   };
 
   const handleFuelChange = (level: number) => {
@@ -35,54 +33,83 @@ export const VehiculoSection: React.FC<VehiculoSectionProps> = ({ disabled = fal
             Datos del Vehículo
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Input
-              label="Marca"
+            <FormField
+              name="marca"
+              label="🚗 Marca"
               placeholder="Ej: Toyota, Honda, Ford"
               value={vehiculo.marca}
               onChange={handleChange('marca')}
-              icon={<Car size={20} />}
               required
               disabled={disabled}
+              validation={{
+                required: true,
+                minLength: 2,
+                maxLength: 50,
+                pattern: /^[A-Za-z0-9À-ÿ\u00f1\u00d1\s\-]+$/,
+              }}
             />
             
-            <Input
-              label="Modelo"
+            <FormField
+              name="modelo"
+              label="🚙 Modelo"
               placeholder="Ej: Corolla 2020"
               value={vehiculo.modelo}
               onChange={handleChange('modelo')}
-              icon={<Car size={20} />}
               required
               disabled={disabled}
+              validation={{
+                required: true,
+                minLength: 2,
+                maxLength: 50,
+              }}
             />
             
-            <Input
-              label="Color"
+            <FormField
+              name="color"
+              label="🎨 Color"
               placeholder="Ej: Blanco, Negro, Rojo"
               value={vehiculo.color}
               onChange={handleChange('color')}
-              icon={<Palette size={20} />}
               disabled={disabled}
+              validation={{
+                maxLength: 30,
+                pattern: /^[A-Za-zÀ-ÿ\u00f1\u00d1\s]+$/,
+              }}
             />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            <Input
+            <FormField
+              name="placas"
               label="Placas"
-              placeholder="Ej: ABC-123-D"
-              value={vehiculo.placas}
-              onChange={handleChange('placas')}
-              icon={<CreditCard size={20} />}
+              type="text"
+              value={presupuesto.vehiculo.placas}
+              onChange={(value) => updateVehiculo({ placas: value.toUpperCase() })}
               required
-              disabled={disabled}
+              validation={{
+                required: true,
+                minLength: 6,
+                maxLength: 10
+              }}
+              placeholder="ABC123D"
             />
             
-            <Input
-              label="NIV (VIN)"
+            <FormField
+              name="niv"
+              label="🔢 NIV (VIN)"
               placeholder="Número de Identificación Vehicular"
               value={vehiculo.niv}
               onChange={handleChange('niv')}
-              icon={<Hash size={20} />}
               disabled={disabled}
+              validation={{
+                maxLength: 17,
+                custom: (value) => {
+                  if (value && value.length > 17) {
+                    return 'NIV (VIN) debe tener al menos 17 caracteres';
+                  }
+                  return null;
+                }
+              }}
             />
           </div>
         </div>
@@ -94,23 +121,46 @@ export const VehiculoSection: React.FC<VehiculoSectionProps> = ({ disabled = fal
             Kilometraje y Fechas
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Input
-              label="Kms de Entrada"
-              placeholder="Ej: 50,000 km"
+            <FormField
+              name="kilometrajeEntrada"
+              label="📊 Kms de Entrada"
+              type="number"
+              placeholder="50000"
               value={vehiculo.kilometrajeEntrada}
               onChange={handleChange('kilometrajeEntrada')}
-              icon={<Gauge size={20} />}
               required
               disabled={disabled}
+              validation={{
+                required: true,
+                number: true,
+                min: 0,
+                max: 999999,
+              }}
             />
             
-            <Input
-              label="Kms de Salida"
-              placeholder="Ej: 50,050 km"
+            <FormField
+              name="kilometrajeSalida"
+              label="📈 Kms de Salida"
+              type="number"
+              placeholder="50050"
               value={vehiculo.kilometrajeSalida}
               onChange={handleChange('kilometrajeSalida')}
-              icon={<Gauge size={20} />}
               disabled={disabled}
+              validation={{
+                number: true,
+                min: 0,
+                max: 999999,
+                custom: (value) => {
+                  if (value && vehiculo.kilometrajeEntrada) {
+                    const entrada = parseFloat(vehiculo.kilometrajeEntrada);
+                    const salida = parseFloat(value);
+                    if (!isNaN(entrada) && !isNaN(salida) && salida < entrada) {
+                      return 'El kilometraje de salida debe ser mayor al de entrada';
+                    }
+                  }
+                  return null;
+                }
+              }}
             />
             
             <div>
