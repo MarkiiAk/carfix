@@ -1,5 +1,4 @@
 import React from 'react';
-import { User, Phone, Mail } from 'lucide-react';
 import { Card, FormField } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 

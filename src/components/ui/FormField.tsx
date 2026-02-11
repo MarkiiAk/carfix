@@ -162,7 +162,6 @@ export const FormField: React.FC<FormFieldProps> = ({
     ${className}
   `.trim();
 
-  const InputComponent = type === 'textarea' ? 'textarea' : 'input';
 
   return (
     <div className="space-y-2">

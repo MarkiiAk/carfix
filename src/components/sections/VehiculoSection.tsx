@@ -1,6 +1,6 @@
 import React from 'react';
-import { Car, Palette, CreditCard, Gauge, Hash } from 'lucide-react';
-import { Card, FormField, FuelGauge, Input } from '../ui';
+import { Car, Gauge } from 'lucide-react';
+import { Card, FormField, FuelGauge } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 
 interface VehiculoSectionProps {
