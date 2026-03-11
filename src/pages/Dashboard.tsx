@@ -20,7 +20,7 @@ export const Dashboard = () => {
   const itemsPerPage = 15;
   const { user, logout } = useAuth();
   const { themeMode, toggleTheme } = usePresupuestoStore();
-  const { alertasPendientes, estadisticas: statsAlertas, alertasPorPrioridad } = useAlertas();
+  const { alertasPendientes, alertasPorPrioridad } = useAlertas();
   const navigate = useNavigate();
 
   useEffect(() => {
