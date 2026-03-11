@@ -2,10 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
-import { NuevaOrden } from './pages/NuevaOrden';
-import { DetalleOrden } from './pages/DetalleOrden';
+import { Login, Dashboard, NuevaOrden, DetalleOrden, Alertas } from './pages';
+import { AlertasGuard } from './components/AlertasGuard';
 
 function App() {
   return (
@@ -40,6 +38,17 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DetalleOrden />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/alertas"
+              element={
+                <ProtectedRoute>
+                  <AlertasGuard>
+                    <Alertas />
+                  </AlertasGuard>
                 </ProtectedRoute>
               }
             />

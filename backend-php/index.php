@@ -26,6 +26,7 @@ require_once __DIR__ . '/controllers/AuthController.php';
 require_once __DIR__ . '/controllers/OrdenesController.php';
 require_once __DIR__ . '/controllers/EstadosSeguridadController.php';
 require_once __DIR__ . '/controllers/PuntosSeguridadController.php';
+require_once __DIR__ . '/controllers/AlertasController.php';
 
 // Obtener conexión a base de datos
 $db = Database::getInstance()->getConnection();
@@ -134,6 +135,32 @@ try {
     elseif (preg_match('#^admin/puntos-seguridad/catalogo/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
         $controller = new PuntosSeguridadController($db);
         $controller->deletePunto($matches[1]);
+    }
+    
+    // Rutas de Alertas de Servicio (requieren autorización especial)
+    elseif ($path === 'alertas' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $controller = new AlertasController($db);
+        $result = $controller->obtenerAlertas($userData);
+        echo json_encode($result);
+    }
+    elseif (preg_match('#^alertas/([0-9]+)/marcar-leida$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $controller = new AlertasController($db);
+        $result = $controller->marcarComoLeida($matches[1], $userData);
+        echo json_encode($result);
+    }
+    elseif ($path === 'alertas/generar' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $controller = new AlertasController($db);
+        $result = $controller->generarAlertas($userData);
+        echo json_encode($result);
+    }
+    elseif ($path === 'alertas/estadisticas' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $controller = new AlertasController($db);
+        $result = $controller->obtenerEstadisticas($userData);
+        echo json_encode($result);
     }
     
     // Ruta de salud
