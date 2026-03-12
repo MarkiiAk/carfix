@@ -63,8 +63,8 @@ export const AlertaCard: React.FC<AlertaCardProps> = ({
           {alerta.cliente_nombre}
         </h3>
         <p className="text-gray-600">
-          {alerta.marca} {alerta.modelo} {alerta.año}
-          {alerta.placas && ` • Placas: ${alerta.placas}`}
+          {alerta.vehiculo_marca} {alerta.vehiculo_modelo} {alerta.vehiculo_anio}
+          {alerta.vehiculo_placas && ` • Placas: ${alerta.vehiculo_placas}`}
         </p>
         {alerta.cliente_telefono && (
           <p className="text-gray-600">📞 {alerta.cliente_telefono}</p>
@@ -121,7 +121,7 @@ export const AlertaCard: React.FC<AlertaCardProps> = ({
       {/* Fecha de generación */}
       <div className="mt-3 pt-2 border-t border-gray-100">
         <p className="text-xs text-gray-400">
-          Alerta generada: {formatearFecha(alerta.fecha_generada)}
+          Alerta generada: {formatearFecha(alerta.fecha_creacion)}
           {alerta.fecha_marcada_leida && (
             <> • Leída: {formatearFecha(alerta.fecha_marcada_leida)}</>
           )}
