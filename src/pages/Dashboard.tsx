@@ -4,7 +4,6 @@ import { Sun, Moon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { ordenesAPI } from '../services/api';
-import { useAlertas } from '../hooks/useAlertas';
 import { isAlertasAuthorized } from '../utils/alertsAuth';
 import { alertasAutoService } from '../services/alertasAutoService';
 import type { Orden } from '../types';
@@ -22,7 +21,6 @@ export const Dashboard = () => {
   const itemsPerPage = 15;
   const { user, logout } = useAuth();
   const { themeMode, toggleTheme } = usePresupuestoStore();
-  const { alertasPendientes, alertasPorPrioridad } = useAlertas();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -238,44 +236,6 @@ export const Dashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Alertas Resumen - Solo visible para usuario autorizado */}
-        {isAlertasAuthorized(user) && alertasPendientes.length > 0 && (
-          <div className="mb-8">
-            <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-6 border border-orange-200 dark:border-orange-800">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-orange-500 rounded-xl">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-orange-900 dark:text-orange-100">
-                      {alertasPendientes.length} {alertasPendientes.length === 1 ? 'Cliente requiere' : 'Clientes requieren'} seguimiento
-                    </h3>
-                    <p className="text-sm text-orange-700 dark:text-orange-200">
-                      Servicios de mantenimiento próximos a vencer
-                    </p>
-                    <div className="flex gap-4 mt-2 text-sm">
-                      <span className="text-orange-600 dark:text-orange-300">
-                        Urgentes: {alertasPorPrioridad.urgente.length}
-                      </span>
-                      <span className="text-orange-600 dark:text-orange-300">
-                        Alta prioridad: {alertasPorPrioridad.alta.length}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => navigate('/alertas')}
-                  className="bg-orange-500 hover:bg-orange-600 text-white border-none shadow-lg"
-                >
-                  Ver Todas las Alertas
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
