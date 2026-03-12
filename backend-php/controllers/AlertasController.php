@@ -132,7 +132,14 @@ class AlertasController {
             ";
 
             $updateStmt = $this->db->prepare($updateQuery);
-            $updateStmt->execute([1, $alertaId]); // TODO: Usar ID de usuario real del JWT
+            $userId = $userData['id'] ?? $userData['user_id'] ?? null;
+            
+            // Si no podemos obtener un ID válido de usuario, usar NULL
+            if (!$userId || !is_numeric($userId)) {
+                $userId = null;
+            }
+            
+            $updateStmt->execute([$userId, $alertaId]);
 
             return [
                 'success' => true,
@@ -327,10 +334,11 @@ class AlertasController {
             ]);
 
             $logStmt = $this->db->prepare($logQuery);
+            $userId = $userData['id'] ?? $userData['user_id'] ?? null;
             $logStmt->execute([
                 $resultado['alertas_generadas'],
                 $tiempoEjecucion,
-                1, // TODO: usar ID de usuario real
+                $userId,
                 $detalles
             ]);
 
@@ -365,7 +373,8 @@ class AlertasController {
                 ]);
 
                 $logStmt = $this->db->prepare($logQuery);
-                $logStmt->execute([$tiempoEjecucion, 1, $detalles]);
+                $userId = $userData['id'] ?? $userData['user_id'] ?? null;
+                $logStmt->execute([$tiempoEjecucion, $userId, $detalles]);
             } catch (Exception $logError) {
                 // Silenciar errores de log para evitar loops
             }
