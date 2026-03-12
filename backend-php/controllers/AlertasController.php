@@ -54,7 +54,7 @@ class AlertasController {
                     -- Información del vehículo  
                     v.marca,
                     v.modelo,
-                    v.año,
+                    v.anio,
                     v.placas,
                     
                     -- Días exactos desde el último servicio (calculado en tiempo real)
@@ -174,27 +174,27 @@ class AlertasController {
                     os.id as orden_id,
                     os.cliente_id,
                     os.vehiculo_id,
-                    os.fecha_creacion,
-                    GROUP_CONCAT(so.nombre_servicio) as servicios_realizados,
-                    DATEDIFF(NOW(), os.fecha_creacion) as dias_desde_servicio
+                    os.fecha_ingreso,
+                    GROUP_CONCAT(so.descripcion) as servicios_realizados,
+                    DATEDIFF(NOW(), os.fecha_ingreso) as dias_desde_servicio
                     
                 FROM ordenes_servicio os
                 INNER JOIN servicios_orden so ON os.id = so.orden_id
                 LEFT JOIN alertas_servicio a ON os.id = a.orden_id
                 
                 WHERE 
-                    os.fecha_creacion >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-                    AND os.fecha_creacion <= DATE_SUB(NOW(), INTERVAL 180 DAY)
+                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                    AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 180 DAY)
                     AND a.id IS NULL -- No tiene alerta generada
                     AND EXISTS (
                         SELECT 1 FROM servicios_orden so2 
                         WHERE so2.orden_id = os.id 
-                        AND so2.nombre_servicio REGEXP ?
+                        AND so2.descripcion REGEXP ?
                     )
                     
-                GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.fecha_creacion
+                GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.fecha_ingreso
                 HAVING dias_desde_servicio >= 180 -- 6 meses o más
-                ORDER BY os.fecha_creacion DESC
+                ORDER BY os.fecha_ingreso DESC
             ";
 
             $stmt = $this->db->prepare($query);
@@ -238,7 +238,7 @@ class AlertasController {
                         $orden['orden_id'],
                         $orden['cliente_id'],
                         $orden['vehiculo_id'],
-                        $orden['fecha_creacion'],
+                        $orden['fecha_ingreso'],
                         json_encode($serviciosQueDispararon),
                         json_encode($todosServicios),
                         $orden['dias_desde_servicio']
