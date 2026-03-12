@@ -156,6 +156,12 @@ try {
         $result = $controller->generarAlertas($userData);
         echo json_encode($result);
     }
+    elseif ($path === 'alertas/generar-automatico' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $controller = new AlertasController($db);
+        $result = $controller->generarAlertasAutomatico($userData);
+        echo json_encode($result);
+    }
     elseif ($path === 'alertas/estadisticas' && $request_method === 'GET') {
         $userData = requireAuth();
         $controller = new AlertasController($db);

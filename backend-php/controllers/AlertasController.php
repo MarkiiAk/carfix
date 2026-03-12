@@ -157,7 +157,9 @@ class AlertasController {
                     'error' => 'No autorizado - Acceso denegado a las alertas'
                 ];
             }
-            // SERVICIOS QUE DISPARAN ALERTAS A 6 MESES:
+            
+            // CAMBIO: 20 días en lugar de 6 meses (180 días)
+            // SERVICIOS QUE DISPARAN ALERTAS A 20 DÍAS:
             $serviciosAlerta = [
                 'Full Service con Bujías',
                 'Full Service sin Bujías', 
@@ -167,7 +169,7 @@ class AlertasController {
 
             $serviciosPattern = implode('|', array_map('preg_quote', $serviciosAlerta));
 
-            // Buscar órdenes de los últimos 6 meses que tengan estos servicios
+            // Buscar órdenes de hace 20+ días que tengan estos servicios
             // y que NO tengan ya una alerta generada
             $query = "
                 SELECT DISTINCT
@@ -183,8 +185,8 @@ class AlertasController {
                 LEFT JOIN alertas_servicio a ON os.id = a.orden_id
                 
                 WHERE 
-                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-                    AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 180 DAY)
+                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 3 MONTH)
+                    AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 20 DAY)
                     AND a.id IS NULL -- No tiene alerta generada
                     AND EXISTS (
                         SELECT 1 FROM servicios_orden so2 
@@ -193,7 +195,7 @@ class AlertasController {
                     )
                     
                 GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.fecha_ingreso
-                HAVING dias_desde_servicio >= 180 -- 6 meses o más
+                HAVING dias_desde_servicio >= 20 -- 20 días o más
                 ORDER BY os.fecha_ingreso DESC
             ";
 
@@ -258,6 +260,112 @@ class AlertasController {
             return [
                 'success' => false,
                 'error' => 'Error al generar alertas: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    // NUEVO: Método para generar alertas automáticamente con control diario
+    public function generarAlertasAutomatico($userData = null) {
+        try {
+            // Verificar autorización
+            if (!$this->verificarAutorizacionAlertas($userData)) {
+                return [
+                    'success' => false,
+                    'error' => 'No autorizado'
+                ];
+            }
+
+            $tiempoInicio = microtime(true);
+
+            // Verificar si ya se ejecutó hoy
+            $checkQuery = "SELECT id FROM alertas_ejecucion_log WHERE fecha_ejecucion = CURDATE()";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->execute();
+            
+            if ($checkStmt->fetch()) {
+                return [
+                    'success' => true,
+                    'alertas_generadas' => 0,
+                    'mensaje' => 'Ya se ejecutó hoy - no se generaron alertas',
+                    'ejecutado_previamente' => true
+                ];
+            }
+
+            // Generar alertas usando el método existente
+            $resultado = $this->generarAlertas($userData);
+            
+            if (!$resultado['success']) {
+                throw new Exception($resultado['error']);
+            }
+
+            $tiempoFin = microtime(true);
+            $tiempoEjecucion = round(($tiempoFin - $tiempoInicio) * 1000); // en millisegundos
+
+            // Registrar la ejecución en el log
+            $logQuery = "
+                INSERT INTO alertas_ejecucion_log (
+                    fecha_ejecucion, 
+                    alertas_generadas, 
+                    tiempo_ejecucion_ms, 
+                    usuario_id,
+                    detalles
+                ) VALUES (CURDATE(), ?, ?, ?, ?)
+            ";
+
+            $detalles = json_encode([
+                'metodo' => 'automatico',
+                'timestamp' => date('Y-m-d H:i:s'),
+                'mensaje' => $resultado['mensaje']
+            ]);
+
+            $logStmt = $this->db->prepare($logQuery);
+            $logStmt->execute([
+                $resultado['alertas_generadas'],
+                $tiempoEjecucion,
+                1, // TODO: usar ID de usuario real
+                $detalles
+            ]);
+
+            return [
+                'success' => true,
+                'alertas_generadas' => $resultado['alertas_generadas'],
+                'mensaje' => $resultado['mensaje'] . " (Automático)",
+                'tiempo_ejecucion_ms' => $tiempoEjecucion,
+                'ejecutado_previamente' => false
+            ];
+
+        } catch (Exception $e) {
+            // Registrar error en log si es posible
+            try {
+                $tiempoFin = microtime(true);
+                $tiempoEjecucion = isset($tiempoInicio) ? round(($tiempoFin - $tiempoInicio) * 1000) : 0;
+                
+                $logQuery = "
+                    INSERT INTO alertas_ejecucion_log (
+                        fecha_ejecucion, 
+                        alertas_generadas, 
+                        tiempo_ejecucion_ms, 
+                        usuario_id,
+                        detalles
+                    ) VALUES (CURDATE(), 0, ?, ?, ?)
+                ";
+
+                $detalles = json_encode([
+                    'metodo' => 'automatico',
+                    'timestamp' => date('Y-m-d H:i:s'),
+                    'error' => $e->getMessage()
+                ]);
+
+                $logStmt = $this->db->prepare($logQuery);
+                $logStmt->execute([$tiempoEjecucion, 1, $detalles]);
+            } catch (Exception $logError) {
+                // Silenciar errores de log para evitar loops
+            }
+
+            return [
+                'success' => false,
+                'error' => 'Error en generación automática: ' . $e->getMessage(),
+                'alertas_generadas' => 0
             ];
         }
     }

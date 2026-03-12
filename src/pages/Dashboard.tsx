@@ -6,6 +6,7 @@ import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { ordenesAPI } from '../services/api';
 import { useAlertas } from '../hooks/useAlertas';
 import { isAlertasAuthorized } from '../utils/alertsAuth';
+import { alertasAutoService } from '../services/alertasAutoService';
 import type { Orden } from '../types';
 import { Button } from '../components/ui/Button';
 import { NotificacionesDropdown } from '../components/NotificacionesDropdown';
@@ -50,6 +51,13 @@ export const Dashboard = () => {
       const data = await ordenesAPI.getAll();
       console.log('✅ Órdenes cargadas:', data.length);
       setOrdenes(data);
+      
+      // Generar alertas automáticamente al cargar el dashboard (si es usuario autorizado)
+      if (isAlertasAuthorized(user)) {
+        alertasAutoService.ejecutarConReintentos().catch(error => {
+          console.warn('[Dashboard] Error en generación automática de alertas:', error);
+        });
+      }
     } catch (error) {
       console.error('❌ Error al cargar órdenes:', error);
     } finally {

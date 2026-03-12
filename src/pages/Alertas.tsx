@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAlertas } from '../hooks/useAlertas';
 import { AlertaCard, EstadisticasAlertas } from '../components/alertas';
 import { Button, Card } from '../components/ui';
-import { Alerta } from '../services/alertasAutoService';
+import type { Alerta } from '../services/alertasAutoService';
 
 type FiltroAlertas = 'todas' | 'pendientes' | 'leidas' | 'urgente' | 'alta' | 'media';
 
@@ -18,7 +18,6 @@ export const Alertas: React.FC = () => {
     cargando,
     error,
     marcarComoLeida,
-    generarAlertas,
     cargarAlertas,
     formatearFecha,
     obtenerTextoTiempo,
@@ -27,7 +26,6 @@ export const Alertas: React.FC = () => {
   } = useAlertas();
 
   const [filtroActivo, setFiltroActivo] = useState<FiltroAlertas>('todas');
-  const [cargandoGenerar, setCargandoGenerar] = useState(false);
 
   // Obtener alertas filtradas
   const obtenerAlertasFiltradas = (): Alerta[] => {
@@ -50,11 +48,6 @@ export const Alertas: React.FC = () => {
 
   const alertasFiltradas = obtenerAlertasFiltradas();
 
-  const handleGenerarAlertas = async () => {
-    setCargandoGenerar(true);
-    await generarAlertas();
-    setCargandoGenerar(false);
-  };
 
   const handleVerOrden = (ordenId: number) => {
     navigate(`/detalle-orden/${ordenId}`);
@@ -110,18 +103,6 @@ export const Alertas: React.FC = () => {
             }
           >
             Actualizar
-          </Button>
-          
-          <Button
-            onClick={handleGenerarAlertas}
-            loading={cargandoGenerar}
-            icon={
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            }
-          >
-            Generar Nuevas Alertas
           </Button>
         </div>
       </div>
@@ -189,15 +170,10 @@ export const Alertas: React.FC = () => {
           </h3>
           <p className="text-gray-600 mb-4">
             {filtroActivo === 'todas' 
-              ? 'Aún no se han generado alertas automáticas. Usa el botón "Generar Nuevas Alertas" para buscar clientes que requieren seguimiento.'
+              ? 'Las alertas se generan automáticamente al hacer login y al cargar el dashboard. Si no ves alertas, significa que no hay clientes que requieran servicios de mantenimiento en este momento.'
               : 'Cambia el filtro para ver otras alertas disponibles.'
             }
           </p>
-          {filtroActivo === 'todas' && (
-            <Button onClick={handleGenerarAlertas} loading={cargandoGenerar}>
-              Generar Primera Alerta
-            </Button>
-          )}
         </Card>
       ) : (
         <div className="space-y-4">
