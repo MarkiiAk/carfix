@@ -215,7 +215,15 @@ class AlertasController {
                     $servicio = trim($servicio);
                     $todosServicios[] = $servicio;
                     
-                    if (in_array($servicio, $serviciosAlerta)) {
+                    // CAMBIO: Usar coincidencia parcial flexible en lugar de exacta
+                    $servicioUpper = strtoupper($servicio);
+                    
+                    // Verificar si contiene alguna de las palabras clave
+                    if (strpos($servicioUpper, 'FULL SERVICE') !== false ||
+                        strpos($servicioUpper, 'CAMBIO DE ACEITE') !== false ||
+                        strpos($servicioUpper, 'VERIFICACION') !== false ||
+                        strpos($servicioUpper, 'VERIFICACIÓN') !== false) {
+                        
                         $serviciosQueDispararon[] = $servicio;
                     }
                 }
