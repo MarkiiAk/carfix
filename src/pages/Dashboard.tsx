@@ -8,6 +8,7 @@ import { useAlertas } from '../hooks/useAlertas';
 import { isAlertasAuthorized } from '../utils/alertsAuth';
 import type { Orden } from '../types';
 import { Button } from '../components/ui/Button';
+import { NotificacionesDropdown } from '../components/NotificacionesDropdown';
 
 export const Dashboard = () => {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
@@ -203,6 +204,9 @@ export const Dashboard = () => {
                   <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.rol}</p>
                 </div>
               </div>
+              
+              {/* Notificaciones de alertas */}
+              <NotificacionesDropdown />
               
               {/* Toggle tema */}
               <Button
