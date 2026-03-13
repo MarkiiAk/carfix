@@ -1,16 +1,43 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Clock, User, Car } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAlertas } from '../hooks/useAlertas';
 import { isAlertasAuthorized } from '../utils/alertsAuth';
 import { useAuth } from '../contexts/AuthContext';
 
 export const NotificacionesDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [alertasPendientes, setAlertasPendientes] = useState<any[]>([]);
+  const [cargando, setCargando] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { alertasPendientes, cargando } = useAlertas();
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Cargar alertas de forma segura
+  useEffect(() => {
+    if (!isLoading && isAlertasAuthorized(user)) {
+      const cargarAlertas = async () => {
+        try {
+          // Importar dinámicamente para evitar problemas de dependencia
+          const { alertasAutoService } = await import('../services/alertasAutoService');
+          const response = await alertasAutoService.obtenerAlertas();
+          
+          if (response.success && response.alertas) {
+            const pendientes = response.alertas.filter((alerta: any) => alerta.estado === 'pendiente');
+            setAlertasPendientes(pendientes);
+          }
+        } catch (error) {
+          console.error('Error cargando alertas:', error);
+          setAlertasPendientes([]);
+        } finally {
+          setCargando(false);
+        }
+      };
+
+      cargarAlertas();
+    } else {
+      setCargando(false);
+    }
+  }, [isLoading, user]);
 
   // No mostrar mientras se carga la autenticación
   if (isLoading) {
