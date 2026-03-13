@@ -111,10 +111,6 @@ export const Alertas: React.FC = () => {
     await marcarComoLeida(alertaId);
   };
 
-  const handleVerOrden = (ordenId: number) => {
-    navigate(`/detalle-orden/${ordenId}`);
-  };
-
   // Filtros disponibles
   const filtros = [
     { key: 'todas' as FiltroAlertas, label: 'Todas', count: alertas.length, color: 'blue' },
