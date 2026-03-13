@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 export const NotificacionesDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { alertasPendientes, cargando } = useAlertas();
+  const { alertasPendientes } = useAlertas();
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
 
