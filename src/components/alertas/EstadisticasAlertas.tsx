@@ -40,9 +40,6 @@ export const EstadisticasAlertas: React.FC<EstadisticasAlertasProps> = ({
     );
   }
 
-  // Calcular porcentajes
-  const porcentajePendientes = estadisticas.total > 0 ? Math.round((estadisticas.pendientes / estadisticas.total) * 100) : 0;
-  const porcentajeLeidas = estadisticas.total > 0 ? Math.round((estadisticas.leidas / estadisticas.total) * 100) : 0;
 
   const stats = [
     {
@@ -61,7 +58,7 @@ export const EstadisticasAlertas: React.FC<EstadisticasAlertasProps> = ({
     {
       label: 'Pendientes',
       value: estadisticas.pendientes,
-      percentage: porcentajePendientes,
+      subtitle: 'Requieren atención',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -75,7 +72,6 @@ export const EstadisticasAlertas: React.FC<EstadisticasAlertasProps> = ({
     {
       label: 'Leídas',
       value: estadisticas.leidas,
-      percentage: porcentajeLeidas,
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -89,7 +85,6 @@ export const EstadisticasAlertas: React.FC<EstadisticasAlertasProps> = ({
     {
       label: 'Urgentes',
       value: estadisticas.urgentes,
-      subtitle: 'requieren atención',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -110,11 +105,6 @@ export const EstadisticasAlertas: React.FC<EstadisticasAlertasProps> = ({
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</p>
               <p className={`text-3xl font-bold mt-1 ${stat.valueColor}`}>{stat.value}</p>
-              {stat.percentage !== undefined && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {stat.percentage}% del total
-                </p>
-              )}
               {stat.subtitle && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   {stat.subtitle}

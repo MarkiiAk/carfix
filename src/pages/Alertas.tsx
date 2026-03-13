@@ -347,7 +347,7 @@ export const Alertas: React.FC = () => {
                 onClick={() => setFiltroActivo(filtro.key)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   filtroActivo === filtro.key
-                    ? 'bg-sag-500 text-white shadow-lg shadow-sag-500/30'
+                    ? 'bg-gray-800 text-white shadow-lg dark:bg-gray-600'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
@@ -355,7 +355,7 @@ export const Alertas: React.FC = () => {
                 {filtro.count > 0 && (
                   <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
                     filtroActivo === filtro.key
-                      ? 'bg-sag-400 text-sag-100'
+                      ? 'bg-gray-600 text-gray-100 dark:bg-gray-400 dark:text-gray-800'
                       : 'bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300'
                   }`}>
                     {filtro.count}
@@ -392,25 +392,25 @@ export const Alertas: React.FC = () => {
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
                       Cliente
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
                       Vehículo
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
                       Último Servicio
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
                       Servicios
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
                       Prioridad
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
                       Acciones
                     </th>
                   </tr>
@@ -458,7 +458,7 @@ export const Alertas: React.FC = () => {
                           {alerta.servicios_que_dispararon.slice(0, 2).map((servicio, index) => (
                             <span 
                               key={index}
-                              className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 text-xs rounded"
+                              className="px-2 py-1 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-xs rounded border border-gray-200 dark:border-gray-600"
                             >
                               {servicio}
                             </span>
@@ -482,7 +482,7 @@ export const Alertas: React.FC = () => {
                             <Button
                               variant="outline"
                               onClick={() => handleMarcarLeida(alerta.id)}
-                              className="!text-xs !py-1.5 !px-2 text-green-600 border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                              className="!text-xs !py-1.5 !px-2 text-green-600 border-green-600 hover:bg-green-600 hover:text-white hover:border-green-600 dark:text-green-400 dark:border-green-400 dark:hover:bg-green-600 dark:hover:text-white dark:hover:border-green-600 transition-all duration-200"
                             >
                               Marcar leída
                             </Button>
