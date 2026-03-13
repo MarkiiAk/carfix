@@ -159,20 +159,18 @@ export const NotificacionesDropdown = () => {
             )}
           </div>
 
-          {/* Footer con botón "Ver todo" */}
-          {totalPendientes > 0 && (
-            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  navigate('/alertas');
-                }}
-                className="w-full text-center text-sm font-medium text-sag-600 hover:text-sag-700 dark:text-sag-400 dark:hover:text-sag-300 py-2 hover:bg-sag-50 dark:hover:bg-sag-900/20 rounded-md transition-colors"
-              >
-                Ver todas las alertas ({totalPendientes})
-              </button>
-            </div>
-          )}
+          {/* Footer con botón "Ver todas" - Siempre visible */}
+          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                navigate('/alertas');
+              }}
+              className="w-full text-center text-sm font-medium text-sag-600 hover:text-sag-700 dark:text-sag-400 dark:hover:text-sag-300 py-2 hover:bg-sag-50 dark:hover:bg-sag-900/20 rounded-md transition-colors"
+            >
+              Ver todas las alertas {totalPendientes > 0 && `(${totalPendientes})`}
+            </button>
+          </div>
         </div>
       )}
     </div>
