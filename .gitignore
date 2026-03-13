@@ -27,6 +27,13 @@ backend/data/ordenes.json
 *.sql
 *.SQL
 
+# Hash generation scripts - Security sensitive
+generate_hash.*
+*_hash.*
+insert_usuario_*
+fix_usuario_*
+*.cjs
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

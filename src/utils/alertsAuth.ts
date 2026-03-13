@@ -13,8 +13,11 @@ import type { Usuario } from '../types';
 export const isAlertasAuthorized = (user: Usuario | null): boolean => {
   if (!user) return false;
   
-  // Verificar que sea el usuario específico con rol admin
-  return user.username === 'markiiak' && user.rol === 'admin';
+  // Usuarios autorizados para acceder a alertas
+  const authorizedUsers = ['markiiak', 'temporaldemo'];
+  
+  // Verificar que sea un usuario autorizado con rol admin
+  return authorizedUsers.includes(user.username || '') && user.rol === 'admin';
 };
 
 /**
