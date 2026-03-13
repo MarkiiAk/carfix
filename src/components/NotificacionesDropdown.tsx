@@ -76,9 +76,9 @@ export const NotificacionesDropdown = () => {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-96 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-[500px] flex flex-col">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
             <h3 className="font-semibold text-gray-900 dark:text-white">
               Alertas de Servicio
             </h3>
@@ -88,7 +88,7 @@ export const NotificacionesDropdown = () => {
           </div>
 
           {/* Lista de alertas */}
-          <div className="max-h-80 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto max-h-80">
             {alertasRecientes.length === 0 ? (
               <div className="px-4 py-6 text-center">
                 <Bell className="mx-auto h-12 w-12 text-gray-400 mb-3" />
