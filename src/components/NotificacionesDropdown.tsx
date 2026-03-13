@@ -8,9 +8,14 @@ import { useAuth } from '../contexts/AuthContext';
 export const NotificacionesDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { alertasPendientes } = useAlertas();
-  const { user } = useAuth();
+  const { alertasPendientes, cargando } = useAlertas();
+  const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  // No mostrar mientras se carga la autenticación
+  if (isLoading) {
+    return null;
+  }
 
   // Solo mostrar si el usuario está autorizado
   if (!isAlertasAuthorized(user)) {

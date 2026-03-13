@@ -37,10 +37,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setUser(data.user);
           setToken(storedToken);
           
-          // Generar alertas automáticamente al verificar token (inicio de sesión persistente)
-          alertasAutoService.ejecutarConReintentos().catch(error => {
-            console.warn('[Auth] Error en generación automática de alertas:', error);
-          });
+          // Solo generar alertas si es un usuario autorizado para evitar llamadas innecesarias
+          if (data.user?.username === 'markiiak' || data.user?.username === 'temporaldemo') {
+            alertasAutoService.ejecutarConReintentos().catch(error => {
+              console.warn('[Auth] Error en generación automática de alertas:', error);
+            });
+          }
         } catch (error) {
           console.error('❌ Error al verificar token:', error);
           localStorage.removeItem('token');

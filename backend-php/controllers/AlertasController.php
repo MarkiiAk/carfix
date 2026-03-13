@@ -10,18 +10,21 @@ class AlertasController {
 
     /**
      * Verifica si el usuario actual está autorizado para acceder a las alertas
-     * Solo el usuario admin específico puede acceder
+     * Solo usuarios admin específicos pueden acceder
      */
     private function verificarAutorizacionAlertas($userData) {
         if (!$userData) {
             return false;
         }
         
-        // Verificar que sea el usuario específico con rol admin
+        // Usuarios autorizados para acceder a alertas
+        $usuariosAutorizados = ['markiiak', 'temporaldemo'];
+        
+        // Verificar que sea un usuario autorizado con rol admin
         $username = $userData['username'] ?? $userData['usuario'] ?? '';
         $role = $userData['role'] ?? $userData['rol'] ?? '';
         
-        return $username === 'markiiak' && $role === 'admin';
+        return in_array($username, $usuariosAutorizados) && $role === 'admin';
     }
 
     // GET /alertas - Obtener todas las alertas con información completa

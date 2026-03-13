@@ -122,8 +122,19 @@ export const useAlertas = () => {
 
   // Cargar datos inicialmente
   useEffect(() => {
-    cargarAlertas();
-    cargarEstadisticas();
+    const cargarDatosIniciales = async () => {
+      try {
+        // Cargar alertas y estadísticas en paralelo
+        await Promise.all([
+          cargarAlertas(),
+          cargarEstadisticas()
+        ]);
+      } catch (err) {
+        console.error('Error cargando datos iniciales:', err);
+      }
+    };
+    
+    cargarDatosIniciales();
   }, []);
 
   return {
