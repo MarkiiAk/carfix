@@ -7,10 +7,22 @@ import { useAuth } from '../contexts/AuthContext';
 
 export const NotificacionesDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { alertasPendientes } = useAlertas();
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Asegurar que el componente se monte correctamente después del login
+  useEffect(() => {
+    if (!isLoading && isAlertasAuthorized(user)) {
+      // Dar tiempo para que los datos se carguen antes de mostrar el componente
+      const timer = setTimeout(() => {
+        setIsMounted(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, user]);
 
   // No mostrar mientras se carga la autenticación
   if (isLoading) {
@@ -19,6 +31,11 @@ export const NotificacionesDropdown = () => {
 
   // Solo mostrar si el usuario está autorizado
   if (!isAlertasAuthorized(user)) {
+    return null;
+  }
+
+  // No mostrar hasta que esté completamente montado
+  if (!isMounted) {
     return null;
   }
 
