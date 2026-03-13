@@ -1,24 +1,38 @@
 import React from 'react';
-import { EstadisticasAlertas as EstadisticasType } from '../../services/alertasAutoService';
 import { Card } from '../ui';
 
 interface EstadisticasAlertasProps {
-  estadisticas: EstadisticasType | null;
-  cargando?: boolean;
+  estadisticas: {
+    total: number;
+    pendientes: number;
+    leidas: number;
+    urgentes: number;
+    alta_prioridad: number;
+    media_prioridad: number;
+    por_tipo: {
+      [key: string]: number;
+    };
+  } | null;
+  cargando: boolean;
 }
 
 export const EstadisticasAlertas: React.FC<EstadisticasAlertasProps> = ({
   estadisticas,
-  cargando = false
+  cargando
 }) => {
-  if (cargando) {
+  if (cargando || !estadisticas) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="p-4">
+          <Card key={i} className="p-6 border border-gray-200 dark:border-gray-700">
             <div className="animate-pulse">
-              <div className="h-4 bg-gray-200 rounded mb-2"></div>
-              <div className="h-6 bg-gray-200 rounded"></div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-16 mb-2"></div>
+                  <div className="h-8 bg-gray-200 dark:bg-gray-600 rounded w-12"></div>
+                </div>
+                <div className="w-12 h-12 bg-gray-200 dark:bg-gray-600 rounded-xl"></div>
+              </div>
             </div>
           </Card>
         ))}
@@ -26,78 +40,95 @@ export const EstadisticasAlertas: React.FC<EstadisticasAlertasProps> = ({
     );
   }
 
-  if (!estadisticas) {
-    return null;
-  }
+  // Calcular porcentajes
+  const porcentajePendientes = estadisticas.total > 0 ? Math.round((estadisticas.pendientes / estadisticas.total) * 100) : 0;
+  const porcentajeLeidas = estadisticas.total > 0 ? Math.round((estadisticas.leidas / estadisticas.total) * 100) : 0;
 
-  const porcentajePendientes = estadisticas.total > 0 
-    ? Math.round((estadisticas.pendientes / estadisticas.total) * 100) 
-    : 0;
+  const stats = [
+    {
+      label: 'Total Alertas',
+      value: estadisticas.total,
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM3 7v10a2 2 0 002 2h10m-6-4h6M9 9h6" />
+        </svg>
+      ),
+      color: 'sag',
+      bgColor: 'bg-sag-100 dark:bg-sag-900/30',
+      textColor: 'text-sag-600 dark:text-sag-400',
+      valueColor: 'text-gray-900 dark:text-white'
+    },
+    {
+      label: 'Pendientes',
+      value: estadisticas.pendientes,
+      percentage: porcentajePendientes,
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        </svg>
+      ),
+      color: 'red',
+      bgColor: 'bg-red-100 dark:bg-red-900/30',
+      textColor: 'text-red-600 dark:text-red-400',
+      valueColor: 'text-red-600 dark:text-red-400'
+    },
+    {
+      label: 'Leídas',
+      value: estadisticas.leidas,
+      percentage: porcentajeLeidas,
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      color: 'green',
+      bgColor: 'bg-green-100 dark:bg-green-900/30',
+      textColor: 'text-green-600 dark:text-green-400',
+      valueColor: 'text-green-600 dark:text-green-400'
+    },
+    {
+      label: 'Urgentes',
+      value: estadisticas.urgentes,
+      subtitle: 'requieren atención',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      color: 'orange',
+      bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+      textColor: 'text-orange-600 dark:text-orange-400',
+      valueColor: 'text-orange-600 dark:text-orange-400'
+    }
+  ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      {/* Total de Alertas */}
-      <Card className="p-4 bg-blue-50 border-blue-200">
-        <div className="flex items-center">
-          <div className="p-2 bg-blue-500 rounded-lg mr-3">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM12 17h-7a2 2 0 01-2-2V5a2 2 0 012-2h7m0 14V5m0 12l5-5M12 5l5 5" />
-            </svg>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {stats.map((stat, index) => (
+        <Card key={index} className="p-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</p>
+              <p className={`text-3xl font-bold mt-1 ${stat.valueColor}`}>{stat.value}</p>
+              {stat.percentage !== undefined && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {stat.percentage}% del total
+                </p>
+              )}
+              {stat.subtitle && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {stat.subtitle}
+                </p>
+              )}
+            </div>
+            <div className={`w-12 h-12 ${stat.bgColor} rounded-xl flex items-center justify-center`}>
+              <div className={stat.textColor}>
+                {stat.icon}
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-blue-700">Total Alertas</p>
-            <p className="text-2xl font-bold text-blue-900">{estadisticas.total}</p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Alertas Pendientes */}
-      <Card className="p-4 bg-red-50 border-red-200">
-        <div className="flex items-center">
-          <div className="p-2 bg-red-500 rounded-lg mr-3">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-red-700">Pendientes</p>
-            <p className="text-2xl font-bold text-red-900">{estadisticas.pendientes}</p>
-            <p className="text-xs text-red-600">{porcentajePendientes}% del total</p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Alertas Leídas */}
-      <Card className="p-4 bg-green-50 border-green-200">
-        <div className="flex items-center">
-          <div className="p-2 bg-green-500 rounded-lg mr-3">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-green-700">Leídas</p>
-            <p className="text-2xl font-bold text-green-900">{estadisticas.leidas}</p>
-            <p className="text-xs text-green-600">{100 - porcentajePendientes}% del total</p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Alertas Urgentes */}
-      <Card className="p-4 bg-yellow-50 border-yellow-200">
-        <div className="flex items-center">
-          <div className="p-2 bg-yellow-500 rounded-lg mr-3">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-yellow-700">Urgentes</p>
-            <p className="text-2xl font-bold text-yellow-900">{estadisticas.urgentes}</p>
-            <p className="text-xs text-yellow-600">requieren atención</p>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      ))}
     </div>
   );
 };
