@@ -24,7 +24,18 @@ export const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadOrdenes();
+    let isActive = true;
+    
+    const loadData = async () => {
+      if (!isActive) return;
+      await loadOrdenes();
+    };
+    
+    loadData();
+    
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   // Aplicar el tema al documento
@@ -50,12 +61,7 @@ export const Dashboard = () => {
       console.log('✅ Órdenes cargadas:', data.length);
       setOrdenes(data);
       
-      // Generar alertas automáticamente al cargar el dashboard (si es usuario autorizado)
-      if (isAlertasAuthorized(user)) {
-        alertasAutoService.ejecutarConReintentos().catch(error => {
-          console.warn('[Dashboard] Error en generación automática de alertas:', error);
-        });
-      }
+      // Ya no generamos alertas aquí - se hace en AuthContext para evitar duplicadas
     } catch (error) {
       console.error('❌ Error al cargar órdenes:', error);
     } finally {

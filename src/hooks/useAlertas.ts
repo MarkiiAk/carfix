@@ -122,7 +122,11 @@ export const useAlertas = () => {
 
   // Cargar datos inicialmente
   useEffect(() => {
+    let isActive = true;
+    
     const cargarDatosIniciales = async () => {
+      if (!isActive) return;
+      
       try {
         // Cargar alertas y estadísticas en paralelo
         await Promise.all([
@@ -130,11 +134,17 @@ export const useAlertas = () => {
           cargarEstadisticas()
         ]);
       } catch (err) {
-        console.error('Error cargando datos iniciales:', err);
+        if (isActive) {
+          console.error('Error cargando datos iniciales:', err);
+        }
       }
     };
     
     cargarDatosIniciales();
+    
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   return {

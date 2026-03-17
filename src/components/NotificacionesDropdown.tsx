@@ -14,6 +14,8 @@ export const NotificacionesDropdown = () => {
 
   // Cargar alertas de forma segura
   useEffect(() => {
+    let isActive = true;
+    
     if (!isLoading && isAlertasAuthorized(user)) {
       const cargarAlertas = async () => {
         try {
@@ -21,15 +23,19 @@ export const NotificacionesDropdown = () => {
           const { alertasAutoService } = await import('../services/alertasAutoService');
           const response = await alertasAutoService.obtenerAlertas();
           
-          if (response.success && response.alertas) {
+          if (isActive && response.success && response.alertas) {
             const pendientes = response.alertas.filter((alerta: any) => alerta.estado === 'pendiente');
             setAlertasPendientes(pendientes);
           }
         } catch (error) {
-          console.error('Error cargando alertas:', error);
-          setAlertasPendientes([]);
+          if (isActive) {
+            console.error('Error cargando alertas:', error);
+            setAlertasPendientes([]);
+          }
         } finally {
-          setCargando(false);
+          if (isActive) {
+            setCargando(false);
+          }
         }
       };
 
@@ -37,6 +43,10 @@ export const NotificacionesDropdown = () => {
     } else {
       setCargando(false);
     }
+    
+    return () => {
+      isActive = false;
+    };
   }, [isLoading, user]);
 
   // No mostrar mientras se carga la autenticación

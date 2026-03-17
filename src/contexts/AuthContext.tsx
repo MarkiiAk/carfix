@@ -25,35 +25,49 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isActive = true;
+    
     const verifyToken = async () => {
       const storedToken = localStorage.getItem('token');
       console.log('🔍 Verificando token:', storedToken ? 'existe' : 'no existe');
       
-      if (storedToken) {
+      if (storedToken && isActive) {
         try {
           console.log('📡 Verificando token con API...');
           const data = await authAPI.verify();
-          console.log('✅ Token válido, usuario:', data.user);
-          setUser(data.user);
-          setToken(storedToken);
           
-          // Solo generar alertas si es un usuario autorizado para evitar llamadas innecesarias
-          if (data.user?.username === 'markiiak' || data.user?.username === 'temporaldemo') {
-            alertasAutoService.ejecutarConReintentos().catch(error => {
-              console.warn('[Auth] Error en generación automática de alertas:', error);
-            });
+          if (isActive) {
+            console.log('✅ Token válido, usuario:', data.user);
+            setUser(data.user);
+            setToken(storedToken);
+            
+            // Solo generar alertas si es un usuario autorizado para evitar llamadas innecesarias
+            if (data.user?.username === 'markiiak' || data.user?.username === 'temporaldemo') {
+              alertasAutoService.ejecutarConReintentos().catch(error => {
+                console.warn('[Auth] Error en generación automática de alertas:', error);
+              });
+            }
           }
         } catch (error) {
-          console.error('❌ Error al verificar token:', error);
-          localStorage.removeItem('token');
-          setToken(null);
-          setUser(null);
+          if (isActive) {
+            console.error('❌ Error al verificar token:', error);
+            localStorage.removeItem('token');
+            setToken(null);
+            setUser(null);
+          }
         }
       }
-      setIsLoading(false);
+      
+      if (isActive) {
+        setIsLoading(false);
+      }
     };
 
     verifyToken();
+    
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   const login = async (username: string, password: string) => {
