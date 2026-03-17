@@ -4,8 +4,6 @@ import { Sun, Moon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { ordenesAPI } from '../services/api';
-import { isAlertasAuthorized } from '../utils/alertsAuth';
-import { alertasAutoService } from '../services/alertasAutoService';
 import type { Orden } from '../types';
 import { Button } from '../components/ui/Button';
 import { NotificacionesDropdown } from '../components/NotificacionesDropdown';
