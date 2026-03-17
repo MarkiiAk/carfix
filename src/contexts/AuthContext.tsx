@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authAPI } from '../services/api';
-import { alertasAutoService } from '../services/alertasAutoService';
 import type { AuthContextType, Usuario } from '../types';
 
 console.log('🔐 AuthContext inicializado - usando API REST directamente');
@@ -40,13 +39,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             console.log('✅ Token válido, usuario:', data.user);
             setUser(data.user);
             setToken(storedToken);
-            
-            // Solo generar alertas si es un usuario autorizado para evitar llamadas innecesarias
-            if (data.user?.username === 'markiiak' || data.user?.username === 'temporaldemo') {
-              alertasAutoService.ejecutarConReintentos().catch(error => {
-                console.warn('[Auth] Error en generación automática de alertas:', error);
-              });
-            }
           }
         } catch (error) {
           if (isActive) {
@@ -79,11 +71,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setToken(data.token);
       setUser(data.user);
       console.log('✅ Usuario autenticado:', data.user);
-      
-      // Generar alertas automáticamente después del login exitoso
-      alertasAutoService.ejecutarConReintentos().catch(error => {
-        console.warn('[Auth] Error en generación automática de alertas después de login:', error);
-      });
     } catch (error) {
       console.error('❌ Error en login:', error);
       throw error;

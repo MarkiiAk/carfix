@@ -4,7 +4,10 @@ import { Sun, Moon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { ordenesAPI } from '../services/api';
+import { alertasAutoService } from '../services/alertasAutoService';
+import { isAlertasAuthorized } from '../utils/alertsAuth';
 import type { Orden } from '../types';
+import type { Alerta } from '../services/alertasAutoService';
 import { Button } from '../components/ui/Button';
 import { NotificacionesDropdown } from '../components/NotificacionesDropdown';
 
@@ -17,16 +20,32 @@ export const Dashboard = () => {
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
-  const { user, logout } = useAuth();
+  // Estados para alertas - CENTRALIZADOS AQUÍ
+  const [alertas, setAlertas] = useState<Alerta[]>([]);
+  const [alertasLoading, setAlertasLoading] = useState(false);
+  const { user, logout, isLoading: authLoading } = useAuth();
   const { themeMode, toggleTheme } = usePresupuestoStore();
   const navigate = useNavigate();
 
+  // Efecto principal: cargar datos secuencialmente después del login
   useEffect(() => {
     let isActive = true;
     
     const loadData = async () => {
-      if (!isActive) return;
+      if (!isActive || authLoading) return;
+      
+      console.log('🚀 Iniciando carga secuencial de datos...');
+      
+      // 1. Cargar órdenes primero
       await loadOrdenes();
+      
+      // 2. Si el usuario está autorizado, cargar alertas DESPUÉS
+      if (isActive && user && isAlertasAuthorized(user)) {
+        console.log('🔔 Usuario autorizado, cargando alertas...');
+        await loadAlertas();
+      } else {
+        console.log('🚫 Usuario no autorizado para alertas');
+      }
     };
     
     loadData();
@@ -34,7 +53,7 @@ export const Dashboard = () => {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [authLoading, user]);
 
   // Aplicar el tema al documento
   useEffect(() => {
@@ -58,12 +77,43 @@ export const Dashboard = () => {
       const data = await ordenesAPI.getAll();
       console.log('✅ Órdenes cargadas:', data.length);
       setOrdenes(data);
-      
-      // Ya no generamos alertas aquí - se hace en AuthContext para evitar duplicadas
     } catch (error) {
       console.error('❌ Error al cargar órdenes:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Nueva función para cargar alertas de forma centralizada
+  const loadAlertas = async () => {
+    try {
+      setAlertasLoading(true);
+      console.log('🔔 Generando alertas automáticamente...');
+      
+      // Primero generar alertas nuevas
+      const generarResult = await alertasAutoService.generarAlertasAutomatico();
+      
+      if (generarResult?.alertas_generadas && generarResult.alertas_generadas > 0) {
+        console.log(`✅ Se generaron ${generarResult.alertas_generadas} nuevas alertas`);
+      }
+      
+      // Luego obtener todas las alertas
+      console.log('📥 Obteniendo alertas...');
+      const alertasResult = await alertasAutoService.obtenerAlertas();
+      
+      if (alertasResult.success && alertasResult.alertas) {
+        const alertasPendientes = alertasResult.alertas.filter((alerta: Alerta) => alerta.estado === 'pendiente');
+        setAlertas(alertasPendientes);
+        console.log(`✅ Alertas cargadas: ${alertasPendientes.length} pendientes de ${alertasResult.alertas.length} totales`);
+      } else {
+        console.warn('⚠️ Error al obtener alertas:', alertasResult.error);
+        setAlertas([]);
+      }
+    } catch (error) {
+      console.error('❌ Error al cargar alertas:', error);
+      setAlertas([]);
+    } finally {
+      setAlertasLoading(false);
     }
   };
 
@@ -216,7 +266,11 @@ export const Dashboard = () => {
               </div>
               
               {/* Notificaciones de alertas */}
-              <NotificacionesDropdown />
+              <NotificacionesDropdown 
+                alertas={alertas}
+                loading={alertasLoading}
+                onRefresh={() => loadAlertas()}
+              />
               
               {/* Toggle tema */}
               <Button

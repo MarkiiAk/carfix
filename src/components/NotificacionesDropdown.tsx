@@ -3,64 +3,27 @@ import { Bell, Clock, User, Car } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { isAlertasAuthorized } from '../utils/alertsAuth';
 import { useAuth } from '../contexts/AuthContext';
+import type { Alerta } from '../services/alertasAutoService';
 
-export const NotificacionesDropdown = () => {
+interface NotificacionesDropdownProps {
+  alertas: Alerta[];
+  loading: boolean;
+  onRefresh: () => Promise<void>;
+}
+
+export const NotificacionesDropdown = ({ alertas, loading, onRefresh }: NotificacionesDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [alertasPendientes, setAlertasPendientes] = useState<any[]>([]);
-  const [cargando, setCargando] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Cargar alertas de forma segura
-  useEffect(() => {
-    let isActive = true;
-    
-    if (!isLoading && isAlertasAuthorized(user)) {
-      const cargarAlertas = async () => {
-        try {
-          // Importar dinámicamente para evitar problemas de dependencia
-          const { alertasAutoService } = await import('../services/alertasAutoService');
-          const response = await alertasAutoService.obtenerAlertas();
-          
-          if (isActive && response.success && response.alertas) {
-            const pendientes = response.alertas.filter((alerta: any) => alerta.estado === 'pendiente');
-            setAlertasPendientes(pendientes);
-          }
-        } catch (error) {
-          if (isActive) {
-            console.error('Error cargando alertas:', error);
-            setAlertasPendientes([]);
-          }
-        } finally {
-          if (isActive) {
-            setCargando(false);
-          }
-        }
-      };
-
-      cargarAlertas();
-    } else {
-      setCargando(false);
-    }
-    
-    return () => {
-      isActive = false;
-    };
-  }, [isLoading, user]);
-
   // No mostrar mientras se carga la autenticación
-  if (isLoading) {
+  if (authLoading) {
     return null;
   }
 
   // Solo mostrar si el usuario está autorizado
   if (!isAlertasAuthorized(user)) {
-    return null;
-  }
-
-  // No mostrar mientras se cargan las alertas
-  if (cargando) {
     return null;
   }
 
@@ -102,8 +65,26 @@ export const NotificacionesDropdown = () => {
   };
 
   // Mostrar máximo 5 alertas en el dropdown
-  const alertasRecientes = alertasPendientes.slice(0, 5);
-  const totalPendientes = alertasPendientes.length;
+  const alertasRecientes = alertas.slice(0, 5);
+  const totalPendientes = alertas.length;
+
+  // Si está cargando, mostrar campanita con spinner
+  if (loading) {
+    return (
+      <div className="relative">
+        <button
+          className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+          title="Cargando alertas..."
+          disabled
+        >
+          <Bell size={20} />
+          <div className="absolute -top-1 -right-1 bg-gray-400 rounded-full h-5 w-5 flex items-center justify-center">
+            <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+          </div>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -126,12 +107,25 @@ export const NotificacionesDropdown = () => {
         <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-[500px] flex flex-col">
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-            <h3 className="font-semibold text-gray-900 dark:text-white">
-              Alertas de Servicio
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {totalPendientes} {totalPendientes === 1 ? 'alerta pendiente' : 'alertas pendientes'}
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  Alertas de Servicio
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {totalPendientes} {totalPendientes === 1 ? 'alerta pendiente' : 'alertas pendientes'}
+                </p>
+              </div>
+              <button
+                onClick={onRefresh}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Actualizar alertas"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Lista de alertas */}
