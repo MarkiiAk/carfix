@@ -216,7 +216,7 @@ export const Alertas: React.FC = () => {
                 </div>
                 
               <NotificacionesDropdown 
-                alertas={alertas}
+                alertas={alertasPendientes}
                 loading={cargando}
                 onRefresh={() => cargarAlertas()}
               />
@@ -297,7 +297,7 @@ export const Alertas: React.FC = () => {
               </div>
               
             <NotificacionesDropdown 
-              alertas={alertas}
+              alertas={alertasPendientes}
               loading={cargando}
               onRefresh={() => cargarAlertas()}
             />
