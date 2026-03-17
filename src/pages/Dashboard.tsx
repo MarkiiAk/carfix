@@ -32,7 +32,8 @@ export const Dashboard = () => {
     let isActive = true;
     
     const loadData = async () => {
-      if (!isActive || authLoading) return;
+      // Esperar a que la autenticación esté completamente cargada
+      if (!isActive || authLoading || !user) return;
       
       console.log('🚀 Iniciando carga secuencial de datos...');
       
@@ -40,11 +41,11 @@ export const Dashboard = () => {
       await loadOrdenes();
       
       // 2. Si el usuario está autorizado, cargar alertas DESPUÉS
-      if (isActive && user && isAlertasAuthorized(user)) {
-        console.log('🔔 Usuario autorizado, cargando alertas...');
+      if (isActive && isAlertasAuthorized(user)) {
+        console.log(`🔔 Usuario ${user.username} autorizado, cargando alertas...`);
         await loadAlertas();
       } else {
-        console.log('🚫 Usuario no autorizado para alertas');
+        console.log(`🚫 Usuario ${user.username} no autorizado para alertas`);
       }
     };
     
