@@ -168,8 +168,8 @@ class AlertasController {
                 ];
             }
             
-            // CAMBIO: 20 días en lugar de 6 meses (180 días)
-            // SERVICIOS QUE DISPARAN ALERTAS A 20 DÍAS:
+            // CAMBIO: 6 meses (180 días) - período actualizado para WhatsApp
+            // SERVICIOS QUE DISPARAN ALERTAS A 6 MESES:
             $serviciosAlerta = [
                 'Full Service con Bujías',
                 'Full Service sin Bujías', 
@@ -179,7 +179,7 @@ class AlertasController {
 
             $serviciosPattern = implode('|', array_map('preg_quote', $serviciosAlerta));
 
-            // Buscar órdenes de hace 20+ días que tengan estos servicios
+            // Buscar órdenes de hace 6+ meses que tengan estos servicios
             // y que NO tengan ya una alerta generada
             $query = "
                 SELECT DISTINCT
@@ -195,8 +195,8 @@ class AlertasController {
                 LEFT JOIN alertas_servicio a ON os.id = a.orden_id
                 
                 WHERE 
-                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 3 MONTH)
-                    AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 20 DAY)
+                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+                    AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 6 MONTH)
                     AND a.id IS NULL -- No tiene alerta generada
                     AND EXISTS (
                         SELECT 1 FROM servicios_orden so2 
@@ -205,7 +205,7 @@ class AlertasController {
                     )
                     
                 GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.fecha_ingreso
-                HAVING dias_desde_servicio >= 20 -- 20 días o más
+                HAVING dias_desde_servicio >= 180 -- 6 meses (180 días) o más
                 ORDER BY os.fecha_ingreso DESC
             ";
 
