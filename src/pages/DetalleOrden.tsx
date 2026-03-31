@@ -54,9 +54,7 @@ export const DetalleOrden = () => {
       setIsLoading(true);
       
       try {
-        console.log('📋 Cargando orden desde API:', id);
         const ordenData = await ordenesAPI.getById(id);
-        console.log('✅ Orden cargada:', ordenData);
         if (ordenData) {
           setOrden(ordenData);
           loadFromOrden(ordenData);
@@ -65,7 +63,6 @@ export const DetalleOrden = () => {
           navigate('/dashboard');
         }
       } catch (error) {
-        console.error('Error al cargar orden:', error);
         alert('Error al cargar la orden');
         navigate('/dashboard');
       } finally {
@@ -99,7 +96,6 @@ export const DetalleOrden = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error al generar PDF:', error);
       alert('Hubo un error al generar el PDF. Por favor intenta de nuevo.');
     }
   };
@@ -130,12 +126,9 @@ export const DetalleOrden = () => {
         fechaEntrada: presupuesto.fechaEntrada?.toISOString() || presupuesto.fecha.toISOString(),
       };
 
-      console.log('💾 Actualizando orden en API...');
       await ordenesAPI.update(id, ordenActualizada);
-      console.log('✅ Orden actualizada exitosamente');
       markAsSaved();
     } catch (error) {
-      console.error('Error al guardar cambios:', error);
       setShowLoader(false);
       alert('Hubo un error al guardar los cambios. Por favor intenta de nuevo.');
     }
@@ -146,9 +139,7 @@ export const DetalleOrden = () => {
 
     try {
       setShowLoader(true);
-      console.log('🔒 Cerrando orden en API...');
       await ordenesAPI.update(id, { estado: 'cerrada' });
-      console.log('✅ Orden cerrada exitosamente');
       setShowCloseModal(false);
       // Después de cerrar, recargar la orden para actualizar el estado local
       const ordenActualizada = await ordenesAPI.getById(id);
@@ -156,7 +147,6 @@ export const DetalleOrden = () => {
         setOrden(ordenActualizada);
       }
     } catch (error) {
-      console.error('Error al cerrar orden:', error);
       setShowLoader(false);
       setShowCloseModal(false);
       alert('Hubo un error al cerrar la orden. Por favor intenta de nuevo.');

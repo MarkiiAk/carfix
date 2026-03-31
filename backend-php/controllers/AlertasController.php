@@ -10,21 +10,18 @@ class AlertasController {
 
     /**
      * Verifica si el usuario actual está autorizado para acceder a las alertas
-     * Solo usuarios admin específicos pueden acceder
+     * Cualquier usuario con rol admin puede acceder
      */
     private function verificarAutorizacionAlertas($userData) {
         if (!$userData) {
             return false;
         }
         
-        // Usuarios autorizados para acceder a alertas
-        $usuariosAutorizados = ['markiiak', 'temporaldemo'];
-        
-        // Verificar que sea un usuario autorizado con rol admin
-        $username = $userData['username'] ?? $userData['usuario'] ?? '';
+        // CAMBIO: Cualquier usuario admin puede acceder a alertas (no solo usuarios específicos)
         $role = $userData['role'] ?? $userData['rol'] ?? '';
         
-        return in_array($username, $usuariosAutorizados) && $role === 'admin';
+        // Verificar que tenga rol de admin
+        return $role === 'admin';
     }
 
     // GET /alertas - Obtener todas las alertas con información completa
@@ -160,16 +157,19 @@ class AlertasController {
     // GET /alertas/generar - Generar nuevas alertas (proceso manual o automático)
     public function generarAlertas($userData = null) {
         try {
-            // Verificar autorización
-            if (!$this->verificarAutorizacionAlertas($userData)) {
+            // Para crons automáticos, permitir ejecución sin verificación de usuario
+            // Verificar si es una ejecución automática o manual
+            $esEjecucionAutomatica = (php_sapi_name() === 'cli' || !$userData);
+            
+            if (!$esEjecucionAutomatica && !$this->verificarAutorizacionAlertas($userData)) {
                 return [
                     'success' => false,
                     'error' => 'No autorizado - Acceso denegado a las alertas'
                 ];
             }
             
-            // CAMBIO: 20 días en lugar de 6 meses (180 días)
-            // SERVICIOS QUE DISPARAN ALERTAS A 20 DÍAS:
+            // PRODUCCIÓN: 6 meses (180 días) - período estándar para alertas de servicio
+            // SERVICIOS QUE DISPARAN ALERTAS A 6 MESES:
             $serviciosAlerta = [
                 'Full Service con Bujías',
                 'Full Service sin Bujías', 
@@ -179,7 +179,7 @@ class AlertasController {
 
             $serviciosPattern = implode('|', array_map('preg_quote', $serviciosAlerta));
 
-            // Buscar órdenes de hace 20+ días que tengan estos servicios
+            // Buscar órdenes de hace 6+ meses que tengan estos servicios
             // y que NO tengan ya una alerta generada
             $query = "
                 SELECT DISTINCT
@@ -195,8 +195,8 @@ class AlertasController {
                 LEFT JOIN alertas_servicio a ON os.id = a.orden_id
                 
                 WHERE 
-                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 3 MONTH)
-                    AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 20 DAY)
+                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+                    AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 6 MONTH)
                     AND a.id IS NULL -- No tiene alerta generada
                     AND EXISTS (
                         SELECT 1 FROM servicios_orden so2 
@@ -205,7 +205,7 @@ class AlertasController {
                     )
                     
                 GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.fecha_ingreso
-                HAVING dias_desde_servicio >= 20 -- 20 días o más
+                HAVING dias_desde_servicio >= 180 -- 6 meses (180 días) o más
                 ORDER BY os.fecha_ingreso DESC
             ";
 
@@ -285,8 +285,11 @@ class AlertasController {
     // NUEVO: Método para generar alertas automáticamente con control diario
     public function generarAlertasAutomatico($userData = null) {
         try {
-            // Verificar autorización
-            if (!$this->verificarAutorizacionAlertas($userData)) {
+            // Para crons automáticos, permitir ejecución sin verificación de usuario
+            // Verificar si es una ejecución automática o manual
+            $esEjecucionAutomatica = (php_sapi_name() === 'cli' || !$userData);
+            
+            if (!$esEjecucionAutomatica && !$this->verificarAutorizacionAlertas($userData)) {
                 return [
                     'success' => false,
                     'error' => 'No autorizado'

@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:backend": "cd backend-php && php -S localhost:8080",
+    "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev\"",
+    "start:local": "echo \"1. Inicia MySQL\" && echo \"2. Ejecuta: npm run dev:backend (en otra terminal)\" && echo \"3. Ejecuta: npm run dev\" && echo \"O usa: npm run dev:full (requiere concurrently)\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

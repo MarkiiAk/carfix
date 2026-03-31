@@ -2,12 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  base: '/gestion/',
+  base: mode === 'development' ? '/' : '/gestion/',
   server: {
     port: 3000,
-    open: true
+    open: true,
+    proxy: {
+      '/backend-php': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
   build: {
     outDir: 'dist',
@@ -23,4 +30,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

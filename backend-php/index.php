@@ -4,8 +4,24 @@
  * Compatible con cPanel / Hosting compartido
  */
 
-// Configuración de CORS
-header('Access-Control-Allow-Origin: https://saggarage.com');
+// Configuración de CORS - Detecta automáticamente desarrollo vs producción
+$allowedOrigins = [
+    'https://saggarage.com',           // Producción
+    'https://www.saggarage.com',       // Producción con www
+    'http://localhost:3000',           // Desarrollo local
+    'http://localhost:3001',           // Desarrollo local puerto alternativo
+    'http://127.0.0.1:3000',          // Desarrollo local alternativo
+    'http://127.0.0.1:3001'           // Desarrollo local alternativo puerto 2
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowedOrigins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+} else {
+    // Fallback para desarrollo local sin origin header
+    header('Access-Control-Allow-Origin: http://localhost:3000');
+}
+
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');
@@ -27,6 +43,7 @@ require_once __DIR__ . '/controllers/OrdenesController.php';
 require_once __DIR__ . '/controllers/EstadosSeguridadController.php';
 require_once __DIR__ . '/controllers/PuntosSeguridadController.php';
 require_once __DIR__ . '/controllers/AlertasController.php';
+require_once __DIR__ . '/controllers/WhatsappController.php';
 
 // Obtener conexión a base de datos
 $db = Database::getInstance()->getConnection();
@@ -38,9 +55,11 @@ $request_method = $_SERVER['REQUEST_METHOD'];
 // Remover query string y obtener path
 $path = parse_url($request_uri, PHP_URL_PATH);
 
-// Remover el prefijo /gestion/backend-php/ de la URL
+// Remover prefijos según el entorno
 $path = str_replace('/gestion/backend-php/', '', $path);
+$path = str_replace('/backend-php/', '', $path);
 $path = trim($path, '/');
+
 
 // Router simple
 try {
@@ -167,6 +186,69 @@ try {
         $controller = new AlertasController($db);
         $result = $controller->obtenerEstadisticas($userData);
         echo json_encode($result);
+    }
+    
+    // Rutas de WhatsApp (requieren autorización especial)
+    elseif ($path === 'whatsapp/dashboard' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $controller = new WhatsappController($db);
+        $result = $controller->obtenerEstadisticas();
+        echo json_encode($result);
+    }
+    elseif ($path === 'whatsapp/logs' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $controller = new WhatsappController($db);
+        $limite = $_GET['limite'] ?? 50;
+        $result = $controller->obtenerLogReciente($limite);
+        echo json_encode(['success' => true, 'logs' => $result]);
+    }
+    elseif ($path === 'whatsapp/test-conexion' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $controller = new WhatsappController($db);
+        $result = $controller->testConexion();
+        echo json_encode($result);
+    }
+    elseif ($path === 'whatsapp/procesar-cola' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $controller = new WhatsappController($db);
+        $result = $controller->procesarColaWhatsApp();
+        echo json_encode($result);
+    }
+    elseif ($path === 'whatsapp/configuracion' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $controller = new WhatsappController($db);
+        $config = [
+            'sistema_activo' => $controller->isSistemaActivo(),
+            'limite_diario' => $controller->getConfig('limite_mensajes_dia', 100),
+            'dias_cooldown' => $controller->getConfig('dias_cooldown', 30),
+            'template_default' => $controller->getConfig('template_default', 'recordatorio_general')
+        ];
+        echo json_encode(['success' => true, 'configuracion' => $config]);
+    }
+    elseif ($path === 'whatsapp/configuracion' && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $controller = new WhatsappController($db);
+        $data = json_decode(file_get_contents('php://input'), true);
+        
+        $results = [];
+        foreach ($data as $clave => $valor) {
+            $results[$clave] = $controller->updateConfig($clave, $valor);
+        }
+        
+        echo json_encode(['success' => true, 'updated' => $results]);
+    }
+    elseif ($path === 'whatsapp/blacklist' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $controller = new WhatsappController($db);
+        $data = json_decode(file_get_contents('php://input'), true);
+        
+        $result = $controller->agregarABlacklist(
+            $data['telefono'], 
+            $data['motivo'], 
+            $userData['id'] ?? null
+        );
+        
+        echo json_encode(['success' => $result, 'message' => $result ? 'Número agregado a blacklist' : 'Error al agregar número']);
     }
     
     // Ruta de salud
