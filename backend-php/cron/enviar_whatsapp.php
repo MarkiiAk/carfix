@@ -2,15 +2,15 @@
 /**
  * Cron Job: Enviar WhatsApp - SAG Garage
  * 
- * Se ejecuta diariamente a las 10:00 AM en días hábiles (Lunes-Viernes)
+ * Se ejecuta automáticamente según configuración de cPanel cron
  * Envía mensajes de WhatsApp a clientes con alertas pendientes
  * 
- * Configuración cron:
- * 0 10 * * 1-5 /usr/bin/php /path/to/backend-php/cron/enviar_whatsapp.php >> /var/log/sag_whatsapp_envio.log 2>&1
+ * Configuración cron ejemplo (días hábiles):
+ * 30 10 * * 1-5 /usr/local/bin/php /home/saggarag/public_html/backend-php/cron/enviar_whatsapp.php
  * 
  * @author Marco Candiani
- * @version 1.0
- * @date 30/03/2026
+ * @version 1.1
+ * @date 31/03/2026
  */
 
 // Configurar timezone
@@ -70,13 +70,6 @@ function esDiaHabil() {
     return $diaSemana >= 1 && $diaSemana <= 5; // Lunes a Viernes
 }
 
-// Función para verificar horario de envío
-function esHorarioValido() {
-    $horaActual = date('H');
-    
-    // PRODUCCIÓN: Ejecutar a las 10:00 AM
-    return $horaActual == 10;
-}
 
 // Inicializar
 logMessage("=== INICIO ENVÍO AUTOMÁTICO DE WHATSAPP ===");
@@ -86,18 +79,13 @@ logMessage("PHP Version: " . PHP_VERSION);
 logMessage("Memoria inicial: " . formatBytes(memory_get_usage()));
 
 try {
-    // Verificar día hábil
+    // Verificar día hábil (controlado por configuración cron, pero mantenemos verificación como seguridad)
     if (!esDiaHabil()) {
         logMessage("⏭️  Saltando ejecución: No es día hábil (hoy es " . date('l') . ")");
         exit(0);
     }
     
-    // Verificar horario (más flexible para testing manual)
-    if (!esHorarioValido() && !isset($argv[1]) || $argv[1] !== '--force') {
-        logMessage("⏭️  Saltando ejecución: Fuera del horario de envío (actual: " . date('H:i') . ")");
-        logMessage("ℹ️   Use --force para ejecutar manualmente");
-        exit(0);
-    }
+    logMessage("✅ Es día hábil, procediendo con la ejecución...");
     
     // Verificar que estamos en el directorio correcto
     $currentDir = dirname(__FILE__);

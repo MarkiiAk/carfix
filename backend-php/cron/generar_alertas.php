@@ -2,15 +2,15 @@
 /**
  * Cron Job: Generar Alertas - SAG Garage
  * 
- * Se ejecuta diariamente a las 12:00 AM (medianoche)
+ * Se ejecuta automáticamente según configuración de cPanel cron
  * Genera alertas automáticamente para clientes que necesitan servicio
  * 
- * Configuración cron:
- * 0 0 * * * /usr/bin/php /path/to/backend-php/cron/generar_alertas.php >> /var/log/sag_alertas_generacion.log 2>&1
+ * Configuración cron ejemplo:
+ * 25 10 * * * /usr/local/bin/php /home/saggarag/public_html/backend-php/cron/generar_alertas.php
  * 
  * @author Marco Candiani
- * @version 1.0
- * @date 30/03/2026
+ * @version 1.1
+ * @date 31/03/2026
  */
 
 // Configurar timezone
