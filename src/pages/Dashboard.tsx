@@ -84,9 +84,7 @@ export const Dashboard = () => {
     try {
       setAlertasLoading(true);
       
-      // Primero generar alertas nuevas
-      await alertasAutoService.generarAlertasAutomatico();
-      
+      // Solo obtener alertas existentes - el cron se encarga de generarlas
       const alertasResult = await alertasAutoService.obtenerAlertas();
       
       if (alertasResult.success && alertasResult.alertas) {
