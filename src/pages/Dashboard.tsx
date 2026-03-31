@@ -85,7 +85,7 @@ export const Dashboard = () => {
       setAlertasLoading(true);
       
       // Primero generar alertas nuevas
-      const generarResult = await alertasAutoService.generarAlertasAutomatico();
+      await alertasAutoService.generarAlertasAutomatico();
       
       const alertasResult = await alertasAutoService.obtenerAlertas();
       
