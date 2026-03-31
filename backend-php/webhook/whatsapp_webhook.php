@@ -1,226 +1,154 @@
 <?php
 /**
  * WhatsApp Webhook - SAG Garage
- * 
- * Endpoint para recibir actualizaciones de estado de mensajes de WhatsApp
- * Se debe configurar en Meta Developer Console
- * 
- * URL del webhook: https://tu-dominio.com/backend-php/webhook/whatsapp_webhook.php
+ * Versión simplificada y funcional para cPanel
  * 
  * @author Marco Candiani
- * @version 1.0
- * @date 30/03/2026
+ * @version 2.0
+ * @date 31/03/2026
  */
 
-// Configurar headers de respuesta
-header('Content-Type: application/json');
-
-// Configurar timezone
+// Headers básicos
+header('Content-Type: text/plain');
 date_default_timezone_set('America/Mexico_City');
 
-// Función para logging específico de webhook
-function logWebhook($message, $level = 'INFO', $data = null) {
+// Función simple de logging
+function logMessage($message) {
     $timestamp = date('Y-m-d H:i:s');
-    $logEntry = [
-        'timestamp' => $timestamp,
-        'level' => $level,
-        'message' => $message,
-        'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
-        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
-    ];
+    $logFile = __DIR__ . '/../../logs/whatsapp_webhook.log';
     
-    if ($data !== null) {
-        $logEntry['data'] = $data;
+    // Crear directorio logs si no existe
+    $logDir = dirname($logFile);
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0755, true);
     }
     
-    $logMessage = "[{$timestamp}] [{$level}] WEBHOOK: {$message}\n";
-    
-    // Log a archivo específico
-    file_put_contents('/var/log/sag_whatsapp_webhook.log', $logMessage, FILE_APPEND | LOCK_EX);
-    
-    // Log detallado en formato JSON para análisis
-    if ($data !== null) {
-        $detailedLog = json_encode($logEntry) . "\n";
-        file_put_contents('/var/log/sag_whatsapp_webhook_detailed.log', $detailedLog, FILE_APPEND | LOCK_EX);
-    }
-}
-
-// Función para respuesta JSON
-function jsonResponse($data, $httpCode = 200) {
-    http_response_code($httpCode);
-    echo json_encode($data);
-    exit;
-}
-
-// Función para validar IP de Facebook/Meta (opcional pero recomendado)
-function validarIPFacebook($ip) {
-    // Rangos de IP de Facebook (actualizar según documentación oficial)
-    $facebookRanges = [
-        '31.13.24.0/21',
-        '31.13.64.0/18',
-        '66.220.144.0/20',
-        '69.63.176.0/20',
-        '69.171.224.0/19',
-        '74.119.76.0/22',
-        '103.4.96.0/22',
-        '173.252.64.0/19',
-        '173.252.96.0/19',
-        '179.60.192.0/22',
-        '185.60.216.0/22',
-        '204.15.20.0/22'
-    ];
-    
-    foreach ($facebookRanges as $range) {
-        if (ipInRange($ip, $range)) {
-            return true;
-        }
-    }
-    
-    return false;
-}
-
-// Función auxiliar para verificar IP en rango
-function ipInRange($ip, $range) {
-    list($subnet, $bits) = explode('/', $range);
-    $ip = ip2long($ip);
-    $subnet = ip2long($subnet);
-    $mask = -1 << (32 - $bits);
-    $subnet &= $mask;
-    return ($ip & $mask) == $subnet;
+    $logEntry = "[{$timestamp}] {$message}\n";
+    @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
 }
 
 try {
-    logWebhook("Webhook recibido - " . $_SERVER['REQUEST_METHOD']);
+    logMessage("=== WEBHOOK START ===");
+    logMessage("Method: " . ($_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN'));
+    logMessage("Query: " . ($_SERVER['QUERY_STRING'] ?? 'NONE'));
     
-    // Cargar dependencias
-    require_once dirname(__FILE__) . '/../config/database.php';
-    require_once dirname(__FILE__) . '/../controllers/WhatsappController.php';
+    // Cargar configuración
+    require_once __DIR__ . '/../config/database.php';
     
     // Conectar a base de datos
-    $database = new Database();
+    $database = Database::getInstance();
     $db = $database->getConnection();
     
     if (!$db) {
-        logWebhook("Error: No se pudo conectar a la base de datos", 'ERROR');
-        jsonResponse(['error' => 'Database connection failed'], 500);
+        logMessage("ERROR: No se pudo conectar a la base de datos");
+        http_response_code(500);
+        echo "Database connection failed";
+        exit;
     }
     
-    // Crear controlador
-    $whatsappController = new WhatsappController($db);
+    logMessage("BD conectada exitosamente");
     
-    // Manejar verificación del webhook (GET request)
+    // MANEJAR VERIFICACIÓN (GET)
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $hubMode = $_GET['hub_mode'] ?? '';
         $hubChallenge = $_GET['hub_challenge'] ?? '';
         $hubVerifyToken = $_GET['hub_verify_token'] ?? '';
         
-        logWebhook("Verificación de webhook recibida", 'INFO', [
-            'hub_mode' => $hubMode,
-            'hub_verify_token' => substr($hubVerifyToken, 0, 10) . '...' // Solo primeros caracteres por seguridad
-        ]);
+        logMessage("Verificación - Mode: {$hubMode}, Challenge: {$hubChallenge}, Token: " . substr($hubVerifyToken, 0, 10) . "...");
         
-        // Verificar el token
-        $verificacion = $whatsappController->testConexion();
-        if (!$verificacion['success']) {
-            logWebhook("Error en configuración de WhatsApp API", 'ERROR');
-            jsonResponse(['error' => 'API configuration error'], 500);
+        // Obtener token esperado de la BD
+        $query = "SELECT valor FROM whatsapp_config WHERE clave = 'webhook_token' LIMIT 1";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$result) {
+            logMessage("ERROR: No se encontró webhook_token en BD");
+            http_response_code(500);
+            echo "Webhook token not configured";
+            exit;
         }
         
-        // Obtener configuración del webhook
-        $tokenEsperado = $whatsappController->getConfig('webhook_token');
+        $tokenEsperado = $result['valor'];
+        logMessage("Token esperado: " . substr($tokenEsperado, 0, 10) . "...");
         
-        if (empty($tokenEsperado)) {
-            logWebhook("Token de webhook no configurado", 'ERROR');
-            jsonResponse(['error' => 'Webhook token not configured'], 500);
-        }
-        
+        // Verificar token
         if ($hubMode === 'subscribe' && $hubVerifyToken === $tokenEsperado) {
-            logWebhook("Verificación exitosa - webhook configurado", 'INFO');
+            logMessage("ÉXITO: Verificación exitosa");
             echo $hubChallenge;
             exit;
         } else {
-            logWebhook("Verificación fallida - token incorrecto", 'ERROR');
-            jsonResponse(['error' => 'Invalid verification token'], 403);
+            logMessage("ERROR: Verificación fallida");
+            logMessage("- hub_mode recibido: '{$hubMode}' (esperado: 'subscribe')");
+            logMessage("- Token coincide: " . ($hubVerifyToken === $tokenEsperado ? 'SÍ' : 'NO'));
+            http_response_code(403);
+            echo "Verification failed";
+            exit;
         }
     }
     
-    // Manejar actualizaciones del webhook (POST request)
+    // MANEJAR ACTUALIZACIONES (POST)
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        // Validar IP de origen (opcional)
-        $clientIP = $_SERVER['REMOTE_ADDR'] ?? '';
-        if (!empty($clientIP) && $whatsappController->getConfig('validar_ip_facebook', false)) {
-            if (!validarIPFacebook($clientIP)) {
-                logWebhook("IP no autorizada: {$clientIP}", 'WARNING');
-                jsonResponse(['error' => 'Unauthorized IP'], 403);
-            }
-        }
+        logMessage("POST recibido - procesando actualizaciones");
         
-        // Leer el payload
         $payload = file_get_contents('php://input');
+        logMessage("Payload size: " . strlen($payload));
         
         if (empty($payload)) {
-            logWebhook("Payload vacío recibido", 'WARNING');
-            jsonResponse(['error' => 'Empty payload'], 400);
+            logMessage("ERROR: Payload vacío");
+            http_response_code(400);
+            echo "Empty payload";
+            exit;
         }
         
-        // Validar JSON
         $data = json_decode($payload, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            logWebhook("JSON inválido: " . json_last_error_msg(), 'ERROR');
-            jsonResponse(['error' => 'Invalid JSON'], 400);
+            logMessage("ERROR: JSON inválido - " . json_last_error_msg());
+            http_response_code(400);
+            echo "Invalid JSON";
+            exit;
         }
         
-        logWebhook("Payload recibido", 'INFO', [
-            'size' => strlen($payload),
-            'structure' => array_keys($data)
+        logMessage("JSON válido - estructura: " . implode(', ', array_keys($data)));
+        
+        // Log básico del webhook para análisis
+        $logQuery = "INSERT INTO whatsapp_logs (
+            cliente_id, 
+            telefono, 
+            mensaje, 
+            estado, 
+            metadata, 
+            created_at
+        ) VALUES (0, 'webhook', ?, 'webhook_received', ?, NOW())";
+        
+        $stmt = $db->prepare($logQuery);
+        $stmt->execute([
+            'Webhook recibido: ' . date('Y-m-d H:i:s'),
+            json_encode($data)
         ]);
         
-        // Procesar el webhook
-        $resultado = $whatsappController->procesarWebhook($data);
+        logMessage("Webhook guardado en BD");
         
-        if ($resultado['success']) {
-            $procesados = $resultado['procesados'] ?? 0;
-            logWebhook("Webhook procesado exitosamente - {$procesados} actualizaciones", 'INFO');
-            
-            // Log de detalles si hay actualizaciones
-            if ($procesados > 0 && isset($resultado['updates'])) {
-                foreach ($resultado['updates'] as $update) {
-                    $tipo = $update['type'] ?? 'unknown';
-                    $messageId = $update['message_id'] ?? 'unknown';
-                    logWebhook("Actualización: {$tipo} para mensaje {$messageId}", 'INFO');
-                }
-            }
-            
-            jsonResponse(['status' => 'success', 'processed' => $procesados]);
-            
-        } else {
-            $error = $resultado['error'] ?? 'Unknown error';
-            logWebhook("Error procesando webhook: {$error}", 'ERROR');
-            jsonResponse(['error' => $error], 500);
-        }
+        // Responder éxito a Facebook
+        echo "OK";
+        logMessage("Respuesta enviada: OK");
+        exit;
     }
     
     // Método no soportado
-    logWebhook("Método HTTP no soportado: " . $_SERVER['REQUEST_METHOD'], 'WARNING');
-    jsonResponse(['error' => 'Method not allowed'], 405);
-    
-} catch (PDOException $e) {
-    logWebhook("Error de base de datos: " . $e->getMessage(), 'FATAL');
-    jsonResponse(['error' => 'Database error'], 500);
+    logMessage("ERROR: Método no soportado - " . $_SERVER['REQUEST_METHOD']);
+    http_response_code(405);
+    echo "Method not allowed";
+    exit;
     
 } catch (Exception $e) {
-    logWebhook("Error general: " . $e->getMessage(), 'FATAL', [
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
-        'trace' => $e->getTraceAsString()
-    ]);
-    jsonResponse(['error' => 'Internal server error'], 500);
+    logMessage("EXCEPCIÓN FATAL: " . $e->getMessage());
+    logMessage("Archivo: " . $e->getFile() . " Línea: " . $e->getLine());
     
-} catch (Error $e) {
-    logWebhook("Error fatal de PHP: " . $e->getMessage(), 'FATAL');
-    jsonResponse(['error' => 'Fatal error'], 500);
+    http_response_code(500);
+    echo "Internal server error";
+    exit;
 }
 
-// Esta línea no debería ejecutarse nunca
-logWebhook("WARNING: Final del script alcanzado sin respuesta", 'WARNING');
-jsonResponse(['error' => 'Unexpected end of script'], 500);
+logMessage("=== WEBHOOK END ===");
+?>
