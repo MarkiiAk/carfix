@@ -816,7 +816,6 @@ class OrdenesController {
         // Obtener puntos de seguridad de la orden
         $orden['puntosSeguridad'] = [];
         
-        error_log('🔍 DEBUG: Iniciando obtención de puntos para orden: ' . $orden['id']);
         
         try {
             // PASO 1: Query básico sin JOINs para ver si hay datos
@@ -824,12 +823,9 @@ class OrdenesController {
             $basicStmt->execute([$orden['id']]);
             $basicPuntos = $basicStmt->fetchAll();
             
-            error_log('📊 DEBUG: Puntos básicos encontrados: ' . count($basicPuntos));
-            error_log('📋 DEBUG: Datos básicos: ' . json_encode($basicPuntos));
             
             if (count($basicPuntos) > 0) {
                 // PASO 2: Si hay datos básicos, intentar query completo
-                error_log('🔧 DEBUG: Intentando query completo...');
                 
                 $stmt = $this->db->prepare('
                     SELECT ops.id, ops.orden_id, ops.punto_seguridad_id, ops.estado_id, ops.notas,
@@ -846,8 +842,6 @@ class OrdenesController {
                 $stmt->execute([$orden['id']]);
                 $puntosDB = $stmt->fetchAll();
                 
-                error_log('✅ DEBUG: Puntos con JOINs encontrados: ' . count($puntosDB));
-                error_log('📄 DEBUG: Datos completos: ' . json_encode($puntosDB));
                 
                 foreach ($puntosDB as $punto) {
                     $puntoProcessed = [
@@ -870,20 +864,15 @@ class OrdenesController {
                     ];
                     
                     $orden['puntosSeguridad'][] = $puntoProcessed;
-                    error_log('➕ DEBUG: Punto procesado: ' . json_encode($puntoProcessed));
                 }
             } else {
-                error_log('❌ DEBUG: No se encontraron puntos básicos en la tabla orden_puntos_seguridad');
             }
             
         } catch (Exception $e) {
-            error_log('💥 ERROR obteniendo puntos de seguridad: ' . $e->getMessage());
-            error_log('🔍 ERROR Details: ' . $e->getFile() . ':' . $e->getLine());
-            error_log('📄 ERROR Trace: ' . $e->getTraceAsString());
+            error_log('ERROR obteniendo puntos de seguridad: ' . $e->getMessage());
             $orden['puntosSeguridad'] = [];
         }
         
-        error_log('🎯 DEBUG: Total puntos finales: ' . count($orden['puntosSeguridad']));
         
         return $orden;
     }
@@ -1025,7 +1014,6 @@ class OrdenesController {
                 ]);
             }
         }
-        error_log('Puntos de seguridad insertados: ' . count($puntos) . ' para orden ' . $orden_id);
     }
     
     private function generateNumeroOrden($id) {

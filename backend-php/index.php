@@ -60,10 +60,6 @@ $path = str_replace('/gestion/backend-php/', '', $path);
 $path = str_replace('/backend-php/', '', $path);
 $path = trim($path, '/');
 
-// DEBUG: Log para desarrollo
-error_log("DEBUG - Request URI: " . $request_uri);
-error_log("DEBUG - Processed path: " . $path);
-error_log("DEBUG - Method: " . $request_method);
 
 // Router simple
 try {
