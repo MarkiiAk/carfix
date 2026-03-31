@@ -3,13 +3,6 @@ import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrde
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-// API Configuration
-const config = {
-  API_URL,
-  env: import.meta.env.VITE_API_URL,
-  mode: import.meta.env.MODE
-};
-
 const api = axios.create({
   baseURL: API_URL,
   headers: {
