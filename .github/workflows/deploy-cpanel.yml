@@ -133,7 +133,20 @@ jobs:
           security: strict
           timeout: 600000
 
-      # 9. Subir Backend PHP a /gestion/backend-php/
+      # 9. Crear archivo .env con credenciales de producción
+      - name: 🔧 Crear archivo .env para producción
+        run: |
+          echo "Creando archivo .env con credenciales del servidor..."
+          cat > backend-php/.env << EOF
+          DB_HOST=${{ secrets.DB_HOST || 'localhost' }}
+          DB_NAME=${{ secrets.DB_NAME || 'saggarag_GestionPresupuestos' }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASS=${{ secrets.DB_PASS }}
+          JWT_SECRET=${{ secrets.JWT_SECRET || 'fallback_jwt_secret_key_123' }}
+          EOF
+          echo "✅ Archivo .env creado correctamente"
+
+      # 10. Subir Backend PHP a /gestion/backend-php/
       - name: 🐘 Deploy Backend PHP a /gestion/backend-php/
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -142,11 +155,11 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT || 21 }}
           
-          # Subir backend PHP
+          # Subir backend PHP CON el archivo .env
           local-dir: backend-php/
           server-dir: ./gestion/backend-php/
           
-          # LIMPIAR para eliminar archivos viejos (pero .env está excluido, no se borra)
+          # LIMPIAR para eliminar archivos viejos (INCLUIR .env ahora)
           dangerous-clean-slate: true
           
           exclude: |
@@ -156,7 +169,6 @@ jobs:
             **/node_modules/**
             **/.vscode/**
             **/.DS_Store
-            **/.env
             **/.env.example
             **/INSTALACION-BACKEND-PHP.md
           
@@ -165,7 +177,7 @@ jobs:
           security: loose
           timeout: 900000
 
-      # 10. Subir .htaccess del backend (workaround para archivos con punto)
+      # 11. Subir .htaccess del backend (workaround para archivos con punto)
       - name: 📄 Upload backend .htaccess
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -189,7 +201,7 @@ jobs:
           security: loose
           timeout: 300000
 
-      # 11. Subir .htaccess del frontend para manejar rutas React Router
+      # 12. Subir .htaccess del frontend para manejar rutas React Router
       - name: 📄 Upload frontend .htaccess (React Router)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -213,7 +225,7 @@ jobs:
           security: loose
           timeout: 300000
 
-      # 12. Notificación de éxito
+      # 13. Notificación de éxito
       - name: ✅ Deploy completado
         if: success()
         run: |
@@ -221,7 +233,7 @@ jobs:
           echo "🌐 Tu sitio está actualizado"
           echo "⏰ Fecha: $(date)"
 
-      # 13. Notificación de error
+      # 14. Notificación de error
       - name: ❌ Deploy falló
         if: failure()
         run: |

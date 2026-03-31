@@ -5,15 +5,33 @@
  */
 
 // Cargar variables de entorno si existe el archivo .env
+error_log('=== ENV LOADING DEBUG ===');
+error_log('Looking for .env file at: ' . __DIR__ . '/.env');
+error_log('File exists: ' . (file_exists(__DIR__ . '/.env') ? 'YES' : 'NO'));
+
 if (file_exists(__DIR__ . '/.env')) {
+    error_log('Loading .env file...');
     $envVars = parse_ini_file(__DIR__ . '/.env', false, INI_SCANNER_NORMAL);
+    error_log('Parsed .env contents: ' . print_r($envVars, true));
+    
     if ($envVars) {
         foreach ($envVars as $key => $value) {
             $_ENV[$key] = $value;
             putenv("$key=$value");
+            error_log("Set env var: $key = $value");
         }
+    } else {
+        error_log('ERROR: Could not parse .env file');
     }
+} else {
+    error_log('No .env file found, using defaults');
 }
+
+error_log('Final $_ENV DB vars:');
+error_log('DB_HOST: ' . ($_ENV['DB_HOST'] ?? 'NOT SET'));
+error_log('DB_NAME: ' . ($_ENV['DB_NAME'] ?? 'NOT SET'));
+error_log('DB_USER: ' . ($_ENV['DB_USER'] ?? 'NOT SET'));
+error_log('DB_PASS length: ' . strlen($_ENV['DB_PASS'] ?? ''));
 
 // Configuración de CORS - Detecta automáticamente desarrollo vs producción
 $allowedOrigins = [
@@ -268,6 +286,21 @@ try {
             'status' => 'ok',
             'database' => 'MySQL conectado',
             'timestamp' => time()
+        ]);
+    }
+    
+    // ENDPOINT TEMPORAL DE DEBUG
+    elseif ($path === 'debug/env' && $request_method === 'GET') {
+        echo json_encode([
+            'env_file_exists' => file_exists(__DIR__ . '/.env'),
+            'env_file_path' => __DIR__ . '/.env',
+            'db_host' => $_ENV['DB_HOST'] ?? 'NOT SET',
+            'db_name' => $_ENV['DB_NAME'] ?? 'NOT SET', 
+            'db_user' => $_ENV['DB_USER'] ?? 'NOT SET',
+            'db_pass_length' => strlen($_ENV['DB_PASS'] ?? ''),
+            'current_dir' => __DIR__,
+            'all_env_vars' => $_ENV,
+            'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown'
         ]);
     }
     
