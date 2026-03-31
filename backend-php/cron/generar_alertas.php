@@ -16,7 +16,7 @@
 // Configurar timezone
 date_default_timezone_set('America/Mexico_City');
 
-// Función para logging
+// Función para logging mejorada con flush
 function logMessage($message, $level = 'INFO') {
     $timestamp = date('Y-m-d H:i:s');
     $logMessage = "[{$timestamp}] [{$level}] {$message}\n";
@@ -37,8 +37,14 @@ function logMessage($message, $level = 'INFO') {
         syslog(LOG_INFO, "SAG Alertas: {$message}");
     }
     
-    // Output para cuando se ejecuta manualmente
+    // Output para cuando se ejecuta manualmente con flush inmediato
     echo $logMessage;
+    
+    // Forzar flush del output para ver logs en tiempo real
+    if (ob_get_level()) {
+        ob_flush();
+    }
+    flush();
 }
 
 // Función para manejo de errores

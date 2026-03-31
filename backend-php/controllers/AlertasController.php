@@ -161,8 +161,8 @@ class AlertasController {
                 ];
             }
             
-            // PRODUCCIÓN: 6 meses (180 días) - período estándar para alertas de servicio
-            // SERVICIOS QUE DISPARAN ALERTAS A 6 MESES:
+            // TESTEO: 20 días - período reducido para pruebas
+            // SERVICIOS QUE DISPARAN ALERTAS A 20+ DÍAS:
             $serviciosAlerta = [
                 'Full Service con Bujías',
                 'Full Service sin Bujías', 
@@ -172,7 +172,7 @@ class AlertasController {
 
             $serviciosPattern = implode('|', array_map('preg_quote', $serviciosAlerta));
 
-            // Buscar órdenes de hace 6+ meses que tengan estos servicios
+            // Buscar órdenes de hace 20+ días que tengan estos servicios
             // y que NO tengan ya una alerta generada
             $query = "
                 SELECT DISTINCT
@@ -188,8 +188,8 @@ class AlertasController {
                 LEFT JOIN alertas_servicio a ON os.id = a.orden_id
                 
                 WHERE 
-                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-                    AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                    AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 20 DAY)
                     AND a.id IS NULL -- No tiene alerta generada
                     AND EXISTS (
                         SELECT 1 FROM servicios_orden so2 
@@ -198,13 +198,26 @@ class AlertasController {
                     )
                     
                 GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.fecha_ingreso
-                HAVING dias_desde_servicio >= 180 -- 6 meses (180 días) o más
+                HAVING dias_desde_servicio >= 20 -- 20 días o más
                 ORDER BY os.fecha_ingreso DESC
             ";
 
             $stmt = $this->db->prepare($query);
             $stmt->execute([$serviciosPattern]);
             $ordenesParaAlerta = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Log de debug para entender qué se está encontrando
+            if ($esEjecucionAutomatica) {
+                error_log("SAG Debug: Servicios buscados: " . implode(', ', $serviciosAlerta));
+                error_log("SAG Debug: Pattern REGEXP: " . $serviciosPattern);
+                error_log("SAG Debug: Órdenes encontradas para evaluar: " . count($ordenesParaAlerta));
+                
+                if (count($ordenesParaAlerta) > 0) {
+                    error_log("SAG Debug: Primera orden encontrada - ID: " . $ordenesParaAlerta[0]['orden_id'] . 
+                             ", Fecha: " . $ordenesParaAlerta[0]['fecha_ingreso'] . 
+                             ", Días: " . $ordenesParaAlerta[0]['dias_desde_servicio']);
+                }
+            }
 
             $alertasGeneradas = 0;
 
