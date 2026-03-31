@@ -6,24 +6,24 @@ Configurar los cron jobs automáticos para que se ejecuten sin intervención man
 ## ⚡ Configuración Completa
 
 ### 1. Cron Job: Generar Alertas
-**Ejecuta a las 10:25 AM todos los días**
+**Ejecuta a las 1:00 PM todos los días**
 
-- **Minuto**: `25`
-- **Hora**: `10`
+- **Minuto**: `0`
+- **Hora**: `13`
 - **Día**: `*`
 - **Mes**: `*`
 - **Día de la semana**: `*`
-- **Comando**: `/usr/local/bin/php /home/saggarag/public_html/backend-php/cron/generar_alertas.php`
+- **Comando**: `/usr/local/bin/php /home/saggarag/public_html/gestion/backend-php/cron/generar_alertas.php`
 
 ### 2. Cron Job: Enviar WhatsApp  
-**Ejecuta a las 10:30 AM solo días hábiles (Lunes-Viernes)**
+**Ejecuta a las 1:05 PM solo días hábiles (Lunes-Viernes)**
 
-- **Minuto**: `30`
-- **Hora**: `10`
+- **Minuto**: `5`
+- **Hora**: `13`
 - **Día**: `*`
 - **Mes**: `*`
 - **Día de la semana**: `1-5`
-- **Comando**: `/usr/local/bin/php /home/saggarag/public_html/backend-php/cron/enviar_whatsapp.php`
+- **Comando**: `/usr/local/bin/php /home/saggarag/public_html/gestion/backend-php/cron/enviar_whatsapp.php`
 
 ## 📋 Pasos para Configurar en cPanel
 
@@ -39,23 +39,23 @@ Configurar los cron jobs automáticos para que se ejecuten sin intervención man
 ### 3. Agregar Primer Cron Job (Generar Alertas)
 1. En **"Add New Cron Job"**
 2. Completa los campos:
-   - **Minute**: `25`
-   - **Hour**: `10`
+   - **Minute**: `10`
+   - **Hour**: `11`
    - **Day**: `*`
    - **Month**: `*`
    - **Weekday**: `*`
-   - **Command**: `/usr/local/bin/php /home/saggarag/public_html/backend-php/cron/generar_alertas.php`
+   - **Command**: `/usr/local/bin/php /home/saggarag/public_html/gestion/backend-php/cron/generar_alertas.php`
 3. Clic en **"Add New Cron Job"**
 
 ### 4. Agregar Segundo Cron Job (Enviar WhatsApp)
 1. En **"Add New Cron Job"**
 2. Completa los campos:
-   - **Minute**: `30`
-   - **Hour**: `10`
+   - **Minute**: `15`
+   - **Hour**: `11`
    - **Day**: `*`
    - **Month**: `*`
    - **Weekday**: `1-5`
-   - **Command**: `/usr/local/bin/php /home/saggarag/public_html/backend-php/cron/enviar_whatsapp.php`
+   - **Command**: `/usr/local/bin/php /home/saggarag/public_html/gestion/backend-php/cron/enviar_whatsapp.php`
 3. Clic en **"Add New Cron Job"**
 
 ## ✅ Verificación
@@ -64,8 +64,8 @@ Después de configurar, deberías ver en **"Current Cron Jobs"**:
 
 | Minuto | Hora | Día | Mes | Día de la semana | Comando |
 |--------|------|-----|-----|-----------------|---------|
-| 25 | 10 | * | * | * | /usr/local/bin/php /home/saggarag/public_html/backend-php/cron/generar_alertas.php |
-| 30 | 10 | * | * | 1-5 | /usr/local/bin/php /home/saggarag/public_html/backend-php/cron/enviar_whatsapp.php |
+| 10 | 11 | * | * | * | /usr/local/bin/php /home/saggarag/public_html/gestion/backend-php/cron/generar_alertas.php |
+| 15 | 11 | * | * | 1-5 | /usr/local/bin/php /home/saggarag/public_html/gestion/backend-php/cron/enviar_whatsapp.php |
 
 ## 🔧 Modificaciones de Scripts Realizadas
 
@@ -84,8 +84,8 @@ Después de configurar, deberías ver en **"Current Cron Jobs"**:
 ## 🕐 Horarios de Ejecución
 
 ### Configuración Actual:
-- **Generar Alertas**: 10:25 AM (todos los días)
-- **Enviar WhatsApp**: 10:30 AM (solo días hábiles)
+- **Generar Alertas**: 11:10 AM (todos los días)
+- **Enviar WhatsApp**: 11:15 AM (solo días hábiles)
 
 ### Para Cambiar Horarios:
 1. Ve a cPanel → Cron Jobs
@@ -99,16 +99,69 @@ Después de configurar, deberías ver en **"Current Cron Jobs"**:
 - Para 6:30 PM: `Minute: 30, Hour: 18`
 - Para cada 2 horas: `Minute: 0, Hour: */2`
 
-## 📊 Monitoreo
+## 📊 Monitoreo y Verificación
 
-### Logs Generados:
+### 📄 Logs de Archivos:
 - **Generar Alertas**: `/home/saggarag/public_html/logs/sag_alertas_generacion.log`
 - **Enviar WhatsApp**: `/home/saggarag/public_html/logs/sag_whatsapp_envio.log`
 
-### Verificar Ejecución:
-1. Accede por FTP/File Manager a la carpeta `/logs/`
-2. Revisa los archivos de log para confirmar ejecución
-3. Los logs muestran timestamps, resultados y errores
+### 🗄️ Logs de Base de Datos:
+
+#### Generación de Alertas:
+- **Tabla**: `alertas_ejecucion_log`
+- **Contenido**: Registro de cada ejecución diaria, alertas generadas, tiempo de ejecución
+- **Query para verificar**: 
+  ```sql
+  SELECT * FROM alertas_ejecucion_log ORDER BY fecha_ejecucion DESC LIMIT 10;
+  ```
+
+#### Envío de WhatsApp:
+- **Tabla**: `whatsapp_logs`
+- **Contenido**: Log completo de cada mensaje enviado, estado, errores
+- **Query para verificar**:
+  ```sql
+  SELECT * FROM whatsapp_logs WHERE DATE(created_at) = CURDATE() ORDER BY created_at DESC;
+  ```
+
+#### Estadísticas Diarias:
+- **Tabla**: `whatsapp_estadisticas_diarias`
+- **Contenido**: Estadísticas agregadas por día (mensajes, costos, conversiones)
+- **Query para verificar**:
+  ```sql
+  SELECT * FROM whatsapp_estadisticas_diarias ORDER BY fecha DESC LIMIT 7;
+  ```
+
+#### Vista de Dashboard:
+- **Vista**: `vista_whatsapp_dashboard`
+- **Contenido**: Resumen de estadísticas en tiempo real
+- **Query para verificar**:
+  ```sql
+  SELECT * FROM vista_whatsapp_dashboard;
+  ```
+
+### 🔍 Cómo Verificar Ejecución:
+
+#### 1. Logs de Archivos:
+1. Accede por FTP/File Manager a `/home/saggarag/public_html/logs/`
+2. Revisa los archivos `.log` para timestamps y resultados
+3. Los logs muestran inicio, progreso y finalización con códigos de salida
+
+#### 2. Logs de Base de Datos:
+1. Conéctate a la base de datos vía phpMyAdmin o similar
+2. Ejecuta las queries de verificación mostradas arriba
+3. Revisa fechas, horarios y resultados de las ejecuciones
+
+#### 3. Verificación Rápida:
+```sql
+-- ¿Se ejecutó hoy el generador de alertas?
+SELECT * FROM alertas_ejecucion_log WHERE fecha_ejecucion = CURDATE();
+
+-- ¿Se enviaron WhatsApp hoy?
+SELECT COUNT(*) as mensajes_hoy FROM whatsapp_logs WHERE DATE(created_at) = CURDATE();
+
+-- ¿Hay errores recientes?
+SELECT * FROM whatsapp_logs WHERE estado = 'error' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY);
+```
 
 ## ⚠️ Notas Importantes
 
