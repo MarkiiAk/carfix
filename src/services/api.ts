@@ -51,7 +51,6 @@ export const authAPI = {
       const response = await api.post('/auth/login', { username, password });
       return response.data;
     } catch (error) {
-      console.error('❌ LOGIN ERROR:', error);
       throw error;
     }
   },
@@ -74,7 +73,6 @@ export const ordenesAPI = {
       const response = await api.get<Orden[]>('/ordenes');
       return response.data;
     } catch (error) {
-      console.error('❌ ERROR FETCHING ORDENES:', error);
       throw error;
     }
   },
@@ -84,7 +82,6 @@ export const ordenesAPI = {
       const response = await api.get<Orden>(`/ordenes/${id}`);
       return response.data;
     } catch (error) {
-      console.error('❌ ERROR FETCHING ORDEN:', error);
       throw error;
     }
   },
@@ -106,7 +103,6 @@ export const ordenesAPI = {
       const response = await api.post<Orden>('/ordenes', orden);
       return response.data;
     } catch (error) {
-      console.error('❌ ERROR CREATING ORDEN:', error);
       throw error;
     }
   },
@@ -116,7 +112,6 @@ export const ordenesAPI = {
       const response = await api.put<Orden>(`/ordenes/${id}`, orden);
       return response.data;
     } catch (error) {
-      console.error('❌ ERROR UPDATING ORDEN:', error);
       throw error;
     }
   },

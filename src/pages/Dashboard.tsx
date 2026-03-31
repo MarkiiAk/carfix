@@ -74,7 +74,6 @@ export const Dashboard = () => {
       const data = await ordenesAPI.getAll();
       setOrdenes(data);
     } catch (error) {
-      console.error('❌ Error al cargar órdenes:', error);
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +96,6 @@ export const Dashboard = () => {
         setAlertas([]);
       }
     } catch (error) {
-      console.error('❌ Error al cargar alertas:', error);
       setAlertas([]);
     } finally {
       setAlertasLoading(false);

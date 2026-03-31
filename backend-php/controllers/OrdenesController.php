@@ -869,7 +869,6 @@ class OrdenesController {
             }
             
         } catch (Exception $e) {
-            error_log('ERROR obteniendo puntos de seguridad: ' . $e->getMessage());
             $orden['puntosSeguridad'] = [];
         }
         

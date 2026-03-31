@@ -38,7 +38,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         } catch (error) {
           if (isActive) {
-            console.error('❌ Error al verificar token:', error);
             localStorage.removeItem('token');
             setToken(null);
             setUser(null);
@@ -65,7 +64,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setToken(data.token);
       setUser(data.user);
     } catch (error) {
-      console.error('❌ Error en login:', error);
       throw error;
     }
   };
@@ -74,7 +72,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       await authAPI.logout();
     } catch (error) {
-      console.error('❌ Error en logout API:', error);
     } finally {
       localStorage.removeItem('token');
       setToken(null);
