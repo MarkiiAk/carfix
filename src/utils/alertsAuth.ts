@@ -1,6 +1,6 @@
 /**
  * Utilidades para verificar autorización de acceso a alertas
- * Cualquier usuario admin puede acceder a las funcionalidades de alertas
+ * CUALQUIER usuario logueado puede acceder - SIN RESTRICCIONES
  */
 
 import type { Usuario } from '../types';
@@ -11,13 +11,8 @@ import type { Usuario } from '../types';
  * @returns boolean - true si está autorizado, false en caso contrario
  */
 export const isAlertasAuthorized = (user: Usuario | null): boolean => {
-  if (!user) return false;
-  
-  // CUALQUIER usuario con rol admin puede acceder a alertas
-  const userRole = user.rol || '';
-  
-  // Verificar que tenga rol de admin
-  return userRole === 'admin';
+  // CUALQUIER usuario logueado puede ver las alertas - SIN RESTRICCIONES
+  return !!user;
 };
 
 /**
