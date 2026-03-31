@@ -4,8 +4,30 @@
  * Compatible con cPanel / Hosting compartido
  */
 
-// Configuración de CORS
-header('Access-Control-Allow-Origin: https://saggarage.com');
+// Configuración de CORS con detección automática de entorno
+function getAllowedOrigin() {
+    // Detectar entorno local usando el mismo sistema que database.php
+    $isLocalEnvironment = file_exists(__DIR__ . '/.env.local') || 
+                         strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false ||
+                         strpos($_SERVER['SERVER_NAME'] ?? '', 'localhost') !== false;
+    
+    if ($isLocalEnvironment) {
+        // Desarrollo local: permitir localhost:3000
+        $allowedOrigins = [
+            'http://localhost:3000',
+            'http://127.0.0.1:3000'
+        ];
+        
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+        return in_array($origin, $allowedOrigins) ? $origin : 'http://localhost:3000';
+    } else {
+        // Producción: solo saggarage.com.mx
+        return 'https://saggarage.com.mx';
+    }
+}
+
+$allowedOrigin = getAllowedOrigin();
+header("Access-Control-Allow-Origin: $allowedOrigin");
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');

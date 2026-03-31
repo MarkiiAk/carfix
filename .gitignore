@@ -38,6 +38,8 @@ fix_usuario_*
 
 # Backend PHP sensitive files
 backend-php/.env
+backend-php/.env.local
+backend-php/.env.production
 backend-php/config/.env*
 
 # Editor directories and files
