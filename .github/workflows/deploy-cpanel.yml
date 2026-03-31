@@ -1,4 +1,4 @@
-name: Deploy to cPanel
+name: Deploy Desarrollo a cPanel
 
 # Se ejecuta automáticamente cuando haces push a la rama main
 # EXCLUYE main-demo para evitar deploy automático en rama de demostración
@@ -6,8 +6,6 @@ on:
   push:
     branches:
       - main
-    branches-ignore:
-      - main-demo
   # También puedes ejecutarlo manualmente desde GitHub
   workflow_dispatch:
 
