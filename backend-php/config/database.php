@@ -10,8 +10,8 @@ class Database {
     // Configuración de base de datos
     private $host = 'localhost';
     private $dbname = 'saggarag_GestionPresupuestos';
-    private $username = 'saggarag_admin';
-    private $password = 'Kndiani2593!';
+    private $username = 'root';
+    private $password = '';
     private $charset = 'utf8mb4';
     
     private function __construct() {

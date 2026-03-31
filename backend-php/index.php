@@ -4,8 +4,24 @@
  * Compatible con cPanel / Hosting compartido
  */
 
-// Configuración de CORS
-header('Access-Control-Allow-Origin: https://saggarage.com');
+// Configuración de CORS - Detecta automáticamente desarrollo vs producción
+$allowedOrigins = [
+    'https://saggarage.com',           // Producción
+    'https://www.saggarage.com',       // Producción con www
+    'http://localhost:3000',           // Desarrollo local
+    'http://localhost:3001',           // Desarrollo local puerto alternativo
+    'http://127.0.0.1:3000',          // Desarrollo local alternativo
+    'http://127.0.0.1:3001'           // Desarrollo local alternativo puerto 2
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowedOrigins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+} else {
+    // Fallback para desarrollo local sin origin header
+    header('Access-Control-Allow-Origin: http://localhost:3000');
+}
+
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');
@@ -39,9 +55,15 @@ $request_method = $_SERVER['REQUEST_METHOD'];
 // Remover query string y obtener path
 $path = parse_url($request_uri, PHP_URL_PATH);
 
-// Remover el prefijo /gestion/backend-php/ de la URL
+// Remover prefijos según el entorno
 $path = str_replace('/gestion/backend-php/', '', $path);
+$path = str_replace('/backend-php/', '', $path);
 $path = trim($path, '/');
+
+// DEBUG: Log para desarrollo
+error_log("DEBUG - Request URI: " . $request_uri);
+error_log("DEBUG - Processed path: " . $path);
+error_log("DEBUG - Method: " . $request_method);
 
 // Router simple
 try {

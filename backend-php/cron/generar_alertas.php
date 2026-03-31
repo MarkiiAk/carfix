@@ -21,8 +21,16 @@ function logMessage($message, $level = 'INFO') {
     $timestamp = date('Y-m-d H:i:s');
     $logMessage = "[{$timestamp}] [{$level}] {$message}\n";
     
-    // Escribir a archivo de log
-    file_put_contents('/var/log/sag_alertas_generacion.log', $logMessage, FILE_APPEND | LOCK_EX);
+    // Escribir a archivo de log (compatible con Windows)
+    $logPath = dirname(__FILE__) . '/../../logs/sag_alertas_generacion.log';
+    $logDir = dirname($logPath);
+    
+    // Crear directorio de logs si no existe
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0755, true);
+    }
+    
+    file_put_contents($logPath, $logMessage, FILE_APPEND | LOCK_EX);
     
     // También enviar a syslog si está disponible
     if (function_exists('syslog')) {
@@ -75,8 +83,7 @@ try {
     
     // Conectar a base de datos
     logMessage("Intentando conectar a base de datos...");
-    $database = new Database();
-    $db = $database->getConnection();
+    $db = Database::getInstance()->getConnection();
     
     if (!$db) {
         throw new Exception("No se pudo conectar a la base de datos");
@@ -87,8 +94,8 @@ try {
     // Verificar tablas necesarias
     $tablasRequeridas = ['alertas_servicio', 'clientes', 'vehiculos', 'ordenes_servicio', 'servicios_orden'];
     foreach ($tablasRequeridas as $tabla) {
-        $stmt = $db->prepare("SHOW TABLES LIKE ?");
-        $stmt->execute([$tabla]);
+        $sql = "SHOW TABLES LIKE '$tabla'";
+        $stmt = $db->query($sql);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Tabla requerida '{$tabla}' no existe");
         }
@@ -185,8 +192,7 @@ try {
     sleep(5);
     try {
         logMessage("Intentando reconectar a la base de datos...", 'WARNING');
-        $database = new Database();
-        $db = $database->getConnection();
+        $db = Database::getInstance()->getConnection();
         if ($db) {
             logMessage("Reconexión exitosa, reintentando operación...");
             // Aquí podrías reintentar la operación

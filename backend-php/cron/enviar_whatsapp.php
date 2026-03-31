@@ -21,8 +21,16 @@ function logMessage($message, $level = 'INFO') {
     $timestamp = date('Y-m-d H:i:s');
     $logMessage = "[{$timestamp}] [{$level}] {$message}\n";
     
-    // Escribir a archivo de log
-    file_put_contents('/var/log/sag_whatsapp_envio.log', $logMessage, FILE_APPEND | LOCK_EX);
+    // Escribir a archivo de log (compatible con Windows)
+    $logPath = dirname(__FILE__) . '/../../logs/sag_whatsapp_envio.log';
+    $logDir = dirname($logPath);
+    
+    // Crear directorio de logs si no existe
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0755, true);
+    }
+    
+    file_put_contents($logPath, $logMessage, FILE_APPEND | LOCK_EX);
     
     // También enviar a syslog si está disponible
     if (function_exists('syslog')) {
@@ -65,9 +73,8 @@ function esDiaHabil() {
 // Función para verificar horario de envío
 function esHorarioValido() {
     $horaActual = date('H');
-    $minutoActual = date('i');
     
-    // Solo enviar entre 10:00 AM y 10:59 AM
+    // PRODUCCIÓN: Ejecutar a las 10:00 AM
     return $horaActual == 10;
 }
 
@@ -104,8 +111,7 @@ try {
     
     // Conectar a base de datos
     logMessage("Intentando conectar a base de datos...");
-    $database = new Database();
-    $db = $database->getConnection();
+    $db = Database::getInstance()->getConnection();
     
     if (!$db) {
         throw new Exception("No se pudo conectar a la base de datos");
@@ -120,8 +126,8 @@ try {
     ];
     
     foreach ($tablasRequeridas as $tabla) {
-        $stmt = $db->prepare("SHOW TABLES LIKE ?");
-        $stmt->execute([$tabla]);
+        $sql = "SHOW TABLES LIKE '$tabla'";
+        $stmt = $db->query($sql);
         if ($stmt->rowCount() === 0) {
             throw new Exception("Tabla requerida '{$tabla}' no existe");
         }
@@ -144,14 +150,16 @@ try {
     // Verificar configuración de API
     $testConexion = $whatsappController->testConexion();
     if (!$testConexion['success']) {
-        logMessage("❌ Error en configuración de WhatsApp API: " . $testConexion['error'], 'ERROR');
-        logMessage("ℹ️   Verifique api_token y phone_number_id en whatsapp_config", 'ERROR');
-        exit(1);
-    }
-    
-    logMessage("✅ Conexión con WhatsApp API verificada");
-    if (isset($testConexion['phone_number'])) {
-        logMessage("📱 Número verificado: " . $testConexion['phone_number']);
+        logMessage("⚠️  API de WhatsApp no configurada: " . $testConexion['error'], 'WARNING');
+        logMessage("ℹ️   Continuando en modo TEST - falta configurar API pero el sistema funciona");
+        logMessage("🔧  Para producción: configure api_token y phone_number_id en whatsapp_config");
+        $modoTesting = true;
+    } else {
+        logMessage("✅ Conexión con WhatsApp API verificada");
+        if (isset($testConexion['phone_number'])) {
+            logMessage("📱 Número verificado: " . $testConexion['phone_number']);
+        }
+        $modoTesting = false;
     }
     
     // Obtener estadísticas antes del envío

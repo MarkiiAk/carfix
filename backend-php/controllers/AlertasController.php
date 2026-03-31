@@ -10,21 +10,18 @@ class AlertasController {
 
     /**
      * Verifica si el usuario actual está autorizado para acceder a las alertas
-     * Solo usuarios admin específicos pueden acceder
+     * Cualquier usuario con rol admin puede acceder
      */
     private function verificarAutorizacionAlertas($userData) {
         if (!$userData) {
             return false;
         }
         
-        // Usuarios autorizados para acceder a alertas
-        $usuariosAutorizados = ['markiiak', 'temporaldemo'];
-        
-        // Verificar que sea un usuario autorizado con rol admin
-        $username = $userData['username'] ?? $userData['usuario'] ?? '';
+        // CAMBIO: Cualquier usuario admin puede acceder a alertas (no solo usuarios específicos)
         $role = $userData['role'] ?? $userData['rol'] ?? '';
         
-        return in_array($username, $usuariosAutorizados) && $role === 'admin';
+        // Verificar que tenga rol de admin
+        return $role === 'admin';
     }
 
     // GET /alertas - Obtener todas las alertas con información completa
@@ -160,15 +157,18 @@ class AlertasController {
     // GET /alertas/generar - Generar nuevas alertas (proceso manual o automático)
     public function generarAlertas($userData = null) {
         try {
-            // Verificar autorización
-            if (!$this->verificarAutorizacionAlertas($userData)) {
+            // Para crons automáticos, permitir ejecución sin verificación de usuario
+            // Verificar si es una ejecución automática o manual
+            $esEjecucionAutomatica = (php_sapi_name() === 'cli' || !$userData);
+            
+            if (!$esEjecucionAutomatica && !$this->verificarAutorizacionAlertas($userData)) {
                 return [
                     'success' => false,
                     'error' => 'No autorizado - Acceso denegado a las alertas'
                 ];
             }
             
-            // CAMBIO: 6 meses (180 días) - período actualizado para WhatsApp
+            // PRODUCCIÓN: 6 meses (180 días) - período estándar para alertas de servicio
             // SERVICIOS QUE DISPARAN ALERTAS A 6 MESES:
             $serviciosAlerta = [
                 'Full Service con Bujías',
@@ -285,8 +285,11 @@ class AlertasController {
     // NUEVO: Método para generar alertas automáticamente con control diario
     public function generarAlertasAutomatico($userData = null) {
         try {
-            // Verificar autorización
-            if (!$this->verificarAutorizacionAlertas($userData)) {
+            // Para crons automáticos, permitir ejecución sin verificación de usuario
+            // Verificar si es una ejecución automática o manual
+            $esEjecucionAutomatica = (php_sapi_name() === 'cli' || !$userData);
+            
+            if (!$esEjecucionAutomatica && !$this->verificarAutorizacionAlertas($userData)) {
                 return [
                     'success' => false,
                     'error' => 'No autorizado'
