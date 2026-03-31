@@ -7,29 +7,14 @@ class Database {
     private static $instance = null;
     private $connection;
     
-    // Configuración de base de datos - USA VARIABLES DE ENTORNO EN PRODUCCIÓN
-    private $host;
-    private $dbname;
-    private $username;
-    private $password;
+    // Configuración de base de datos
+    private $host = 'localhost';
+    private $dbname = 'saggarag_GestionPresupuestos';
+    private $username = 'saggarag_admin';
+    private $password = 'Kndiani2593!';
     private $charset = 'utf8mb4';
     
     private function __construct() {
-        // Configurar credenciales según el entorno
-        $this->host = $_ENV['DB_HOST'] ?? 'localhost';
-        $this->dbname = $_ENV['DB_NAME'] ?? 'saggarag_GestionPresupuestos';
-        $this->username = $_ENV['DB_USER'] ?? 'root';
-        $this->password = $_ENV['DB_PASS'] ?? '';
-        
-        // LOG TEMPORAL PARA DEBUGGING
-        error_log('=== DATABASE CONNECTION DEBUG ===');
-        error_log('Host: ' . $this->host);
-        error_log('DB Name: ' . $this->dbname);
-        error_log('Username: ' . $this->username);
-        error_log('Password length: ' . strlen($this->password));
-        error_log('$_ENV variables: ' . print_r($_ENV, true));
-        error_log('putenv variables: ' . print_r(getenv(), true));
-        
         try {
             $dsn = "mysql:host={$this->host};dbname={$this->dbname};charset={$this->charset}";
             $options = [
