@@ -10,7 +10,7 @@ interface AlertasGuardProps {
 
 /**
  * Componente guard que protege el acceso a las páginas de alertas
- * Solo permite el acceso al usuario admin específico (markiiak)
+ * Permite el acceso a cualquier usuario con rol admin
  */
 export const AlertasGuard: React.FC<AlertasGuardProps> = ({ children }) => {
   const { user, isLoading } = useAuth();
