@@ -4,6 +4,17 @@
  * Compatible con cPanel / Hosting compartido
  */
 
+// Cargar variables de entorno si existe el archivo .env
+if (file_exists(__DIR__ . '/.env')) {
+    $envVars = parse_ini_file(__DIR__ . '/.env', false, INI_SCANNER_NORMAL);
+    if ($envVars) {
+        foreach ($envVars as $key => $value) {
+            $_ENV[$key] = $value;
+            putenv("$key=$value");
+        }
+    }
+}
+
 // Configuración de CORS - Detecta automáticamente desarrollo vs producción
 $allowedOrigins = [
     'https://saggarage.com',           // Producción
