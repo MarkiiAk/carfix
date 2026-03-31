@@ -21,6 +21,15 @@ class Database {
         $this->username = $_ENV['DB_USER'] ?? 'root';
         $this->password = $_ENV['DB_PASS'] ?? '';
         
+        // LOG TEMPORAL PARA DEBUGGING
+        error_log('=== DATABASE CONNECTION DEBUG ===');
+        error_log('Host: ' . $this->host);
+        error_log('DB Name: ' . $this->dbname);
+        error_log('Username: ' . $this->username);
+        error_log('Password length: ' . strlen($this->password));
+        error_log('$_ENV variables: ' . print_r($_ENV, true));
+        error_log('putenv variables: ' . print_r(getenv(), true));
+        
         try {
             $dsn = "mysql:host={$this->host};dbname={$this->dbname};charset={$this->charset}";
             $options = [
