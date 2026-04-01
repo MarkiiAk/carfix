@@ -16,7 +16,7 @@ echo "🔍 1. CONEXIÓN BASE DE DATOS\n";
 try {
     require_once __DIR__ . '/config/database.php';
     
-    $database = new Database();
+    $database = Database::getInstance();
     $db = $database->getConnection();
     
     if ($db) {

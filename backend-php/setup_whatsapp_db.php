@@ -17,7 +17,7 @@ try {
     
     echo "✅ Conectando a base de datos...\n";
     
-    $database = new Database();
+    $database = Database::getInstance();
     $db = $database->getConnection();
     
     if (!$db) {
