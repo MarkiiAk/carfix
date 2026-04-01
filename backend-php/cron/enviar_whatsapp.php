@@ -1,27 +1,34 @@
 <?php
 /**
- * Cron Job: Enviar WhatsApp - SAG Garage
+ * CRON: Enviar WhatsApp - SAG Garage
+ * Sistema automático de envío de recordatorios por WhatsApp
  * 
- * Se ejecuta automáticamente según configuración de cPanel cron
- * Envía mensajes de WhatsApp a clientes con alertas pendientes
+ * Flujo:
+ * 1. Busca alertas en estado 'borrador' 
+ * 2. Envía recordatorios WhatsApp con botones interactivos
+ * 3. Actualiza estados y registra actividad
+ * 4. Reporta resultados y estadísticas
  * 
- * Configuración cron ejemplo (días hábiles):
- * 30 10 * * 1-5 /usr/local/bin/php /home/saggarag/public_html/backend-php/cron/enviar_whatsapp.php
+ * Configuración cron ejemplo:
+ * 45 10 * * * /usr/local/bin/php /home/saggarag/public_html/backend-php/cron/enviar_whatsapp.php
  * 
- * @author Marco Candiani
- * @version 1.1
- * @date 31/03/2026
+ * @author Sistema SAG Garage
+ * @version 2.0.0
+ * @date 01/04/2026
  */
 
-// Configurar timezone
+// Configurar timezone y manejo de errores
 date_default_timezone_set('America/Mexico_City');
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
-// Función para logging
-function logMessage($message, $level = 'INFO') {
+// Función para logging mejorada
+function logWhatsApp($message, $level = 'INFO') {
     $timestamp = date('Y-m-d H:i:s');
-    $logMessage = "[{$timestamp}] [{$level}] {$message}\n";
+    $logMessage = "[{$timestamp}] [WHATSAPP-{$level}] {$message}\n";
     
-    // Escribir a archivo de log (compatible con Windows)
+    // Escribir a archivo de log
     $logPath = dirname(__FILE__) . '/../../logs/sag_whatsapp_envio.log';
     $logDir = dirname($logPath);
     
@@ -32,87 +39,73 @@ function logMessage($message, $level = 'INFO') {
     
     file_put_contents($logPath, $logMessage, FILE_APPEND | LOCK_EX);
     
-    // También enviar a syslog si está disponible
+    // También enviar a syslog
     if (function_exists('syslog')) {
         syslog(LOG_INFO, "SAG WhatsApp: {$message}");
     }
     
-    // Output para cuando se ejecuta manualmente
+    // Output para ejecución manual
     echo $logMessage;
+    
+    // Forzar flush
+    if (ob_get_level()) {
+        ob_flush();
+    }
+    flush();
 }
 
-// Función para manejo de errores
-function handleError($errno, $errstr, $errfile, $errline) {
-    logMessage("Error PHP: [{$errno}] {$errstr} en {$errfile}:{$errline}", 'ERROR');
+// Manejadores de error
+function handleWhatsAppError($errno, $errstr, $errfile, $errline) {
+    logWhatsApp("Error PHP: [{$errno}] {$errstr} en {$errfile}:{$errline}", 'ERROR');
     return true;
 }
 
-// Función para manejo de excepciones no capturadas
-function handleException($exception) {
-    logMessage("Excepción no capturada: " . $exception->getMessage() . " en " . $exception->getFile() . ":" . $exception->getLine(), 'FATAL');
+function handleWhatsAppException($exception) {
+    logWhatsApp("Excepción: " . $exception->getMessage() . " en " . $exception->getFile() . ":" . $exception->getLine(), 'FATAL');
 }
 
-// Configurar manejadores de error
-set_error_handler('handleError');
-set_exception_handler('handleException');
+set_error_handler('handleWhatsAppError');
+set_exception_handler('handleWhatsAppException');
 
 // Función para formatear bytes
 function formatBytes($size, $precision = 2) {
-    if ($size == 0) return '0 B';
     $base = log($size, 1024);
-    $suffixes = array('B', 'KB', 'MB', 'GB', 'TB');
+    $suffixes = array('B', 'KB', 'MB', 'GB');
     return round(pow(1024, $base - floor($base)), $precision) . ' ' . $suffixes[floor($base)];
 }
 
-// Función para verificar si es día hábil
-function esDiaHabil() {
-    $diaSemana = date('N'); // 1 (Monday) to 7 (Sunday)
-    return $diaSemana >= 1 && $diaSemana <= 5; // Lunes a Viernes
-}
+// ===============================================
+// INICIALIZACIÓN
+// ===============================================
 
-
-// Inicializar
-logMessage("=== INICIO ENVÍO AUTOMÁTICO DE WHATSAPP ===");
-logMessage("Fecha/Hora: " . date('Y-m-d H:i:s T'));
-logMessage("Usuario: " . get_current_user());
-logMessage("PHP Version: " . PHP_VERSION);
-logMessage("Memoria inicial: " . formatBytes(memory_get_usage()));
+logWhatsApp("=== INICIO ENVÍO AUTOMÁTICO WHATSAPP ===");
+logWhatsApp("Fecha/Hora: " . date('Y-m-d H:i:s T'));
+logWhatsApp("Memoria inicial: " . formatBytes(memory_get_usage()));
 
 try {
-    // Verificar día hábil (controlado por configuración cron, pero mantenemos verificación como seguridad)
-    if (!esDiaHabil()) {
-        logMessage("⏭️  Saltando ejecución: No es día hábil (hoy es " . date('l') . ")");
-        exit(0);
-    }
-    
-    logMessage("✅ Es día hábil, procediendo con la ejecución...");
-    
-    // Verificar que estamos en el directorio correcto
+    // Verificar directorio actual
     $currentDir = dirname(__FILE__);
-    logMessage("Directorio actual: {$currentDir}");
+    logWhatsApp("Directorio actual: {$currentDir}");
     
     // Cargar dependencias
     require_once dirname(__FILE__) . '/../config/database.php';
-    require_once dirname(__FILE__) . '/../controllers/WhatsappController.php';
+    require_once dirname(__FILE__) . '/../utils/TwilioConversationalBot.php';
     
-    logMessage("Dependencias cargadas correctamente");
+    logWhatsApp("Dependencias cargadas correctamente");
     
     // Conectar a base de datos
-    logMessage("Intentando conectar a base de datos...");
-    $db = Database::getInstance()->getConnection();
+    logWhatsApp("Conectando a base de datos...");
+    $database = new Database();
+    $db = $database->getConnection();
     
     if (!$db) {
         throw new Exception("No se pudo conectar a la base de datos");
     }
     
-    logMessage("Conexión a base de datos establecida");
+    logWhatsApp("Conexión a BD establecida");
     
-    // Verificar tablas necesarias para WhatsApp
-    $tablasRequeridas = [
-        'alertas_servicio', 'clientes', 'vehiculos', 
-        'whatsapp_config', 'whatsapp_templates', 'whatsapp_logs', 'whatsapp_blacklist'
-    ];
-    
+    // Verificar tablas necesarias
+    $tablasRequeridas = ['alertas_servicio', 'conversaciones_whatsapp', 'twilio_config'];
     foreach ($tablasRequeridas as $tabla) {
         $sql = "SHOW TABLES LIKE '$tabla'";
         $stmt = $db->query($sql);
@@ -121,184 +114,363 @@ try {
         }
     }
     
-    logMessage("Verificación de tablas completada");
+    logWhatsApp("Verificación de tablas completada");
     
-    // Crear instancia del controlador de WhatsApp
-    $whatsappController = new WhatsappController($db);
+    // Crear instancia del bot conversacional
+    $bot = crearTwilioBot();
+    if (!$bot) {
+        throw new Exception("No se pudo crear instancia del TwilioBot");
+    }
     
-    // Verificar que el sistema esté activo
-    if (!$whatsappController->isSistemaActivo()) {
-        logMessage("⚠️  Sistema WhatsApp desactivado - saltando ejecución");
-        logMessage("ℹ️   Para activar: UPDATE whatsapp_config SET valor = 'true' WHERE clave = 'activo'");
+    logWhatsApp("Bot conversacional inicializado");
+    
+    // ===============================================
+    // VERIFICAR CONFIGURACIÓN TWILIO
+    // ===============================================
+    
+    logWhatsApp("Verificando configuración Twilio...");
+    
+    $configRequerida = ['account_sid', 'auth_token', 'whatsapp_from'];
+    $configOk = true;
+    
+    foreach ($configRequerida as $key) {
+        $sql = "SELECT config_value FROM twilio_config WHERE config_key = ? AND is_active = TRUE";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$key]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $value = $result['config_value'] ?? '';
+        if (empty($value)) {
+            logWhatsApp("Configuración faltante: {$key}", 'WARNING');
+            $configOk = false;
+        }
+    }
+    
+    if (!$configOk) {
+        logWhatsApp("Configuración Twilio incompleta, continuando en modo simulación", 'WARNING');
+    } else {
+        logWhatsApp("Configuración Twilio verificada ✓");
+    }
+    
+    // ===============================================
+    // BUSCAR ALERTAS PENDIENTES DE ENVÍO
+    // ===============================================
+    
+    logWhatsApp("Buscando alertas pendientes de envío WhatsApp...");
+    
+    $sql = "SELECT 
+                a.id,
+                a.cliente_id,
+                a.vehiculo_id,
+                a.servicios_que_dispararon,
+                a.dias_desde_servicio,
+                a.fecha_generada,
+                
+                -- Info cliente
+                c.nombre as cliente_nombre,
+                c.telefono as cliente_telefono,
+                c.email as cliente_email,
+                
+                -- Info vehículo
+                CONCAT(v.marca, ' ', v.modelo, ' ', v.anio) as vehiculo_info,
+                v.placas as vehiculo_placas
+                
+            FROM alertas_servicio a
+            INNER JOIN clientes c ON a.cliente_id = c.id
+            INNER JOIN vehiculos v ON a.vehiculo_id = v.id
+            
+            WHERE a.estado_whatsapp = 'borrador'
+              AND a.estado = 'pendiente'
+              AND c.telefono IS NOT NULL 
+              AND c.telefono != ''
+              
+            ORDER BY a.fecha_generada ASC
+            LIMIT 50"; // Procesar máximo 50 por ejecución
+    
+    $stmt = $db->prepare($sql);
+    $stmt->execute();
+    $alertasPendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $totalAlertas = count($alertasPendientes);
+    logWhatsApp("Alertas encontradas para envío: {$totalAlertas}");
+    
+    if ($totalAlertas === 0) {
+        logWhatsApp("No hay alertas pendientes de envío WhatsApp");
+        logWhatsApp("=== FIN ENVÍO WHATSAPP (SIN ENVÍOS) ===");
         exit(0);
     }
     
-    logMessage("✅ Sistema WhatsApp activo - procediendo con envíos");
+    // ===============================================
+    // PROCESAR ENVÍOS
+    // ===============================================
     
-    // Verificar configuración de API
-    $testConexion = $whatsappController->testConexion();
-    if (!$testConexion['success']) {
-        logMessage("⚠️  API de WhatsApp no configurada: " . $testConexion['error'], 'WARNING');
-        logMessage("ℹ️   Continuando en modo TEST - falta configurar API pero el sistema funciona");
-        logMessage("🔧  Para producción: configure api_token y phone_number_id en whatsapp_config");
-        $modoTesting = true;
-    } else {
-        logMessage("✅ Conexión con WhatsApp API verificada");
-        if (isset($testConexion['phone_number'])) {
-            logMessage("📱 Número verificado: " . $testConexion['phone_number']);
-        }
-        $modoTesting = false;
-    }
-    
-    // Obtener estadísticas antes del envío
-    $statsAntes = $whatsappController->obtenerEstadisticas();
-    if ($statsAntes['success']) {
-        $stats = $statsAntes['estadisticas'];
-        logMessage("📊 Estadísticas antes del envío:");
-        logMessage("- Alertas pendientes: " . ($stats['alertas_pendientes'] ?? 0));
-        logMessage("- Mensajes enviados hoy: " . ($stats['mensajes_hoy'] ?? 0));
-        logMessage("- Números bloqueados: " . ($stats['numeros_bloqueados'] ?? 0));
-    }
-    
-    // Ejecutar procesamiento de cola WhatsApp
-    logMessage("🚀 Iniciando procesamiento de cola WhatsApp...");
     $tiempoInicio = microtime(true);
+    $enviosExitosos = 0;
+    $enviosErrores = 0;
+    $telefonosInvalidos = 0;
     
-    $resultado = $whatsappController->procesarColaWhatsApp();
+    logWhatsApp("Iniciando procesamiento de envíos...");
+    
+    foreach ($alertasPendientes as $alerta) {
+        try {
+            logWhatsApp("--- Procesando Alerta ID: {$alerta['id']} ---");
+            logWhatsApp("Cliente: {$alerta['cliente_nombre']} ({$alerta['cliente_telefono']})");
+            logWhatsApp("Servicio: {$alerta['servicios_que_dispararon']}");
+            logWhatsApp("Vehículo: {$alerta['vehiculo_info']}");
+            
+            // Validar teléfono
+            $telefono = limpiarTelefono($alerta['cliente_telefono']);
+            if (empty($telefono)) {
+                logWhatsApp("Teléfono inválido: {$alerta['cliente_telefono']}", 'WARNING');
+                $telefonosInvalidos++;
+                continue;
+            }
+            
+            logWhatsApp("Teléfono validado: {$telefono}");
+            
+            // Enviar recordatorio inicial
+            $resultado = $bot->enviarRecordatorioInicial($alerta['id']);
+            
+            if ($resultado['success']) {
+                $enviosExitosos++;
+                logWhatsApp("✅ Enviado exitosamente - MessageSID: {$resultado['message_sid']}");
+                
+                // Pequeña pausa entre envíos para no saturar la API
+                usleep(250000); // 250ms
+                
+            } else {
+                $enviosErrores++;
+                logWhatsApp("❌ Error en envío: " . $resultado['error'], 'ERROR');
+                
+                // Marcar alerta con error para revisión manual
+                marcarAlertaConError($db, $alerta['id'], $resultado['error']);
+            }
+            
+        } catch (Exception $e) {
+            $enviosErrores++;
+            logWhatsApp("❌ Excepción procesando alerta {$alerta['id']}: " . $e->getMessage(), 'ERROR');
+            
+            // Marcar alerta con error
+            marcarAlertaConError($db, $alerta['id'], $e->getMessage());
+        }
+    }
     
     $tiempoFin = microtime(true);
-    $tiempoEjecucion = round(($tiempoFin - $tiempoInicio) * 1000); // en milisegundos
+    $tiempoEjecucion = round(($tiempoFin - $tiempoInicio) * 1000); // en ms
     
-    // Procesar resultado
-    if ($resultado['success']) {
-        $enviados = $resultado['enviados'] ?? 0;
-        $errores = $resultado['errores'] ?? 0;
-        $omitidos = $resultado['omitidos'] ?? 0;
+    // ===============================================
+    // ESTADÍSTICAS FINALES
+    // ===============================================
+    
+    logWhatsApp("=== ESTADÍSTICAS DE ENVÍO ===");
+    logWhatsApp("Total alertas procesadas: {$totalAlertas}");
+    logWhatsApp("Envíos exitosos: {$enviosExitosos}");
+    logWhatsApp("Envíos con error: {$enviosErrores}");
+    logWhatsApp("Teléfonos inválidos: {$telefonosInvalidos}");
+    logWhatsApp("Tiempo de ejecución: {$tiempoEjecucion}ms");
+    
+    // Calcular tasa de éxito
+    $tasaExito = $totalAlertas > 0 ? round(($enviosExitosos / $totalAlertas) * 100, 2) : 0;
+    logWhatsApp("Tasa de éxito: {$tasaExito}%");
+    
+    // ===============================================
+    // REGISTRAR EJECUCIÓN EN LOG
+    // ===============================================
+    
+    try {
+        $sql = "INSERT INTO alertas_ejecucion_log 
+                (fecha_ejecucion, alertas_generadas, tiempo_ejecucion_ms, detalles) 
+                VALUES (CURDATE(), ?, ?, ?)";
         
-        logMessage("✅ Procesamiento completado:");
-        logMessage("- ✅ Mensajes enviados: {$enviados}");
-        logMessage("- ❌ Errores: {$errores}");
-        logMessage("- ⏭️  Omitidos: {$omitidos}");
-        logMessage("- ⏱️  Tiempo de ejecución: {$tiempoEjecucion}ms");
+        $detalles = json_encode([
+            'tipo' => 'envio_whatsapp',
+            'timestamp' => date('Y-m-d H:i:s'),
+            'total_procesadas' => $totalAlertas,
+            'envios_exitosos' => $enviosExitosos,
+            'envios_errores' => $enviosErrores,
+            'telefonos_invalidos' => $telefonosInvalidos,
+            'tasa_exito' => $tasaExito
+        ]);
         
-        // Log de mensajes individuales si hay detalles
-        if (isset($resultado['mensajes']) && !empty($resultado['mensajes'])) {
-            logMessage("📝 Detalle de mensajes:");
-            foreach ($resultado['mensajes'] as $mensaje) {
-                logMessage("  • {$mensaje}");
-            }
-        }
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$enviosExitosos, $tiempoEjecucion, $detalles]);
         
-        // Si no hay mensajes, mostrar razón
-        if ($enviados === 0 && $errores === 0 && $omitidos === 0) {
-            $mensaje = $resultado['mensaje'] ?? 'No hay alertas pendientes para procesar';
-            logMessage("ℹ️   {$mensaje}");
-        }
+        logWhatsApp("Ejecución registrada en base de datos");
         
-    } else {
-        $error = $resultado['error'] ?? 'Error desconocido';
-        logMessage("❌ Error en procesamiento: {$error}");
-        logMessage("⏱️  Tiempo de ejecución: {$tiempoEjecucion}ms");
-        
-        // Log de errores específicos
-        if (isset($resultado['mensajes']) && !empty($resultado['mensajes'])) {
-            logMessage("📝 Detalles de errores:");
-            foreach ($resultado['mensajes'] as $mensaje) {
-                logMessage("  • {$mensaje}");
-            }
-        }
-        
-        exit(1);
+    } catch (Exception $e) {
+        logWhatsApp("Error registrando ejecución: " . $e->getMessage(), 'WARNING');
     }
     
-    // Obtener estadísticas después del envío
-    if ($resultado['enviados'] > 0) {
-        $statsDespues = $whatsappController->obtenerEstadisticas();
-        if ($statsDespues['success']) {
-            $statsNew = $statsDespues['estadisticas'];
-            logMessage("📊 Estadísticas después del envío:");
-            logMessage("- Mensajes enviados hoy: " . ($statsNew['mensajes_hoy'] ?? 0));
-            logMessage("- Costo estimado hoy: $" . number_format(($statsNew['costo_hoy'] ?? 0), 2) . " MXN");
-        }
-    }
+    // ===============================================
+    // LIMPIEZA Y VERIFICACIÓN MEMORIA
+    // ===============================================
     
-    // Verificar límites y enviar alertas si es necesario
-    $limiteDiario = $whatsappController->getConfig('limite_mensajes_dia', 100);
-    $mensajesHoy = ($statsNew['mensajes_hoy'] ?? $stats['mensajes_hoy'] ?? 0);
-    
-    if ($mensajesHoy >= $limiteDiario * 0.8) { // 80% del límite
-        logMessage("⚠️  WARNING: Se ha alcanzado el 80% del límite diario ({$mensajesHoy}/{$limiteDiario})");
-    }
-    
-    // Log de memoria utilizada
     $memoriaFinal = memory_get_usage();
     $memoriaPico = memory_get_peak_usage();
-    logMessage("💾 Uso de memoria:");
-    logMessage("- Final: " . formatBytes($memoriaFinal));
-    logMessage("- Pico: " . formatBytes($memoriaPico));
+    logWhatsApp("Memoria final: " . formatBytes($memoriaFinal));
+    logWhatsApp("Memoria pico: " . formatBytes($memoriaPico));
     
-    // Cleanup
+    // Limpiar recursos
     $db = null;
-    $whatsappController = null;
+    $bot = null;
     
-    logMessage("🧹 Recursos liberados correctamente");
+    // ===============================================
+    // NOTIFICACIÓN DE ESTADO
+    // ===============================================
     
-    // Resumen final
-    $totalProcesados = ($resultado['enviados'] ?? 0) + ($resultado['errores'] ?? 0) + ($resultado['omitidos'] ?? 0);
-    logMessage("📋 RESUMEN FINAL:");
-    logMessage("- Total procesados: {$totalProcesados}");
-    logMessage("- Exitosos: " . ($resultado['enviados'] ?? 0));
-    logMessage("- Tiempo total: {$tiempoEjecucion}ms");
-    
-    if ($resultado['enviados'] > 0) {
-        $costoEstimado = $resultado['enviados'] * 0.5614; // Costo por mensaje
-        logMessage("- Costo estimado: $" . number_format($costoEstimado, 2) . " MXN");
+    if ($enviosErrores > 0) {
+        logWhatsApp("⚠️  ATENCIÓN: Hubo errores en algunos envíos", 'WARNING');
     }
     
-    logMessage("=== FIN ENVÍO AUTOMÁTICO DE WHATSAPP ===");
-    
-    // Código de salida basado en resultados
-    if ($resultado['errores'] > 0) {
-        exit(6); // Hubo errores pero también éxitos
-    } else {
-        exit(0); // Todo exitoso
+    if ($enviosExitosos > 0) {
+        logWhatsApp("🎉 Envíos WhatsApp completados exitosamente");
     }
+    
+    logWhatsApp("=== FIN ENVÍO AUTOMÁTICO WHATSAPP ===");
+    
+    // Código de salida
+    exit($enviosErrores > 0 ? 1 : 0);
     
 } catch (PDOException $e) {
-    logMessage("❌ Error de base de datos: " . $e->getMessage(), 'FATAL');
-    logMessage("Código de error: " . $e->getCode(), 'FATAL');
+    logWhatsApp("❌ Error de base de datos: " . $e->getMessage(), 'FATAL');
     
-    // Intentar diagnóstico básico
-    if (strpos($e->getMessage(), 'Connection refused') !== false) {
-        logMessage("💡 Posible causa: Servidor de base de datos no disponible", 'FATAL');
-    } elseif (strpos($e->getMessage(), 'Access denied') !== false) {
-        logMessage("💡 Posible causa: Credenciales incorrectas", 'FATAL');
+    // Intentar reconectar
+    sleep(3);
+    try {
+        logWhatsApp("Intentando reconectar...", 'WARNING');
+        $db = Database::getInstance()->getConnection();
+        if ($db) {
+            logWhatsApp("Reconexión exitosa");
+        }
+    } catch (Exception $e2) {
+        logWhatsApp("❌ Reconexión falló: " . $e2->getMessage(), 'FATAL');
     }
     
     exit(2);
     
 } catch (Exception $e) {
-    logMessage("❌ Error general: " . $e->getMessage(), 'FATAL');
-    logMessage("Archivo: " . $e->getFile(), 'FATAL');
-    logMessage("Línea: " . $e->getLine(), 'FATAL');
-    
-    // Diagnóstico básico
-    if (strpos($e->getMessage(), 'WhatsappController') !== false) {
-        logMessage("💡 Posible causa: Error en el controlador de WhatsApp", 'FATAL');
-    } elseif (strpos($e->getMessage(), 'file') !== false || strpos($e->getMessage(), 'require') !== false) {
-        logMessage("💡 Posible causa: Archivo no encontrado o permisos", 'FATAL');
-    }
-    
+    logWhatsApp("❌ Error general: " . $e->getMessage(), 'FATAL');
+    logWhatsApp("Archivo: " . $e->getFile(), 'FATAL');
+    logWhatsApp("Línea: " . $e->getLine(), 'FATAL');
     exit(3);
     
 } catch (Error $e) {
-    logMessage("❌ Error fatal de PHP: " . $e->getMessage(), 'FATAL');
-    logMessage("Archivo: " . $e->getFile(), 'FATAL');
-    logMessage("Línea: " . $e->getLine(), 'FATAL');
-    
+    logWhatsApp("❌ Error fatal de PHP: " . $e->getMessage(), 'FATAL');
     exit(4);
 }
 
-// Esta línea no debería ejecutarse nunca
-logMessage("⚠️  WARNING: Se alcanzó el final del script sin exit explícito", 'WARNING');
-exit(5);
+// ===============================================
+// FUNCIONES AUXILIARES
+// ===============================================
+
+/**
+ * Limpiar y validar número de teléfono
+ */
+function limpiarTelefono($telefono) {
+    if (empty($telefono)) {
+        return '';
+    }
+    
+    // Remover espacios, guiones, paréntesis
+    $telefono = preg_replace('/[\s\-\(\)]+/', '', $telefono);
+    
+    // Remover prefijos comunes
+    $telefono = preg_replace('/^\+?52/', '', $telefono);
+    $telefono = preg_replace('/^01/', '', $telefono);
+    
+    // Validar que sean 10 dígitos
+    if (!preg_match('/^\d{10}$/', $telefono)) {
+        return '';
+    }
+    
+    return $telefono;
+}
+
+/**
+ * Marcar alerta con error para revisión manual
+ */
+function marcarAlertaConError($db, $alertaId, $error) {
+    try {
+        $sql = "UPDATE alertas_servicio 
+                SET requiere_atencion = TRUE,
+                    prioridad = 'alta',
+                    estado_whatsapp = 'borrador'
+                WHERE id = ?";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$alertaId]);
+        
+        // Registrar el error en un log específico
+        $errorLog = json_encode([
+            'alerta_id' => $alertaId,
+            'error' => $error,
+            'timestamp' => date('Y-m-d H:i:s'),
+            'tipo' => 'error_envio_whatsapp'
+        ]);
+        
+        logWhatsApp("Error registrado para alerta {$alertaId}: {$error}", 'ERROR');
+        
+    } catch (Exception $e) {
+        logWhatsApp("Error marcando alerta con error: " . $e->getMessage(), 'ERROR');
+    }
+}
+
+/**
+ * Verificar si es horario laboral
+ */
+function esHorarioLaboral() {
+    $hora = (int)date('H');
+    $diaSemana = (int)date('w'); // 0=domingo, 6=sábado
+    
+    // Lunes a viernes de 8 AM a 6 PM
+    $esLaboral = ($diaSemana >= 1 && $diaSemana <= 5) && ($hora >= 8 && $hora <= 18);
+    
+    if (!$esLaboral) {
+        logWhatsApp("Fuera de horario laboral - Día: {$diaSemana}, Hora: {$hora}", 'INFO');
+    }
+    
+    return $esLaboral;
+}
+
+/**
+ * Estadísticas rápidas del sistema
+ */
+function mostrarEstadisticasRapidas($db) {
+    try {
+        $stats = [];
+        
+        // Alertas por estado WhatsApp
+        $sql = "SELECT estado_whatsapp, COUNT(*) as total 
+                FROM alertas_servicio 
+                GROUP BY estado_whatsapp";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute();
+        $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($resultados as $row) {
+            $stats[$row['estado_whatsapp']] = $row['total'];
+        }
+        
+        logWhatsApp("--- ESTADÍSTICAS SISTEMA ---");
+        foreach ($stats as $estado => $total) {
+            logWhatsApp("Estado '{$estado}': {$total} alertas");
+        }
+        
+        // Conversaciones activas
+        $sql = "SELECT COUNT(DISTINCT alerta_id) as conversaciones_activas
+                FROM conversaciones_whatsapp
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        logWhatsApp("Conversaciones activas (7 días): " . $result['conversaciones_activas']);
+        
+    } catch (Exception $e) {
+        logWhatsApp("Error obteniendo estadísticas: " . $e->getMessage(), 'WARNING');
+    }
+}
+
+?>
