@@ -88,7 +88,7 @@ try {
     require_once dirname(__FILE__) . '/../utils/TwilioConversationalBot.php';
     
     // Conectar a BD
-    $database = new Database();
+    $database = Database::getInstance();
     $db = $database->getConnection();
     
     if (!$db) {
@@ -304,7 +304,7 @@ function registrarMensajeCliente($db, $alertaId, $messageSid, $telefono, $body, 
 function esMensajeSAGAdmin($from) {
     try {
         // Obtener configuración de teléfono admin
-        $database = new Database();
+        $database = Database::getInstance();
         $db = $database->getConnection();
         
         if (!$db) {
@@ -367,7 +367,7 @@ function limpiarTelefonoWebhook($telefono) {
 function validarFirmaTwilio($url, $postData, $signature) {
     try {
         // Obtener auth token
-        $database = new Database();
+        $database = Database::getInstance();
         $db = $database->getConnection();
         
         if (!$db) {
