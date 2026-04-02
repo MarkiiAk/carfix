@@ -17,6 +17,9 @@
 
 require_once __DIR__ . '/../config/database.php';
 
+// Para envío real de WhatsApp
+use Twilio\Rest\Client as TwilioClient;
+
 class TwilioConversationalBot {
     private $db;
     private $twilioClient;
@@ -84,8 +87,8 @@ class TwilioConversationalBot {
         // En implementación real, aquí iría:
         // $this->twilioClient = new Twilio\Rest\Client($this->accountSid, $this->authToken);
         
-        // Por ahora simulamos
-        $this->twilioClient = (object)['simulado' => true];
+        // ACTIVADO PARA ENVÍO REAL
+        $this->twilioClient = new Twilio\Rest\Client($this->accountSid, $this->authToken);
     }
     
     /**
