@@ -95,7 +95,7 @@ try {
     
     // Conectar a base de datos
     logWhatsApp("Conectando a base de datos...");
-    $database = new Database();
+    $database = Database::getInstance();
     $db = $database->getConnection();
     
     if (!$db) {
