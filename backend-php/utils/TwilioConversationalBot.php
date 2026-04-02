@@ -16,9 +16,9 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
-// Para envío real de WhatsApp
-use Twilio\Rest\Client as TwilioClient;
+use Twilio\Rest\Client;
 
 class TwilioConversationalBot {
     private $db;
@@ -84,11 +84,14 @@ class TwilioConversationalBot {
             return;
         }
         
-        // En implementación real, aquí iría:
-        // $this->twilioClient = new Twilio\Rest\Client($this->accountSid, $this->authToken);
-        
-        // ACTIVADO PARA ENVÍO REAL
-        $this->twilioClient = new Twilio\Rest\Client($this->accountSid, $this->authToken);
+        try {
+            // ACTIVADO PARA ENVÍO REAL CON SDK OFICIAL
+            $this->twilioClient = new Client($this->accountSid, $this->authToken);
+            error_log("TwilioBot: Cliente Twilio inicializado CORRECTAMENTE para envío REAL");
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR inicializando cliente: " . $e->getMessage());
+            $this->twilioClient = null;
+        }
     }
     
     /**
@@ -694,8 +697,8 @@ class TwilioConversationalBot {
      */
     private function enviarMensajeConBotones($telefono, $mensaje, $botones, $step) {
         try {
-            // Por ahora simulamos el envío
-            if ($this->twilioClient === null || isset($this->twilioClient->simulado)) {
+            // Si no hay cliente Twilio, simular
+            if ($this->twilioClient === null) {
                 error_log("TwilioBot SIMULADO: Mensaje con botones a {$telefono}");
                 error_log("TwilioBot SIMULADO: {$mensaje}");
                 error_log("TwilioBot SIMULADO: Botones: " . json_encode($botones));
@@ -708,15 +711,43 @@ class TwilioConversationalBot {
                 ];
             }
             
-            // TODO: Implementar envío real con Twilio
-            // $message = $this->twilioClient->messages->create(...);
+            // ENVÍO REAL CON BOTONES INTERACTIVOS TWILIO
+            // Para WhatsApp Business, enviamos mensaje de texto con opciones numeradas
+            // Los botones reales requieren pre-aprobación de plantillas
+            $mensajeConOpciones = $mensaje . "\n\n";
+            $contador = 1;
+            foreach ($botones as $boton) {
+                $mensajeConOpciones .= "{$contador}. {$boton['title']}\n";
+                $contador++;
+            }
+            $mensajeConOpciones .= "\nResponde con el número de tu opción.";
+            
+            $message = $this->twilioClient->messages->create(
+                "whatsapp:+52{$telefono}", // To
+                [
+                    'from' => $this->whatsappFrom,
+                    'body' => $mensajeConOpciones
+                ]
+            );
+            
+            error_log("TwilioBot REAL: Mensaje con opciones enviado a {$telefono} - SID: {$message->sid}");
             
             return [
-                'success' => false,
-                'error' => 'Twilio no configurado'
+                'success' => true,
+                'message_sid' => $message->sid,
+                'status' => $message->status,
+                'twilio_response' => [
+                    'sid' => $message->sid,
+                    'status' => $message->status,
+                    'to' => $message->to,
+                    'from' => $message->from,
+                    'date_created' => $message->dateCreated->format('Y-m-d H:i:s'),
+                    'botones_enviados' => count($botones)
+                ]
             ];
             
         } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarMensajeConBotones: " . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -729,8 +760,8 @@ class TwilioConversationalBot {
      */
     private function enviarMensajeTexto($telefono, $mensaje) {
         try {
-            // Por ahora simulamos el envío
-            if ($this->twilioClient === null || isset($this->twilioClient->simulado)) {
+            // Si no hay cliente Twilio, simular
+            if ($this->twilioClient === null) {
                 error_log("TwilioBot SIMULADO: Mensaje texto a {$telefono}");
                 error_log("TwilioBot SIMULADO: {$mensaje}");
                 
@@ -743,15 +774,33 @@ class TwilioConversationalBot {
                 ];
             }
             
-            // TODO: Implementar envío real con Twilio
-            // $message = $this->twilioClient->messages->create(...);
+            // ENVÍO REAL CON TWILIO SDK
+            $message = $this->twilioClient->messages->create(
+                "whatsapp:+52{$telefono}", // To
+                [
+                    'from' => $this->whatsappFrom,
+                    'body' => $mensaje
+                ]
+            );
+            
+            error_log("TwilioBot REAL: Mensaje enviado a {$telefono} - SID: {$message->sid}");
             
             return [
-                'success' => false,
-                'error' => 'Twilio no configurado'
+                'success' => true,
+                'message_sid' => $message->sid,
+                'status' => $message->status,
+                'body' => $mensaje,
+                'twilio_response' => [
+                    'sid' => $message->sid,
+                    'status' => $message->status,
+                    'to' => $message->to,
+                    'from' => $message->from,
+                    'date_created' => $message->dateCreated->format('Y-m-d H:i:s')
+                ]
             ];
             
         } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarMensajeTexto: " . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
