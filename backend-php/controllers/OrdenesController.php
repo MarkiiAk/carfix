@@ -13,36 +13,69 @@ class OrdenesController {
     
     /**
      * Obtener todas las órdenes - GET /api/ordenes
+     * CORRIGE: Cache busting y logging para debug
      */
     public function getAll() {
         try {
             requireAuth();
             
-            $stmt = $this->db->query('
+            // LOG CRÍTICO: Para debugging del problema de cache
+            error_log("=== DEBUG ORDENES GET ===");
+            error_log("Timestamp: " . date('Y-m-d H:i:s'));
+            error_log("User: " . json_encode($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'));
+            
+            // FORZAR NUEVA CONEXIÓN para evitar cache de PDO
+            $freshDb = Database::getInstance()->getConnection();
+            
+            // Query con timestamp para evitar cache de query
+            $stmt = $freshDb->prepare('
                 SELECT o.*, 
                        c.nombre as cliente_nombre,
                        c.telefono as cliente_telefono,
-                       v.marca, v.modelo, v.anio, v.placas
+                       v.marca, v.modelo, v.anio, v.placas,
+                       NOW() as query_timestamp
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v ON o.vehiculo_id = v.id
                 ORDER BY o.id DESC
             ');
-            
+            $stmt->execute();
             $ordenes = $stmt->fetchAll();
+            
+            // LOG: IDs encontrados
+            $ids = array_column($ordenes, 'id');
+            error_log("IDs encontrados en BD: " . json_encode($ids));
+            error_log("Total órdenes: " . count($ordenes));
+            
+            // Verificación específica para 1720 y 1721
+            foreach ($ordenes as $orden) {
+                if ($orden['id'] == '1720') {
+                    error_log("PROBLEMA: Orden 1720 AÚN EXISTE en BD - " . json_encode($orden));
+                }
+                if ($orden['id'] == '1721') {
+                    error_log("CORRECTO: Orden 1721 encontrada - " . json_encode($orden));
+                }
+            }
             
             // Procesar cada orden para incluir datos relacionados
             foreach ($ordenes as &$orden) {
                 $orden = $this->enrichOrdenData($orden);
             }
             
+            // Headers anti-cache
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            
             echo json_encode($ordenes);
             
         } catch (Exception $e) {
+            error_log("ERROR en getAll(): " . $e->getMessage());
             http_response_code(500);
             echo json_encode([
                 'error' => 'Error al obtener órdenes',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
+                'timestamp' => time()
             ]);
         }
     }
