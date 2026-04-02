@@ -36,8 +36,8 @@ $tables = ['twilio_config', 'conversaciones_whatsapp', 'calendario_disponibilida
 
 foreach ($tables as $table) {
     try {
-        $stmt = $db->prepare("SHOW TABLES LIKE ?");
-        $stmt->execute([$table]);
+        $stmt = $db->prepare("SHOW TABLES LIKE '{$table}'");
+        $stmt->execute();
         $exists = $stmt->fetch();
         
         if ($exists) {

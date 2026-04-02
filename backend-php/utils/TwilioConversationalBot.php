@@ -29,7 +29,7 @@ class TwilioConversationalBot {
     
     public function __construct() {
         // Conectar a BD
-        $database = new Database();
+        $database = Database::getInstance();
         $this->db = $database->getConnection();
         
         // Cargar configuración
