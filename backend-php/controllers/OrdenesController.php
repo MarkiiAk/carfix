@@ -13,36 +13,118 @@ class OrdenesController {
     
     /**
      * Obtener todas las órdenes - GET /api/ordenes
+     * HOTFIX CRÍTICO: Forzar nueva conexión, limpiar cache completo
      */
     public function getAll() {
         try {
-            requireAuth();
+            $userData = requireAuth();
             
-            $stmt = $this->db->query('
-                SELECT o.*, 
+            // DESTRUIR CACHE COMPLETAMENTE
+            if (function_exists('opcache_reset')) {
+                opcache_reset();
+            }
+            if (function_exists('apc_clear_cache')) {
+                apc_clear_cache();
+                apc_clear_cache('user');
+            }
+            
+            // LOG CRÍTICO CON USUARIO
+            error_log("=== HOTFIX ORDENES GET ===");
+            error_log("Usuario ID: " . ($userData['userId'] ?? 'UNKNOWN'));
+            error_log("Usuario: " . ($userData['username'] ?? 'UNKNOWN'));
+            error_log("Timestamp: " . date('Y-m-d H:i:s'));
+            error_log("IP: " . ($_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'));
+            
+            // CREAR NUEVA CONEXIÓN PDO DESDE CERO
+            $db = null;
+            $this->db = null;
+            unset($this->db);
+            
+            // Forzar nueva instancia de Database
+            $reflection = new ReflectionClass('Database');
+            $instance = $reflection->getProperty('instance');
+            $instance->setAccessible(true);
+            $instance->setValue(null, null);
+            
+            // Nueva conexión limpia
+            $freshDb = Database::getInstance()->getConnection();
+            
+            // FORCE REFRESH con SQL específico
+            $freshDb->exec('SET SESSION query_cache_type = OFF');
+            $freshDb->exec('FLUSH QUERY CACHE');
+            
+            // Query sin cache con FORCE INDEX
+            $stmt = $freshDb->prepare('
+                SELECT SQL_NO_CACHE DISTINCT o.*, 
                        c.nombre as cliente_nombre,
                        c.telefono as cliente_telefono,
-                       v.marca, v.modelo, v.anio, v.placas
+                       v.marca, v.modelo, v.anio, v.placas,
+                       UNIX_TIMESTAMP() as query_timestamp
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v ON o.vehiculo_id = v.id
                 ORDER BY o.id DESC
             ');
-            
+            $stmt->execute();
             $ordenes = $stmt->fetchAll();
             
-            // Procesar cada orden para incluir datos relacionados
-            foreach ($ordenes as &$orden) {
-                $orden = $this->enrichOrdenData($orden);
+            // LOG CRÍTICO: IDs reales en BD
+            $ids = array_column($ordenes, 'id');
+            error_log("IDs REALES en BD: " . json_encode($ids));
+            error_log("Total órdenes REALES: " . count($ordenes));
+            error_log("Usuario " . ($userData['username'] ?? 'UNKNOWN') . " ve: " . json_encode($ids));
+            
+            // Verificar problema específico
+            $tiene1720 = false;
+            $tiene1721 = false;
+            foreach ($ordenes as $orden) {
+                if ($orden['id'] == '1720') {
+                    $tiene1720 = true;
+                    error_log("PROBLEMA: Usuario " . ($userData['username'] ?? '') . " ve orden 1720 que NO EXISTE");
+                }
+                if ($orden['id'] == '1721') {
+                    $tiene1721 = true;
+                    error_log("CORRECTO: Usuario " . ($userData['username'] ?? '') . " ve orden 1721");
+                }
             }
             
-            echo json_encode($ordenes);
+            // Procesar cada orden
+            foreach ($ordenes as &$orden) {
+                $orden = $this->enrichOrdenData($orden);
+                $orden['debug_info'] = [
+                    'consulta_timestamp' => time(),
+                    'usuario_que_consulta' => $userData['username'] ?? 'UNKNOWN'
+                ];
+            }
+            
+            // Headers anti-cache MÁS AGRESIVOS
+            header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+            header('Pragma: no-cache');
+            header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+            header('ETag: "' . time() . '-' . rand() . '"');
+            
+            $response = [
+                'data' => $ordenes,
+                'metadata' => [
+                    'timestamp' => time(),
+                    'total' => count($ordenes),
+                    'usuario' => $userData['username'] ?? 'UNKNOWN',
+                    'debug_ids' => $ids
+                ]
+            ];
+            
+            echo json_encode($response);
             
         } catch (Exception $e) {
+            error_log("ERROR CRÍTICO en getAll(): " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             http_response_code(500);
             echo json_encode([
-                'error' => 'Error al obtener órdenes',
-                'message' => $e->getMessage()
+                'error' => 'Error crítico al obtener órdenes',
+                'message' => $e->getMessage(),
+                'timestamp' => time(),
+                'debug' => 'Hotfix aplicado'
             ]);
         }
     }
@@ -816,7 +898,6 @@ class OrdenesController {
         // Obtener puntos de seguridad de la orden
         $orden['puntosSeguridad'] = [];
         
-        error_log('🔍 DEBUG: Iniciando obtención de puntos para orden: ' . $orden['id']);
         
         try {
             // PASO 1: Query básico sin JOINs para ver si hay datos
@@ -824,12 +905,9 @@ class OrdenesController {
             $basicStmt->execute([$orden['id']]);
             $basicPuntos = $basicStmt->fetchAll();
             
-            error_log('📊 DEBUG: Puntos básicos encontrados: ' . count($basicPuntos));
-            error_log('📋 DEBUG: Datos básicos: ' . json_encode($basicPuntos));
             
             if (count($basicPuntos) > 0) {
                 // PASO 2: Si hay datos básicos, intentar query completo
-                error_log('🔧 DEBUG: Intentando query completo...');
                 
                 $stmt = $this->db->prepare('
                     SELECT ops.id, ops.orden_id, ops.punto_seguridad_id, ops.estado_id, ops.notas,
@@ -846,8 +924,6 @@ class OrdenesController {
                 $stmt->execute([$orden['id']]);
                 $puntosDB = $stmt->fetchAll();
                 
-                error_log('✅ DEBUG: Puntos con JOINs encontrados: ' . count($puntosDB));
-                error_log('📄 DEBUG: Datos completos: ' . json_encode($puntosDB));
                 
                 foreach ($puntosDB as $punto) {
                     $puntoProcessed = [
@@ -870,20 +946,14 @@ class OrdenesController {
                     ];
                     
                     $orden['puntosSeguridad'][] = $puntoProcessed;
-                    error_log('➕ DEBUG: Punto procesado: ' . json_encode($puntoProcessed));
                 }
             } else {
-                error_log('❌ DEBUG: No se encontraron puntos básicos en la tabla orden_puntos_seguridad');
             }
             
         } catch (Exception $e) {
-            error_log('💥 ERROR obteniendo puntos de seguridad: ' . $e->getMessage());
-            error_log('🔍 ERROR Details: ' . $e->getFile() . ':' . $e->getLine());
-            error_log('📄 ERROR Trace: ' . $e->getTraceAsString());
             $orden['puntosSeguridad'] = [];
         }
         
-        error_log('🎯 DEBUG: Total puntos finales: ' . count($orden['puntosSeguridad']));
         
         return $orden;
     }
@@ -1025,7 +1095,6 @@ class OrdenesController {
                 ]);
             }
         }
-        error_log('Puntos de seguridad insertados: ' . count($puntos) . ' para orden ' . $orden_id);
     }
     
     private function generateNumeroOrden($id) {
