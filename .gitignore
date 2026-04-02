@@ -23,16 +23,24 @@ dist-ssr
 ordenes-db.json
 backend/data/ordenes.json
 
-# SQL files - Never commit database schemas or migrations
+# SQL files - Never commit database schemas or migrations (except examples in database/)
 *.sql
 *.SQL
+!database/*.sql
 
-# Hash generation scripts - Security sensitive
+# Hash generation scripts and temporary files - Security sensitive
 generate_hash.*
 *_hash.*
 insert_usuario_*
 fix_usuario_*
+*fix-auto-increment*
 *.cjs
+
+# Backend PHP sensitive files
+backend-php/.env
+backend-php/.env.local
+backend-php/.env.production
+backend-php/config/.env*
 
 # Editor directories and files
 .vscode/*

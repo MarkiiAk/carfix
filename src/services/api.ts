@@ -3,12 +3,6 @@ import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrde
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-console.log('🔧 API Configuration:', {
-  API_URL,
-  env: import.meta.env.VITE_API_URL,
-  mode: import.meta.env.MODE
-});
-
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -46,13 +40,10 @@ api.interceptors.response.use(
 
 export const authAPI = {
   login: async (username: string, password: string) => {
-    console.log('🔐 LOGIN REQUEST:', { username, API_URL });
     try {
       const response = await api.post('/auth/login', { username, password });
-      console.log('✅ LOGIN SUCCESS:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ LOGIN ERROR:', error);
       throw error;
     }
   },
@@ -71,25 +62,19 @@ export const authAPI = {
 
 export const ordenesAPI = {
   getAll: async () => {
-    console.log('📋 FETCHING ALL ORDENES from:', API_URL);
     try {
       const response = await api.get<Orden[]>('/ordenes');
-      console.log('✅ ORDENES FETCHED:', response.data.length, 'ordenes');
       return response.data;
     } catch (error) {
-      console.error('❌ ERROR FETCHING ORDENES:', error);
       throw error;
     }
   },
 
   getById: async (id: string) => {
-    console.log('📄 FETCHING ORDEN:', id);
     try {
       const response = await api.get<Orden>(`/ordenes/${id}`);
-      console.log('✅ ORDEN FETCHED:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ ERROR FETCHING ORDEN:', error);
       throw error;
     }
   },
@@ -107,25 +92,19 @@ export const ordenesAPI = {
   },
 
   create: async (orden: Omit<Orden, 'id' | 'folio' | 'estado' | 'fechaCreacion' | 'fechaActualizacion'>) => {
-    console.log('➕ CREATING ORDEN:', orden);
     try {
       const response = await api.post<Orden>('/ordenes', orden);
-      console.log('✅ ORDEN CREATED:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ ERROR CREATING ORDEN:', error);
       throw error;
     }
   },
 
   update: async (id: string, orden: Partial<Orden>) => {
-    console.log('✏️ UPDATING ORDEN:', id, orden);
     try {
       const response = await api.put<Orden>(`/ordenes/${id}`, orden);
-      console.log('✅ ORDEN UPDATED:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ ERROR UPDATING ORDEN:', error);
       throw error;
     }
   },

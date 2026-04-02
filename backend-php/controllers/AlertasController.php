@@ -10,24 +10,14 @@ class AlertasController {
 
     /**
      * Verifica si el usuario actual está autorizado para acceder a las alertas
-     * Solo usuarios admin específicos pueden acceder
+     * CUALQUIER usuario logueado puede acceder - SIN RESTRICCIONES
      */
     private function verificarAutorizacionAlertas($userData) {
-        if (!$userData) {
-            return false;
-        }
-        
-        // Usuarios autorizados para acceder a alertas
-        $usuariosAutorizados = ['markiiak', 'temporaldemo'];
-        
-        // Verificar que sea un usuario autorizado con rol admin
-        $username = $userData['username'] ?? $userData['usuario'] ?? '';
-        $role = $userData['role'] ?? $userData['rol'] ?? '';
-        
-        return in_array($username, $usuariosAutorizados) && $role === 'admin';
+        // CUALQUIER usuario logueado puede ver las alertas - SIN RESTRICCIONES  
+        return !!$userData;
     }
 
-    // GET /alertas - Obtener todas las alertas con información completa
+    // GET /alertas - Obtener todas las alertas con información completa (INTEGRADO CON WHATSAPP)
     public function obtenerAlertas($userData = null) {
         try {
             // Verificar autorización
@@ -37,6 +27,8 @@ class AlertasController {
                     'error' => 'No autorizado - Acceso denegado a las alertas'
                 ];
             }
+            
+            // NUEVA QUERY CON CAMPOS WHATSAPP
             $query = "
                 SELECT 
                     a.id,
@@ -48,6 +40,17 @@ class AlertasController {
                     a.fecha_generada,
                     a.fecha_marcada_leida,
                     a.dias_desde_servicio,
+                    
+                    -- NUEVOS CAMPOS WHATSAPP
+                    a.estado_whatsapp,
+                    a.fecha_envio_whatsapp,
+                    a.respuesta_inicial,
+                    a.fecha_cita_seleccionada,
+                    a.hora_cita_seleccionada,
+                    a.confirmacion_sag,
+                    a.requiere_atencion,
+                    a.prioridad,
+                    a.ultima_actividad,
                     
                     -- Información del cliente
                     c.nombre as cliente_nombre,
@@ -61,13 +64,32 @@ class AlertasController {
                     v.placas,
                     
                     -- Días exactos desde el último servicio (calculado en tiempo real)
-                    DATEDIFF(NOW(), a.fecha_ultimo_servicio) as dias_exactos_desde_servicio
+                    DATEDIFF(NOW(), a.fecha_ultimo_servicio) as dias_exactos_desde_servicio,
+                    
+                    -- Estado conversacional para campanita
+                    CASE 
+                        WHEN a.requiere_atencion = TRUE AND a.estado_whatsapp = 'pre_agendado' THEN '🔴 CONFIRMAR CITA'
+                        WHEN a.requiere_atencion = TRUE AND a.estado_whatsapp = 'requiere_contacto' THEN '🟡 CONTACTAR'
+                        WHEN a.estado_whatsapp = 'rechazado' THEN '🔵 CLIENTE RECHAZÓ'
+                        WHEN a.estado_whatsapp = 'confirmado' THEN '✅ CONFIRMADO'
+                        WHEN a.estado_whatsapp = 'enviado' OR a.estado_whatsapp = 'esperando_respuesta' THEN '📱 ENVIADO'
+                        WHEN a.estado_whatsapp = 'esperando_fecha' THEN '📅 ESPERANDO FECHA'
+                        ELSE '📝 PENDIENTE ENVÍO'
+                    END as estado_visual_whatsapp
                     
                 FROM alertas_servicio a
                 INNER JOIN clientes c ON a.cliente_id = c.id
                 INNER JOIN vehiculos v ON a.vehiculo_id = v.id
                 ORDER BY 
-                    CASE WHEN a.estado = 'pendiente' THEN 0 ELSE 1 END,
+                    -- PRIORIZAR POR ATENCIÓN REQUERIDA Y ESTADO WHATSAPP
+                    CASE 
+                        WHEN a.requiere_atencion = TRUE AND a.estado_whatsapp = 'pre_agendado' THEN 1
+                        WHEN a.requiere_atencion = TRUE AND a.estado_whatsapp = 'requiere_contacto' THEN 2
+                        WHEN a.estado = 'pendiente' THEN 3
+                        ELSE 4
+                    END,
+                    a.prioridad DESC,
+                    a.ultima_actividad DESC,
                     a.fecha_generada DESC
             ";
 
@@ -79,6 +101,10 @@ class AlertasController {
             foreach ($alertas as &$alerta) {
                 $alerta['servicios_que_dispararon'] = json_decode($alerta['servicios_que_dispararon'], true) ?? [];
                 $alerta['todos_los_servicios'] = json_decode($alerta['todos_los_servicios'], true) ?? [];
+                
+                // Agregar información adicional de WhatsApp
+                $alerta['tiene_whatsapp'] = !empty($alerta['estado_whatsapp']) && $alerta['estado_whatsapp'] !== 'borrador';
+                $alerta['whatsapp_completado'] = in_array($alerta['estado_whatsapp'], ['confirmado', 'rechazado', 'completado']);
             }
 
             return [
@@ -160,16 +186,19 @@ class AlertasController {
     // GET /alertas/generar - Generar nuevas alertas (proceso manual o automático)
     public function generarAlertas($userData = null) {
         try {
-            // Verificar autorización
-            if (!$this->verificarAutorizacionAlertas($userData)) {
+            // Para crons automáticos, permitir ejecución sin verificación de usuario
+            // Verificar si es una ejecución automática o manual
+            $esEjecucionAutomatica = (php_sapi_name() === 'cli' || !$userData);
+            
+            if (!$esEjecucionAutomatica && !$this->verificarAutorizacionAlertas($userData)) {
                 return [
                     'success' => false,
                     'error' => 'No autorizado - Acceso denegado a las alertas'
                 ];
             }
             
-            // CAMBIO: 20 días en lugar de 6 meses (180 días)
-            // SERVICIOS QUE DISPARAN ALERTAS A 20 DÍAS:
+            // TESTEO: 20 días - período reducido para pruebas
+            // SERVICIOS QUE DISPARAN ALERTAS A 20+ DÍAS:
             $serviciosAlerta = [
                 'Full Service con Bujías',
                 'Full Service sin Bujías', 
@@ -195,7 +224,7 @@ class AlertasController {
                 LEFT JOIN alertas_servicio a ON os.id = a.orden_id
                 
                 WHERE 
-                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 3 MONTH)
+                    os.fecha_ingreso >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
                     AND os.fecha_ingreso <= DATE_SUB(NOW(), INTERVAL 20 DAY)
                     AND a.id IS NULL -- No tiene alerta generada
                     AND EXISTS (
@@ -212,6 +241,19 @@ class AlertasController {
             $stmt = $this->db->prepare($query);
             $stmt->execute([$serviciosPattern]);
             $ordenesParaAlerta = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Log de debug para entender qué se está encontrando
+            if ($esEjecucionAutomatica) {
+                error_log("SAG Debug: Servicios buscados: " . implode(', ', $serviciosAlerta));
+                error_log("SAG Debug: Pattern REGEXP: " . $serviciosPattern);
+                error_log("SAG Debug: Órdenes encontradas para evaluar: " . count($ordenesParaAlerta));
+                
+                if (count($ordenesParaAlerta) > 0) {
+                    error_log("SAG Debug: Primera orden encontrada - ID: " . $ordenesParaAlerta[0]['orden_id'] . 
+                             ", Fecha: " . $ordenesParaAlerta[0]['fecha_ingreso'] . 
+                             ", Días: " . $ordenesParaAlerta[0]['dias_desde_servicio']);
+                }
+            }
 
             $alertasGeneradas = 0;
 
@@ -285,8 +327,11 @@ class AlertasController {
     // NUEVO: Método para generar alertas automáticamente con control diario
     public function generarAlertasAutomatico($userData = null) {
         try {
-            // Verificar autorización
-            if (!$this->verificarAutorizacionAlertas($userData)) {
+            // Para crons automáticos, permitir ejecución sin verificación de usuario
+            // Verificar si es una ejecución automática o manual
+            $esEjecucionAutomatica = (php_sapi_name() === 'cli' || !$userData);
+            
+            if (!$esEjecucionAutomatica && !$this->verificarAutorizacionAlertas($userData)) {
                 return [
                     'success' => false,
                     'error' => 'No autorizado'

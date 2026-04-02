@@ -13,53 +13,27 @@ class OrdenesController {
     
     /**
      * Obtener todas las órdenes - GET /api/ordenes
-     * HOTFIX CRÍTICO: Forzar nueva conexión, limpiar cache completo
+     * CORRIGE: Cache busting y logging para debug
      */
     public function getAll() {
         try {
-            $userData = requireAuth();
+            requireAuth();
             
-            // DESTRUIR CACHE COMPLETAMENTE
-            if (function_exists('opcache_reset')) {
-                opcache_reset();
-            }
-            if (function_exists('apc_clear_cache')) {
-                apc_clear_cache();
-                apc_clear_cache('user');
-            }
-            
-            // LOG CRÍTICO CON USUARIO
-            error_log("=== HOTFIX ORDENES GET ===");
-            error_log("Usuario ID: " . ($userData['userId'] ?? 'UNKNOWN'));
-            error_log("Usuario: " . ($userData['username'] ?? 'UNKNOWN'));
+            // LOG CRÍTICO: Para debugging del problema de cache
+            error_log("=== DEBUG ORDENES GET ===");
             error_log("Timestamp: " . date('Y-m-d H:i:s'));
-            error_log("IP: " . ($_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'));
+            error_log("User: " . json_encode($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'));
             
-            // CREAR NUEVA CONEXIÓN PDO DESDE CERO
-            $db = null;
-            $this->db = null;
-            unset($this->db);
-            
-            // Forzar nueva instancia de Database
-            $reflection = new ReflectionClass('Database');
-            $instance = $reflection->getProperty('instance');
-            $instance->setAccessible(true);
-            $instance->setValue(null, null);
-            
-            // Nueva conexión limpia
+            // FORZAR NUEVA CONEXIÓN para evitar cache de PDO
             $freshDb = Database::getInstance()->getConnection();
             
-            // FORCE REFRESH con SQL específico
-            $freshDb->exec('SET SESSION query_cache_type = OFF');
-            $freshDb->exec('FLUSH QUERY CACHE');
-            
-            // Query sin cache con FORCE INDEX
+            // Query con timestamp para evitar cache de query
             $stmt = $freshDb->prepare('
-                SELECT SQL_NO_CACHE DISTINCT o.*, 
+                SELECT o.*, 
                        c.nombre as cliente_nombre,
                        c.telefono as cliente_telefono,
                        v.marca, v.modelo, v.anio, v.placas,
-                       UNIX_TIMESTAMP() as query_timestamp
+                       NOW() as query_timestamp
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v ON o.vehiculo_id = v.id
@@ -68,63 +42,40 @@ class OrdenesController {
             $stmt->execute();
             $ordenes = $stmt->fetchAll();
             
-            // LOG CRÍTICO: IDs reales en BD
+            // LOG: IDs encontrados
             $ids = array_column($ordenes, 'id');
-            error_log("IDs REALES en BD: " . json_encode($ids));
-            error_log("Total órdenes REALES: " . count($ordenes));
-            error_log("Usuario " . ($userData['username'] ?? 'UNKNOWN') . " ve: " . json_encode($ids));
+            error_log("IDs encontrados en BD: " . json_encode($ids));
+            error_log("Total órdenes: " . count($ordenes));
             
-            // Verificar problema específico
-            $tiene1720 = false;
-            $tiene1721 = false;
+            // Verificación específica para 1720 y 1721
             foreach ($ordenes as $orden) {
                 if ($orden['id'] == '1720') {
-                    $tiene1720 = true;
-                    error_log("PROBLEMA: Usuario " . ($userData['username'] ?? '') . " ve orden 1720 que NO EXISTE");
+                    error_log("PROBLEMA: Orden 1720 AÚN EXISTE en BD - " . json_encode($orden));
                 }
                 if ($orden['id'] == '1721') {
-                    $tiene1721 = true;
-                    error_log("CORRECTO: Usuario " . ($userData['username'] ?? '') . " ve orden 1721");
+                    error_log("CORRECTO: Orden 1721 encontrada - " . json_encode($orden));
                 }
             }
             
-            // Procesar cada orden
+            // Procesar cada orden para incluir datos relacionados
             foreach ($ordenes as &$orden) {
                 $orden = $this->enrichOrdenData($orden);
-                $orden['debug_info'] = [
-                    'consulta_timestamp' => time(),
-                    'usuario_que_consulta' => $userData['username'] ?? 'UNKNOWN'
-                ];
             }
             
-            // Headers anti-cache MÁS AGRESIVOS
-            header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+            // Headers anti-cache
+            header('Cache-Control: no-cache, no-store, must-revalidate');
             header('Pragma: no-cache');
-            header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
-            header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-            header('ETag: "' . time() . '-' . rand() . '"');
+            header('Expires: 0');
             
-            $response = [
-                'data' => $ordenes,
-                'metadata' => [
-                    'timestamp' => time(),
-                    'total' => count($ordenes),
-                    'usuario' => $userData['username'] ?? 'UNKNOWN',
-                    'debug_ids' => $ids
-                ]
-            ];
-            
-            echo json_encode($response);
+            echo json_encode($ordenes);
             
         } catch (Exception $e) {
-            error_log("ERROR CRÍTICO en getAll(): " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
+            error_log("ERROR en getAll(): " . $e->getMessage());
             http_response_code(500);
             echo json_encode([
-                'error' => 'Error crítico al obtener órdenes',
+                'error' => 'Error al obtener órdenes',
                 'message' => $e->getMessage(),
-                'timestamp' => time(),
-                'debug' => 'Hotfix aplicado'
+                'timestamp' => time()
             ]);
         }
     }

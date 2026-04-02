@@ -35,17 +35,14 @@ export const Dashboard = () => {
       // Esperar a que la autenticación esté completamente cargada
       if (!isActive || authLoading || !user) return;
       
-      console.log('🚀 Iniciando carga secuencial de datos...');
       
       // 1. Cargar órdenes primero
       await loadOrdenes();
       
       // 2. Si el usuario está autorizado, cargar alertas DESPUÉS
       if (isActive && isAlertasAuthorized(user)) {
-        console.log(`🔔 Usuario ${user.username} autorizado, cargando alertas...`);
         await loadAlertas();
       } else {
-        console.log(`🚫 Usuario ${user.username} no autorizado para alertas`);
       }
     };
     
@@ -74,12 +71,9 @@ export const Dashboard = () => {
   const loadOrdenes = async () => {
     try {
       setIsLoading(true);
-      console.log('📋 Cargando órdenes desde API...');
       const data = await ordenesAPI.getAll();
-      console.log('✅ Órdenes cargadas:', data.length);
       setOrdenes(data);
     } catch (error) {
-      console.error('❌ Error al cargar órdenes:', error);
     } finally {
       setIsLoading(false);
     }
@@ -89,29 +83,17 @@ export const Dashboard = () => {
   const loadAlertas = async () => {
     try {
       setAlertasLoading(true);
-      console.log('🔔 Generando alertas automáticamente...');
       
-      // Primero generar alertas nuevas
-      const generarResult = await alertasAutoService.generarAlertasAutomatico();
-      
-      if (generarResult?.alertas_generadas && generarResult.alertas_generadas > 0) {
-        console.log(`✅ Se generaron ${generarResult.alertas_generadas} nuevas alertas`);
-      }
-      
-      // Luego obtener todas las alertas
-      console.log('📥 Obteniendo alertas...');
+      // Solo obtener alertas existentes - el cron se encarga de generarlas
       const alertasResult = await alertasAutoService.obtenerAlertas();
       
       if (alertasResult.success && alertasResult.alertas) {
         const alertasPendientes = alertasResult.alertas.filter((alerta: Alerta) => alerta.estado === 'pendiente');
         setAlertas(alertasPendientes);
-        console.log(`✅ Alertas cargadas: ${alertasPendientes.length} pendientes de ${alertasResult.alertas.length} totales`);
       } else {
-        console.warn('⚠️ Error al obtener alertas:', alertasResult.error);
         setAlertas([]);
       }
     } catch (error) {
-      console.error('❌ Error al cargar alertas:', error);
       setAlertas([]);
     } finally {
       setAlertasLoading(false);

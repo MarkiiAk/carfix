@@ -145,8 +145,8 @@ jobs:
           local-dir: backend-php/
           server-dir: ./gestion/backend-php/
           
-          # LIMPIAR para eliminar archivos viejos (pero .env está excluido, no se borra)
-          dangerous-clean-slate: true
+          # NO LIMPIAR para preservar archivos críticos como .env
+          dangerous-clean-slate: false
           
           exclude: |
             **/.git
@@ -156,6 +156,7 @@ jobs:
             **/.vscode/**
             **/.DS_Store
             **/.env
+            **/.env.local
             **/.env.example
             **/INSTALACION-BACKEND-PHP.md
           
