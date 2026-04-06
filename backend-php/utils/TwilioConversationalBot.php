@@ -855,12 +855,12 @@ class TwilioConversationalBot {
         // Remover espacios, guiones, paréntesis
         $telefono = preg_replace('/[\s\-\(\)]+/', '', $telefono);
         
-        // Remover prefijos comunes
+        // Remover prefijos comunes pero conservar el 1 de números móviles mexicanos
         $telefono = preg_replace('/^\+?52/', '', $telefono);
         $telefono = preg_replace('/^01/', '', $telefono);
         
-        // Validar que sean 10 dígitos
-        if (!preg_match('/^\d{10}$/', $telefono)) {
+        // Validar que sean 10 u 11 dígitos (10 para fijos, 11 para móviles con el 1)
+        if (!preg_match('/^\d{10,11}$/', $telefono)) {
             return '';
         }
         
