@@ -228,8 +228,16 @@ try {
             
             logWhatsApp("Teléfono validado {{Textovalidadort}}: {$telefono}");
             
+            // **DEBUGGING CRÍTICO DIRECTO EN CRON**
+            logWhatsApp("🔍 ANTES de enviarRecordatorioInicial - Alerta ID: {$alerta['id']}");
+            logWhatsApp("🔍 Cliente: {$alerta['cliente_nombre']}");
+            logWhatsApp("🔍 Servicios: {$alerta['servicios_que_dispararon']}");
+            
             // Enviar recordatorio inicial
             $resultado = $bot->enviarRecordatorioInicial($alerta['id']);
+            
+            // **DEBUGGING CRÍTICO - RESULTADO COMPLETO**
+            logWhatsApp("🔍 RESULTADO COMPLETO: " . json_encode($resultado));
             
             if ($resultado['success']) {
                 $enviosExitosos++;

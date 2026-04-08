@@ -73,7 +73,7 @@ class TwilioConversationalBot {
                     $this->authToken = $result['config_value'] ?? '';
                     break;
                 case 'whatsapp_from':
-                    $this->whatsappFrom = $result['config_value'] ?? 'whatsapp:+14155238886';
+                    $this->whatsappFrom = $result['config_value'] ?? 'whatsapp:+525535240846';
                     break;
                 case 'sag_admin_phone':
                     $this->sagAdminPhone = $result['config_value'] ?? '';
@@ -891,14 +891,23 @@ class TwilioConversationalBot {
                     // Según documentación Twilio post-abril 2025
                     error_log("TwilioBot DEBUG: Enviando SOLO con contentSid (sin body)");
                     
+                    // **DEBUGGING CRÍTICO: Verificar parámetros exactos**
+                    $parametros = [
+                        'from' => $this->whatsappFrom,
+                        'contentSid' => $contentSid,
+                        'contentVariables' => json_encode($contentVariables)
+                    ];
+                    
+                    error_log("TwilioBot DEBUG CRÍTICO: Parámetros exactos enviados a Twilio API:");
+                    error_log("  - To: whatsapp:+52{$telefono}");
+                    error_log("  - From: {$this->whatsappFrom}");
+                    error_log("  - ContentSid: {$contentSid}");
+                    error_log("  - ContentVariables: " . json_encode($contentVariables));
+                    error_log("  - ContentVariables length: " . strlen(json_encode($contentVariables)));
+                    
                     $message = $this->twilioClient->messages->create(
                         "whatsapp:+52{$telefono}", // To
-                        [
-                            'from' => $this->whatsappFrom,
-                            'contentSid' => $contentSid,  // SID real desde configuración
-                            'contentVariables' => json_encode($contentVariables)
-                            // ❌ NO incluir 'body' cuando se usa contentSid (causa error 63016)
-                        ]
+                        $parametros
                     );
                 } catch (Exception $templateError) {
                     // FALLBACK: Si la plantilla falla, usar mensaje de texto puro
