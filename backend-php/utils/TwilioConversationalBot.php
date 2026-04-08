@@ -861,17 +861,10 @@ class TwilioConversationalBot {
             
             error_log("TwilioBot: Enviando con plantilla - Variables: " . json_encode($contentVariables));
             
-            // OBTENER CONTENT SID DESDE BD - CONFIGURACIÓN DINÁMICA
-            $contentSid = $this->obtenerConfiguracion('content_sid');
-            
-            error_log("TwilioBot DEBUG: Content SID obtenido desde BD: '{$contentSid}'");
-            error_log("TwilioBot DEBUG: Content SID vacío? " . (empty($contentSid) ? 'SÍ' : 'NO'));
-            
-            // **FORZAR CONTENT SID SI ESTÁ VACÍO**
-            if (empty($contentSid)) {
-                $contentSid = 'HX765eae763cf778deacde6238674d4108';
-                error_log("TwilioBot WARNING: Content SID vacío, usando fallback hardcoded: {$contentSid}");
-            }
+            // **CONTENT SID HARDCODED - SOLUCIÓN DIRECTA Y CONFIABLE**
+            $contentSid = 'HX765eae763cf778deacde6238674d4108';
+            error_log("TwilioBot INFO: Content SID HARDCODED (sin BD): {$contentSid}");
+            error_log("TwilioBot DEBUG: Content SID garantizado y aprobado por WhatsApp");
             
             // **FALLBACK DOBLE PARA ASEGURAR BODY SIEMPRE PRESENTE**
             $mensajeFallback = "Hola {$alerta['cliente_nombre']}, han pasado 6 meses desde tu último servicio ({$serviciosTexto}). ¿Te interesa agendar una cita para mantenimiento?\n\nResponde:\n1. Sí, me interesa\n2. No, gracias";
