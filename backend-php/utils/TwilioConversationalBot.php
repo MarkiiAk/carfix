@@ -894,24 +894,28 @@ class TwilioConversationalBot {
                 error_log("TwilioBot DEBUG: Variables: " . json_encode($contentVariables));
                 
                 try {
+                    // **ENVÍO CORRECTO: SOLO contentSid + contentVariables (SIN body)**
+                    // Según documentación Twilio post-abril 2025
+                    error_log("TwilioBot DEBUG: Enviando SOLO con contentSid (sin body)");
+                    
                     $message = $this->twilioClient->messages->create(
                         "whatsapp:+52{$telefono}", // To
                         [
                             'from' => $this->whatsappFrom,
                             'contentSid' => $contentSid,  // SID real desde configuración
-                            'contentVariables' => json_encode($contentVariables),
-                            'body' => $mensajeFallback  // **FALLBACK DE SEGURIDAD: BODY SIEMPRE PRESENTE**
+                            'contentVariables' => json_encode($contentVariables)
+                            // ❌ NO incluir 'body' cuando se usa contentSid (causa error 63016)
                         ]
                     );
                 } catch (Exception $templateError) {
-                    // FALLBACK 2: Si la plantilla falla, usar mensaje de texto puro
+                    // FALLBACK: Si la plantilla falla, usar mensaje de texto puro
                     error_log("TwilioBot ERROR con plantilla: " . $templateError->getMessage() . " - Usando fallback de texto");
                     
                     $message = $this->twilioClient->messages->create(
                         "whatsapp:+52{$telefono}",
                         [
                             'from' => $this->whatsappFrom,
-                            'body' => $mensajeFallback  // BODY GARANTIZADO
+                            'body' => $mensajeFallback  // BODY GARANTIZADO solo en fallback
                         ]
                     );
                 }
