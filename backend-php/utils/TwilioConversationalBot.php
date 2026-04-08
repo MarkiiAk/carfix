@@ -842,11 +842,16 @@ class TwilioConversationalBot {
             // OBTENER CONTENT SID DESDE BD - CONFIGURACIÓN DINÁMICA
             $contentSid = $this->obtenerConfiguracion('content_sid');
             
+            error_log("TwilioBot DEBUG: Content SID obtenido desde BD: '{$contentSid}'");
+            error_log("TwilioBot DEBUG: Content SID vacío? " . (empty($contentSid) ? 'SÍ' : 'NO'));
+            
             if (empty($contentSid)) {
                 // FALLBACK: Si no hay Content SID configurado, usar mensaje de texto temporal
                 error_log("TwilioBot WARNING: No hay Content SID configurado, enviando mensaje de texto como fallback");
                 
                 $mensajeFallback = "Hola {$alerta['cliente_nombre']}, han pasado 6 meses desde tu último servicio ({$serviciosTexto}). ¿Te interesa agendar una cita para mantenimiento?\n\nResponde:\n1. Sí, me interesa\n2. No, gracias";
+                
+                error_log("TwilioBot DEBUG: Enviando mensaje fallback con body: " . substr($mensajeFallback, 0, 100) . "...");
                 
                 $message = $this->twilioClient->messages->create(
                     "whatsapp:+52{$telefono}",
@@ -857,6 +862,9 @@ class TwilioConversationalBot {
                 );
             } else {
                 // ENVÍO CON PLANTILLA REAL
+                error_log("TwilioBot INFO: Enviando con plantilla aprobada - Content SID: {$contentSid}");
+                error_log("TwilioBot DEBUG: Variables: " . json_encode($contentVariables));
+                
                 $message = $this->twilioClient->messages->create(
                     "whatsapp:+52{$telefono}", // To
                     [
@@ -925,7 +933,9 @@ class TwilioConversationalBot {
             $stmt->execute([$key]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            return $result['config_value'] ?? '';
+            $value = $result ? $result['config_value'] : '';
+            error_log("TwilioBot DEBUG obtenerConfiguracion('{$key}'): resultado=" . ($result ? 'FOUND' : 'NOT_FOUND') . ", value='{$value}'");
+            return $value;
             
         } catch (Exception $e) {
             error_log("TwilioBot ERROR obtenerConfiguracion: " . $e->getMessage());
