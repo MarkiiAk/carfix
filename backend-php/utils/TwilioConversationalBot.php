@@ -116,18 +116,10 @@ class TwilioConversationalBot {
                 throw new Exception("Teléfono no válido: {$alerta['cliente_telefono']}");
             }
             
-            // Generar mensaje con botones
-            $mensajeTemplate = $this->obtenerConfiguracion('mensaje_recordatorio');
-            $mensaje = $this->reemplazarVariables($mensajeTemplate, $alerta);
-            
-            // Enviar via Twilio con botones interactivos
-            $resultado = $this->enviarMensajeConBotones(
+            // **NUEVO: Enviar con plantilla aprobada de Twilio**
+            $resultado = $this->enviarMensajeConPlantilla(
                 $telefono,
-                $mensaje,
-                [
-                    ['id' => 'si_interesa', 'title' => 'Sí, me interesa'],
-                    ['id' => 'no_gracias', 'title' => 'No, gracias']
-                ],
+                $alerta,
                 'recordatorio_inicial'
             );
             
@@ -142,8 +134,8 @@ class TwilioConversationalBot {
                     'outbound',
                     $this->whatsappFrom,
                     "whatsapp:+52{$telefono}",
-                    $mensaje,
-                    'interactive',
+                    "Plantilla: {$alerta['cliente_nombre']}, 6 meses, {$alerta['servicios_que_dispararon']}",
+                    'template',
                     'recordatorio_inicial',
                     $resultado
                 );
@@ -801,6 +793,72 @@ class TwilioConversationalBot {
             
         } catch (Exception $e) {
             error_log("TwilioBot ERROR enviarMensajeTexto: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Enviar mensaje con plantilla aprobada de Twilio
+     */
+    private function enviarMensajeConPlantilla($telefono, $alerta, $step) {
+        try {
+            // Si no hay cliente Twilio, simular
+            if ($this->twilioClient === null) {
+                error_log("TwilioBot SIMULADO: Plantilla a {$telefono}");
+                error_log("TwilioBot SIMULADO: Cliente: {$alerta['cliente_nombre']}");
+                error_log("TwilioBot SIMULADO: Servicio: {$alerta['servicios_que_dispararon']}");
+                
+                return [
+                    'success' => true,
+                    'message_sid' => 'SM_SIMULADO_' . uniqid(),
+                    'status' => 'queued',
+                    'twilio_response' => ['simulado' => true]
+                ];
+            }
+            
+            // ENVÍO REAL CON PLANTILLA APROBADA DE TWILIO
+            // Según el análisis: {{1}}=cliente, {{2}}="6 meses", {{3}}=servicios
+            
+            // Mapear variables de plantilla
+            $contentVariables = [
+                '1' => $alerta['cliente_nombre'],          // {{1}}
+                '2' => '6 meses',                          // {{2}} - fijo por diseño
+                '3' => $alerta['servicios_que_dispararon'] // {{3}}
+            ];
+            
+            error_log("TwilioBot: Enviando con plantilla - Variables: " . json_encode($contentVariables));
+            
+            $message = $this->twilioClient->messages->create(
+                "whatsapp:+52{$telefono}", // To
+                [
+                    'from' => $this->whatsappFrom,
+                    'contentSid' => 'HXb4fa5d0c6d7e5e1f8e4b8e2c1b9a5f2d',  // SID de la plantilla aprobada
+                    'contentVariables' => json_encode($contentVariables)
+                ]
+            );
+            
+            error_log("TwilioBot REAL: Plantilla enviada a {$telefono} - SID: {$message->sid}");
+            
+            return [
+                'success' => true,
+                'message_sid' => $message->sid,
+                'status' => $message->status,
+                'twilio_response' => [
+                    'sid' => $message->sid,
+                    'status' => $message->status,
+                    'to' => $message->to,
+                    'from' => $message->from,
+                    'date_created' => $message->dateCreated->format('Y-m-d H:i:s'),
+                    'content_sid' => 'HXb4fa5d0c6d7e5e1f8e4b8e2c1b9a5f2d',
+                    'variables_enviadas' => $contentVariables
+                ]
+            ];
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarMensajeConPlantilla: " . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
