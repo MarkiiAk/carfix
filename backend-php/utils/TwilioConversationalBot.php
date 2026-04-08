@@ -31,15 +31,24 @@ class TwilioConversationalBot {
     private $sagAdminPhone;
     
     public function __construct() {
+        // **DEBUGGING FORZADO - CONSTRUCTOR**
+        error_log("🚀 TwilioBot: Constructor iniciado VERSIÓN 2024-04-08 {{DebugConstructor}}");
+        
         // Conectar a BD
         $database = Database::getInstance();
         $this->db = $database->getConnection();
         
+        error_log("🔗 TwilioBot: Base de datos conectada {{DebugBD}}");
+        
         // Cargar configuración
         $this->loadTwilioConfig();
         
+        error_log("⚙️ TwilioBot: Configuración cargada {{DebugConfig}}");
+        
         // Inicializar cliente Twilio
         $this->initializeTwilioClient();
+        
+        error_log("📱 TwilioBot: Cliente Twilio inicializado {{DebugCliente}}");
     }
     
     /**
@@ -99,16 +108,23 @@ class TwilioConversationalBot {
      */
     public function enviarRecordatorioInicial($alertaId) {
         try {
+            // **DEBUGGING FORZADO - ENVIAR RECORDATORIO**
+            error_log("📧 TwilioBot: enviarRecordatorioInicial iniciado para alerta ID: {$alertaId} {{DebugEnvio}}");
+            
             // Obtener datos de la alerta
             $alerta = $this->obtenerDatosAlerta($alertaId);
             if (!$alerta) {
                 throw new Exception("Alerta ID {$alertaId} no encontrada");
             }
             
+            error_log("👤 TwilioBot: Alerta obtenida - Cliente: {$alerta['cliente_nombre']} {{DebugAlerta}}");
+            
             // Validar que esté en estado correcto
             if ($alerta['estado_whatsapp'] !== 'borrador') {
                 throw new Exception("Alerta ID {$alertaId} no está en estado borrador");
             }
+            
+            error_log("✅ TwilioBot: Estado validado: {$alerta['estado_whatsapp']} {{DebugEstado}}");
             
             // Limpiar teléfono
             $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
@@ -116,12 +132,18 @@ class TwilioConversationalBot {
                 throw new Exception("Teléfono no válido: {$alerta['cliente_telefono']}");
             }
             
+            error_log("📱 TwilioBot: Teléfono limpiado: {$telefono} {{DebugTelefono}}");
+            
             // **NUEVO: Enviar con plantilla aprobada de Twilio**
+            error_log("🚀 TwilioBot: Iniciando envío con plantilla {{DebugPlantilla}}");
+            
             $resultado = $this->enviarMensajeConPlantilla(
                 $telefono,
                 $alerta,
                 'recordatorio_inicial'
             );
+            
+            error_log("📬 TwilioBot: Resultado envío: " . json_encode($resultado) . " {{DebugResultado}}");
             
             if ($resultado['success']) {
                 // Actualizar estado en BD
@@ -845,34 +867,48 @@ class TwilioConversationalBot {
             error_log("TwilioBot DEBUG: Content SID obtenido desde BD: '{$contentSid}'");
             error_log("TwilioBot DEBUG: Content SID vacío? " . (empty($contentSid) ? 'SÍ' : 'NO'));
             
+            // **FALLBACK DOBLE PARA ASEGURAR BODY SIEMPRE PRESENTE**
+            $mensajeFallback = "Hola {$alerta['cliente_nombre']}, han pasado 6 meses desde tu último servicio ({$serviciosTexto}). ¿Te interesa agendar una cita para mantenimiento?\n\nResponde:\n1. Sí, me interesa\n2. No, gracias";
+            
             if (empty($contentSid)) {
-                // FALLBACK: Si no hay Content SID configurado, usar mensaje de texto temporal
+                // FALLBACK 1: No hay Content SID, usar mensaje de texto
                 error_log("TwilioBot WARNING: No hay Content SID configurado, enviando mensaje de texto como fallback");
-                
-                $mensajeFallback = "Hola {$alerta['cliente_nombre']}, han pasado 6 meses desde tu último servicio ({$serviciosTexto}). ¿Te interesa agendar una cita para mantenimiento?\n\nResponde:\n1. Sí, me interesa\n2. No, gracias";
-                
                 error_log("TwilioBot DEBUG: Enviando mensaje fallback con body: " . substr($mensajeFallback, 0, 100) . "...");
                 
                 $message = $this->twilioClient->messages->create(
                     "whatsapp:+52{$telefono}",
                     [
                         'from' => $this->whatsappFrom,
-                        'body' => $mensajeFallback
+                        'body' => $mensajeFallback  // BODY GARANTIZADO
                     ]
                 );
             } else {
-                // ENVÍO CON PLANTILLA REAL
+                // ENVÍO CON PLANTILLA REAL + FALLBACK DE SEGURIDAD
                 error_log("TwilioBot INFO: Enviando con plantilla aprobada - Content SID: {$contentSid}");
                 error_log("TwilioBot DEBUG: Variables: " . json_encode($contentVariables));
                 
-                $message = $this->twilioClient->messages->create(
-                    "whatsapp:+52{$telefono}", // To
-                    [
-                        'from' => $this->whatsappFrom,
-                        'contentSid' => $contentSid,  // SID real desde configuración
-                        'contentVariables' => json_encode($contentVariables)
-                    ]
-                );
+                try {
+                    $message = $this->twilioClient->messages->create(
+                        "whatsapp:+52{$telefono}", // To
+                        [
+                            'from' => $this->whatsappFrom,
+                            'contentSid' => $contentSid,  // SID real desde configuración
+                            'contentVariables' => json_encode($contentVariables),
+                            'body' => $mensajeFallback  // **FALLBACK DE SEGURIDAD: BODY SIEMPRE PRESENTE**
+                        ]
+                    );
+                } catch (Exception $templateError) {
+                    // FALLBACK 2: Si la plantilla falla, usar mensaje de texto puro
+                    error_log("TwilioBot ERROR con plantilla: " . $templateError->getMessage() . " - Usando fallback de texto");
+                    
+                    $message = $this->twilioClient->messages->create(
+                        "whatsapp:+52{$telefono}",
+                        [
+                            'from' => $this->whatsappFrom,
+                            'body' => $mensajeFallback  // BODY GARANTIZADO
+                        ]
+                    );
+                }
             }
             
             error_log("TwilioBot REAL: Plantilla enviada a {$telefono} - SID: {$message->sid}");

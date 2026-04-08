@@ -226,7 +226,7 @@ try {
                 continue;
             }
             
-            logWhatsApp("Teléfono validado: {$telefono}");
+            logWhatsApp("Teléfono validado {{Textovalidadort}}: {$telefono}");
             
             // Enviar recordatorio inicial
             $resultado = $bot->enviarRecordatorioInicial($alerta['id']);
