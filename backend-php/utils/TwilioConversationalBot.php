@@ -822,23 +822,50 @@ class TwilioConversationalBot {
             // ENVÍO REAL CON PLANTILLA APROBADA DE TWILIO
             // Según el análisis: {{1}}=cliente, {{2}}="6 meses", {{3}}=servicios
             
+            // Preparar servicios como texto
+            $serviciosTexto = '';
+            if (is_array($alerta['servicios_que_dispararon'])) {
+                $serviciosTexto = implode(', ', $alerta['servicios_que_dispararon']);
+            } else {
+                $serviciosTexto = $alerta['servicios_que_dispararon'];
+            }
+            
             // Mapear variables de plantilla
             $contentVariables = [
                 '1' => $alerta['cliente_nombre'],          // {{1}}
                 '2' => '6 meses',                          // {{2}} - fijo por diseño
-                '3' => $alerta['servicios_que_dispararon'] // {{3}}
+                '3' => $serviciosTexto                     // {{3}}
             ];
             
             error_log("TwilioBot: Enviando con plantilla - Variables: " . json_encode($contentVariables));
             
-            $message = $this->twilioClient->messages->create(
-                "whatsapp:+52{$telefono}", // To
-                [
-                    'from' => $this->whatsappFrom,
-                    'contentSid' => 'HXb4fa5d0c6d7e5e1f8e4b8e2c1b9a5f2d',  // SID de la plantilla aprobada
-                    'contentVariables' => json_encode($contentVariables)
-                ]
-            );
+            // OBTENER CONTENT SID DESDE BD - CONFIGURACIÓN DINÁMICA
+            $contentSid = $this->obtenerConfiguracion('content_sid');
+            
+            if (empty($contentSid)) {
+                // FALLBACK: Si no hay Content SID configurado, usar mensaje de texto temporal
+                error_log("TwilioBot WARNING: No hay Content SID configurado, enviando mensaje de texto como fallback");
+                
+                $mensajeFallback = "Hola {$alerta['cliente_nombre']}, han pasado 6 meses desde tu último servicio ({$serviciosTexto}). ¿Te interesa agendar una cita para mantenimiento?\n\nResponde:\n1. Sí, me interesa\n2. No, gracias";
+                
+                $message = $this->twilioClient->messages->create(
+                    "whatsapp:+52{$telefono}",
+                    [
+                        'from' => $this->whatsappFrom,
+                        'body' => $mensajeFallback
+                    ]
+                );
+            } else {
+                // ENVÍO CON PLANTILLA REAL
+                $message = $this->twilioClient->messages->create(
+                    "whatsapp:+52{$telefono}", // To
+                    [
+                        'from' => $this->whatsappFrom,
+                        'contentSid' => $contentSid,  // SID real desde configuración
+                        'contentVariables' => json_encode($contentVariables)
+                    ]
+                );
+            }
             
             error_log("TwilioBot REAL: Plantilla enviada a {$telefono} - SID: {$message->sid}");
             
@@ -852,7 +879,7 @@ class TwilioConversationalBot {
                     'to' => $message->to,
                     'from' => $message->from,
                     'date_created' => $message->dateCreated->format('Y-m-d H:i:s'),
-                    'content_sid' => 'HXb4fa5d0c6d7e5e1f8e4b8e2c1b9a5f2d',
+                    'content_sid' => $contentSid ?? 'HX765eae763cf778deacde6238674d4108',
                     'variables_enviadas' => $contentVariables
                 ]
             ];
