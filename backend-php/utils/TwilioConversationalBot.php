@@ -824,27 +824,25 @@ class TwilioConversationalBot {
     
     /**
      * Enviar mensaje con plantilla aprobada de Twilio
+     * VERSIÓN SIMPLE CON .ENV - Basada en template del usuario
      */
     private function enviarMensajeConPlantilla($telefono, $alerta, $step) {
         try {
-            // Si no hay cliente Twilio, simular
-            if ($this->twilioClient === null) {
-                error_log("TwilioBot SIMULADO: Plantilla a {$telefono}");
-                error_log("TwilioBot SIMULADO: Cliente: {$alerta['cliente_nombre']}");
-                error_log("TwilioBot SIMULADO: Servicio: {$alerta['servicios_que_dispararon']}");
-                
-                return [
-                    'success' => true,
-                    'message_sid' => 'SM_SIMULADO_' . uniqid(),
-                    'status' => 'queued',
-                    'twilio_response' => ['simulado' => true]
-                ];
+            // Credenciales desde .env (como solicitó el usuario)
+            $sid = getenv("TWILIO_ACCOUNT_SID");
+            $token = getenv("TWILIO_AUTH_TOKEN");
+            $fromNumber = getenv("TWILIO_WHATSAPP_FROM");
+            
+            // Verificar que las credenciales estén disponibles
+            if (empty($sid) || empty($token) || empty($fromNumber)) {
+                throw new Exception("Credenciales Twilio no encontradas en .env");
             }
             
-            // ENVÍO REAL CON PLANTILLA APROBADA DE TWILIO
-            // Según el análisis: {{1}}=cliente, {{2}}="6 meses", {{3}}=servicios
+            // Crear cliente Twilio directo
+            require_once __DIR__ . '/../vendor/autoload.php';
+            $twilio = new \Twilio\Rest\Client($sid, $token);
             
-            // Preparar servicios como texto
+            // Preparar servicios como texto (extraído de BD)
             $serviciosTexto = '';
             if (is_array($alerta['servicios_que_dispararon'])) {
                 $serviciosTexto = implode(', ', $alerta['servicios_que_dispararon']);
@@ -852,78 +850,26 @@ class TwilioConversationalBot {
                 $serviciosTexto = $alerta['servicios_que_dispararon'];
             }
             
-            // Mapear variables de plantilla
+            // Variables exactas del cURL exitoso (extraídas de BD)
             $contentVariables = [
-                '1' => $alerta['cliente_nombre'],          // {{1}}
-                '2' => '6 meses',                          // {{2}} - fijo por diseño
-                '3' => $serviciosTexto                     // {{3}}
+                "1" => $alerta['cliente_nombre'],     // Cliente desde BD
+                "2" => "6 meses",                     // Tiempo fijo
+                "3" => $serviciosTexto                // Servicio desde BD
             ];
             
-            error_log("TwilioBot: Enviando con plantilla - Variables: " . json_encode($contentVariables));
+            error_log("TwilioBot SIMPLE: Enviando con .env - Variables: " . json_encode($contentVariables));
             
-            // **CONTENT SID HARDCODED - SOLUCIÓN DIRECTA Y CONFIABLE**
-            $contentSid = 'HX765eae763cf778deacde6238674d4108';
-            error_log("TwilioBot INFO: Content SID HARDCODED (sin BD): {$contentSid}");
-            error_log("TwilioBot DEBUG: Content SID garantizado y aprobado por WhatsApp");
+            // Envío usando template del usuario (adaptado del cURL exitoso)
+            $message = $twilio->messages->create(
+                "whatsapp:+52{$telefono}", // To
+                [
+                    "contentSid" => "HX765eae763cf778deacde6238674d4108", // ContentSid fijo (safe)
+                    "from" => $fromNumber,                                 // Desde .env
+                    "contentVariables" => json_encode($contentVariables)   // Variables desde BD
+                ]
+            );
             
-            // **FALLBACK DOBLE PARA ASEGURAR BODY SIEMPRE PRESENTE**
-            $mensajeFallback = "Hola {$alerta['cliente_nombre']}, han pasado 6 meses desde tu último servicio ({$serviciosTexto}). ¿Te interesa agendar una cita para mantenimiento?\n\nResponde:\n1. Sí, me interesa\n2. No, gracias";
-            
-            if (empty($contentSid)) {
-                // FALLBACK 1: No hay Content SID, usar mensaje de texto
-                error_log("TwilioBot WARNING: No hay Content SID configurado, enviando mensaje de texto como fallback");
-                error_log("TwilioBot DEBUG: Enviando mensaje fallback con body: " . substr($mensajeFallback, 0, 100) . "...");
-                
-                $message = $this->twilioClient->messages->create(
-                    "whatsapp:+52{$telefono}",
-                    [
-                        'from' => $this->whatsappFrom,
-                        'body' => $mensajeFallback  // BODY GARANTIZADO
-                    ]
-                );
-            } else {
-                // ENVÍO CON PLANTILLA REAL + FALLBACK DE SEGURIDAD
-                error_log("TwilioBot INFO: Enviando con plantilla aprobada - Content SID: {$contentSid}");
-                error_log("TwilioBot DEBUG: Variables: " . json_encode($contentVariables));
-                
-                try {
-                    // **ENVÍO CORRECTO: SOLO contentSid + contentVariables (SIN body)**
-                    // Según documentación Twilio post-abril 2025
-                    error_log("TwilioBot DEBUG: Enviando SOLO con contentSid (sin body)");
-                    
-                    // **DEBUGGING CRÍTICO: Verificar parámetros exactos**
-                    $parametros = [
-                        'from' => $this->whatsappFrom,
-                        'contentSid' => $contentSid,
-                        'contentVariables' => json_encode($contentVariables)
-                    ];
-                    
-                    error_log("TwilioBot DEBUG CRÍTICO: Parámetros exactos enviados a Twilio API:");
-                    error_log("  - To: whatsapp:+52{$telefono}");
-                    error_log("  - From: {$this->whatsappFrom}");
-                    error_log("  - ContentSid: {$contentSid}");
-                    error_log("  - ContentVariables: " . json_encode($contentVariables));
-                    error_log("  - ContentVariables length: " . strlen(json_encode($contentVariables)));
-                    
-                    $message = $this->twilioClient->messages->create(
-                        "whatsapp:+52{$telefono}", // To
-                        $parametros
-                    );
-                } catch (Exception $templateError) {
-                    // FALLBACK: Si la plantilla falla, usar mensaje de texto puro
-                    error_log("TwilioBot ERROR con plantilla: " . $templateError->getMessage() . " - Usando fallback de texto");
-                    
-                    $message = $this->twilioClient->messages->create(
-                        "whatsapp:+52{$telefono}",
-                        [
-                            'from' => $this->whatsappFrom,
-                            'body' => $mensajeFallback  // BODY GARANTIZADO solo en fallback
-                        ]
-                    );
-                }
-            }
-            
-            error_log("TwilioBot REAL: Plantilla enviada a {$telefono} - SID: {$message->sid}");
+            error_log("TwilioBot SIMPLE: Mensaje enviado - SID: {$message->sid}");
             
             return [
                 'success' => true,
@@ -934,14 +880,12 @@ class TwilioConversationalBot {
                     'status' => $message->status,
                     'to' => $message->to,
                     'from' => $message->from,
-                    'date_created' => $message->dateCreated->format('Y-m-d H:i:s'),
-                    'content_sid' => $contentSid ?? 'HX765eae763cf778deacde6238674d4108',
                     'variables_enviadas' => $contentVariables
                 ]
             ];
             
         } catch (Exception $e) {
-            error_log("TwilioBot ERROR enviarMensajeConPlantilla: " . $e->getMessage());
+            error_log("TwilioBot ERROR enviarMensajeConPlantilla SIMPLE: " . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
