@@ -141,8 +141,13 @@ try {
  */
 function procesarMensajeCliente($db, $bot, $telefono, $body, $messageSid, $webhookData) {
     try {
-        // Buscar alerta activa para este cliente
-        $alerta = buscarAlertaActivaCliente($db, $telefono);
+        // Extraer OriginalRepliedMessageSid del webhook (clave para vincular conversación)
+        $originalRepliedMessageSid = $webhookData['OriginalRepliedMessageSid'] ?? null;
+        
+        logWebhook("OriginalRepliedMessageSid extraído: " . ($originalRepliedMessageSid ?? 'NULL'));
+        
+        // Buscar alerta activa para este cliente (búsqueda híbrida)
+        $alerta = buscarAlertaActivaCliente($db, $telefono, $originalRepliedMessageSid);
         
         if (!$alerta) {
             logWebhook("No se encontró alerta activa para el teléfono: {$telefono}", 'WARNING');
@@ -222,10 +227,41 @@ function procesarMensajeSAGAdmin($db, $bot, $body, $messageSid) {
 }
 
 /**
- * Buscar alerta activa para un cliente por teléfono
+ * Buscar alerta activa para un cliente por twilio_conversation_sid o teléfono
+ * NUEVO: Búsqueda híbrida - primero por OriginalRepliedMessageSid, luego por teléfono
  */
-function buscarAlertaActivaCliente($db, $telefono) {
+function buscarAlertaActivaCliente($db, $telefono, $originalRepliedMessageSid = null) {
     try {
+        // ESTRATEGIA 1: Buscar por OriginalRepliedMessageSid (más preciso)
+        if (!empty($originalRepliedMessageSid)) {
+            logWebhook("Buscando alerta por OriginalRepliedMessageSid: {$originalRepliedMessageSid}");
+            
+            $sql = "SELECT 
+                        a.*,
+                        c.nombre as cliente_nombre,
+                        c.telefono as cliente_telefono
+                    FROM alertas_servicio a
+                    INNER JOIN clientes c ON a.cliente_id = c.id
+                    WHERE a.twilio_conversation_sid = ?
+                      AND a.estado_whatsapp IN ('enviado', 'esperando_respuesta', 'esperando_fecha', 'pre_agendado')
+                    ORDER BY a.ultima_actividad DESC
+                    LIMIT 1";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$originalRepliedMessageSid]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                logWebhook("Alerta encontrada por conversation_sid - ID: {$result['id']}");
+                return $result;
+            }
+            
+            logWebhook("No se encontró alerta por conversation_sid, probando por teléfono");
+        }
+        
+        // ESTRATEGIA 2: Fallback por teléfono (método original)
+        logWebhook("Buscando alerta por teléfono: {$telefono}");
+        
         $sql = "SELECT 
                     a.*,
                     c.nombre as cliente_nombre,
@@ -239,7 +275,15 @@ function buscarAlertaActivaCliente($db, $telefono) {
         
         $stmt = $db->prepare($sql);
         $stmt->execute([$telefono]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result) {
+            logWebhook("Alerta encontrada por teléfono - ID: {$result['id']}");
+        } else {
+            logWebhook("No se encontró alerta activa para teléfono: {$telefono}");
+        }
+        
+        return $result;
         
     } catch (Exception $e) {
         logWebhook("Error buscarAlertaActivaCliente: " . $e->getMessage(), 'ERROR');
