@@ -824,48 +824,48 @@ class TwilioConversationalBot {
     
     /**
      * Enviar mensaje con plantilla aprobada de Twilio
-     * VERSIÓN SIMPLE CON .ENV - Basada en template del usuario
+     * VERSIÓN cURL con .env - EXACTA al cURL exitoso pero desde .env
      */
     private function enviarMensajeConPlantilla($telefono, $alerta, $step) {
         try {
-            // Cargar credenciales desde .env manualmente
-            $envPath = __DIR__ . '/../../.env'; // Ruta correcta al .env
-            if (!file_exists($envPath)) {
-                $envPath = __DIR__ . '/../.env'; // Fallback
-            }
+            // Cargar .env con método más directo
+            $envPath = __DIR__ . '/../.env';
+            error_log("TwilioBot: Buscando .env en: {$envPath}");
             
             if (!file_exists($envPath)) {
-                throw new Exception("Archivo .env no encontrado en ninguna ubicación");
+                throw new Exception("Archivo .env no encontrado en: {$envPath}");
             }
             
-            // Leer .env manualmente línea por línea (no INI format)
+            // Leer .env línea por línea (método robusto)
+            $envContent = file_get_contents($envPath);
+            $envLines = explode("\n", $envContent);
             $env = [];
-            $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            foreach ($lines as $line) {
-                if (strpos($line, '#') === 0 || empty(trim($line))) continue; // Skip comments and empty lines
+            
+            foreach ($envLines as $line) {
+                $line = trim($line);
+                // Ignorar comentarios y líneas vacías
+                if (empty($line) || $line[0] === '#') continue;
+                
+                // Buscar líneas con = 
                 if (strpos($line, '=') !== false) {
                     list($key, $value) = explode('=', $line, 2);
                     $env[trim($key)] = trim($value);
                 }
             }
             
+            // Buscar variables EXACTAS como tu .env
             $sid = $env['TWILIO_ACCOUNT_SID'] ?? '';
-            $token = $env['TWILIO_AUTH_TOKEN'] ?? '';
+            $token = $env['TWILIO_AUTH_TOKEN'] ?? '';  
             $fromNumber = $env['TWILIO_WHATSAPP_FROM'] ?? '';
             
-            error_log("TwilioBot DEBUG: Cargando .env desde: {$envPath}");
-            error_log("TwilioBot DEBUG: SID: " . ($sid ? 'ENCONTRADO' : 'VACIO'));
-            error_log("TwilioBot DEBUG: Token: " . ($token ? 'ENCONTRADO' : 'VACIO'));
-            error_log("TwilioBot DEBUG: From: " . ($fromNumber ? $fromNumber : 'VACIO'));
+            error_log("TwilioBot: Variables cargadas del .env:");
+            error_log("TwilioBot: TWILIO_ACCOUNT_SID = " . ($sid ? 'ENCONTRADO (' . substr($sid, 0, 10) . '...)' : 'VACIO'));
+            error_log("TwilioBot: TWILIO_AUTH_TOKEN = " . ($token ? 'ENCONTRADO (' . substr($token, 0, 10) . '...)' : 'VACIO'));
+            error_log("TwilioBot: TWILIO_WHATSAPP_FROM = " . ($fromNumber ? $fromNumber : 'VACIO'));
             
-            // Verificar que las credenciales estén disponibles
             if (empty($sid) || empty($token) || empty($fromNumber)) {
-                throw new Exception("Credenciales Twilio no encontradas en .env: sid=" . ($sid ? 'OK' : 'EMPTY') . ", token=" . ($token ? 'OK' : 'EMPTY') . ", from=" . ($fromNumber ? 'OK' : 'EMPTY'));
+                throw new Exception("Variables Twilio no encontradas en .env. Verificar nombres exactos.");
             }
-            
-            // Crear cliente Twilio directo
-            require_once __DIR__ . '/../vendor/autoload.php';
-            $twilio = new \Twilio\Rest\Client($sid, $token);
             
             // Preparar servicios como texto (extraído de BD)
             $serviciosTexto = '';
@@ -878,39 +878,76 @@ class TwilioConversationalBot {
             // Variables exactas del cURL exitoso (extraídas de BD)
             $contentVariables = [
                 "1" => $alerta['cliente_nombre'],     // Cliente desde BD
-                "2" => "6 meses",                     // Tiempo fijo
+                "2" => "6 meses",                     // Tiempo fijo  
                 "3" => $serviciosTexto                // Servicio desde BD
             ];
             
-            error_log("TwilioBot SIMPLE: Enviando con .env - Variables: " . json_encode($contentVariables));
+            error_log("TwilioBot: Preparando cURL con variables:");
+            error_log("TwilioBot: Cliente = " . $alerta['cliente_nombre']);
+            error_log("TwilioBot: Servicios = " . $serviciosTexto);
+            error_log("TwilioBot: Teléfono = +52{$telefono}");
+            error_log("TwilioBot: ContentVariables = " . json_encode($contentVariables));
             
-            // Envío usando template del usuario (adaptado del cURL exitoso)
-            $message = $twilio->messages->create(
-                "whatsapp:+52{$telefono}", // To
-                [
-                    "contentSid" => "HX765eae763cf778deacde6238674d4108", // ContentSid fijo (safe)
-                    "from" => $fromNumber,                                 // Desde .env
-                    "contentVariables" => json_encode($contentVariables)   // Variables desde BD
-                ]
-            );
+            // cURL EXACTO como tu versión exitosa (usando variables del .env)
+            $curl = curl_init();
             
-            error_log("TwilioBot SIMPLE: Mensaje enviado - SID: {$message->sid}");
+            curl_setopt_array($curl, array(
+              CURLOPT_URL => "https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json",
+              CURLOPT_RETURNTRANSFER => true,
+              CURLOPT_ENCODING => '',
+              CURLOPT_MAXREDIRS => 10,
+              CURLOPT_TIMEOUT => 0,
+              CURLOPT_FOLLOWLOCATION => true,
+              CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+              CURLOPT_CUSTOMREQUEST => 'POST',
+              CURLOPT_POSTFIELDS => http_build_query([
+                'ContentSid' => 'HX765eae763cf778deacde6238674d4108',
+                'From' => $fromNumber,
+                'To' => "whatsapp:+52{$telefono}",
+                'ContentVariables' => json_encode($contentVariables)
+              ]),
+              CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/x-www-form-urlencoded',
+                'Authorization: Basic ' . base64_encode($sid . ':' . $token)
+              ),
+            ));
             
-            return [
-                'success' => true,
-                'message_sid' => $message->sid,
-                'status' => $message->status,
-                'twilio_response' => [
-                    'sid' => $message->sid,
-                    'status' => $message->status,
-                    'to' => $message->to,
-                    'from' => $message->from,
-                    'variables_enviadas' => $contentVariables
-                ]
-            ];
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($curl);
+            
+            curl_close($curl);
+            
+            error_log("TwilioBot cURL: HTTP Code = {$httpCode}");
+            error_log("TwilioBot cURL: Response = {$response}");
+            if ($curlError) {
+                error_log("TwilioBot cURL: Error = {$curlError}");
+            }
+            
+            if ($curlError) {
+                throw new Exception("cURL Error: {$curlError}");
+            }
+            
+            $responseData = json_decode($response, true);
+            
+            if ($httpCode >= 200 && $httpCode < 300 && isset($responseData['sid'])) {
+                error_log("TwilioBot cURL: ¡ÉXITO TOTAL! Message SID = {$responseData['sid']}");
+                
+                return [
+                    'success' => true,
+                    'message_sid' => $responseData['sid'],
+                    'status' => $responseData['status'] ?? 'queued',
+                    'twilio_response' => $responseData
+                ];
+            } else {
+                $errorMsg = isset($responseData['message']) ? $responseData['message'] : "HTTP {$httpCode}";
+                error_log("TwilioBot cURL: ERROR = {$errorMsg}");
+                error_log("TwilioBot cURL: Full Response = " . json_encode($responseData));
+                throw new Exception("Twilio cURL Error: {$errorMsg}");
+            }
             
         } catch (Exception $e) {
-            error_log("TwilioBot ERROR enviarMensajeConPlantilla SIMPLE: " . $e->getMessage());
+            error_log("TwilioBot ERROR cURL COMPLETO: " . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
