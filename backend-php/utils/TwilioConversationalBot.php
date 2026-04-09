@@ -838,7 +838,17 @@ class TwilioConversationalBot {
                 throw new Exception("Archivo .env no encontrado en ninguna ubicación");
             }
             
-            $env = parse_ini_file($envPath);
+            // Leer .env manualmente línea por línea (no INI format)
+            $env = [];
+            $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                if (strpos($line, '#') === 0 || empty(trim($line))) continue; // Skip comments and empty lines
+                if (strpos($line, '=') !== false) {
+                    list($key, $value) = explode('=', $line, 2);
+                    $env[trim($key)] = trim($value);
+                }
+            }
+            
             $sid = $env['TWILIO_ACCOUNT_SID'] ?? '';
             $token = $env['TWILIO_AUTH_TOKEN'] ?? '';
             $fromNumber = $env['TWILIO_WHATSAPP_FROM'] ?? '';
