@@ -15,7 +15,7 @@
  */
 
 // Configurar respuesta
-header('Content-Type: text/plain');
+header('Content-Type: text/xml');
 header('Cache-Control: no-cache');
 
 // Configurar zona horaria y errores
@@ -50,7 +50,7 @@ try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         logWebhook("Método HTTP inválido: " . $_SERVER['REQUEST_METHOD'], 'ERROR');
         http_response_code(405);
-        echo "Method Not Allowed";
+        echo '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
         exit;
     }
     
@@ -60,7 +60,7 @@ try {
     if (empty($webhookData)) {
         logWebhook("No se recibieron datos POST", 'ERROR');
         http_response_code(400);
-        echo "Bad Request: No POST data";
+        echo '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
         exit;
     }
     
@@ -77,7 +77,7 @@ try {
     if (empty($messageSid) || empty($from)) {
         logWebhook("Datos insuficientes - MessageSid: {$messageSid}, From: {$from}", 'ERROR');
         http_response_code(400);
-        echo "Bad Request: Missing required fields";
+        echo '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
         exit;
     }
     
@@ -119,11 +119,15 @@ try {
     if ($resultado['success']) {
         logWebhook("Procesamiento exitoso: " . $resultado['message']);
         http_response_code(200);
-        echo "OK";
+        // Respuesta TwiML vacía - no enviar mensaje adicional
+        header('Content-Type: text/xml');
+        echo '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
     } else {
         logWebhook("Error en procesamiento: " . $resultado['error'], 'ERROR');
         http_response_code(200); // Twilio espera 200 aunque haya error interno
-        echo "Error: " . $resultado['error'];
+        // Respuesta TwiML vacía - no enviar mensaje adicional
+        header('Content-Type: text/xml');
+        echo '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
     }
     
 } catch (Exception $e) {
@@ -131,7 +135,7 @@ try {
     logWebhook("Stack trace: " . $e->getTraceAsString(), 'FATAL');
     
     http_response_code(500);
-    echo "Internal Server Error";
+    echo '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
 } finally {
     logWebhook("=== FIN WEBHOOK TWILIO ===");
 }
