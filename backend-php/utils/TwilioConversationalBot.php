@@ -183,22 +183,45 @@ class TwilioConversationalBot {
     }
     
     /**
-     * PASO 2: Procesar respuesta inicial del cliente (sí/no)
+     * PASO 2: Procesar respuesta inicial del cliente (button IDs)
      */
-    public function procesarRespuestaInicial($alertaId, $respuesta, $messageSid) {
+    public function procesarRespuestaInicial($alertaId, $respuesta, $messageSid, $webhookData = []) {
         try {
-            $respuestaLower = strtolower(trim($respuesta));
+            error_log("TwilioBot: procesarRespuestaInicial - Respuesta: '{$respuesta}'");
+            error_log("TwilioBot: webhookData: " . json_encode($webhookData));
             
-            // Detectar tipo de respuesta
+            // Detectar button ID desde webhook data (preferido)
+            $buttonId = $webhookData['ButtonId'] ?? $webhookData['Button'] ?? '';
+            
+            if (!empty($buttonId)) {
+                error_log("TwilioBot: Button ID detectado: {$buttonId}");
+                
+                // Procesar según button ID
+                if ($buttonId === 'si_interesa') {
+                    return $this->procesarRespuestaSiSimplificado($alertaId, $messageSid);
+                } 
+                elseif ($buttonId === 'no_gracias') {
+                    return $this->procesarRespuestaNoSimplificado($alertaId, $messageSid);
+                }
+            }
+            
+            // Fallback: detectar por texto (compatibilidad)
+            $respuestaLower = strtolower(trim($respuesta));
+            error_log("TwilioBot: No button ID, analizando texto: '{$respuestaLower}'");
+            
             if (preg_match('/\b(si|sí|1|interesa|yes)\b/', $respuestaLower)) {
-                return $this->procesarRespuestaSi($alertaId, $messageSid);
+                return $this->procesarRespuestaSiSimplificado($alertaId, $messageSid);
             } 
             elseif (preg_match('/\b(no|2|gracias|nah)\b/', $respuestaLower)) {
-                return $this->procesarRespuestaNo($alertaId, $messageSid);
+                return $this->procesarRespuestaNoSimplificado($alertaId, $messageSid);
             } 
             else {
                 // Respuesta no reconocida
-                return $this->enviarMensajeAclaracion($alertaId);
+                error_log("TwilioBot: Respuesta no reconocida: '{$respuesta}'");
+                return [
+                    'success' => true,
+                    'message' => 'Respuesta no reconocida, pero registrada'
+                ];
             }
             
         } catch (Exception $e) {
@@ -1198,6 +1221,147 @@ class TwilioConversationalBot {
         } catch (Exception $e) {
             error_log("TwilioBot ERROR registrarMensaje: " . $e->getMessage());
             return false;
+        }
+    }
+    /**
+     * PASO 2A SIMPLIFICADO: Cliente dijo SÍ - Enviar mensaje coordinación
+     */
+    private function procesarRespuestaSiSimplificado($alertaId, $messageSid) {
+        try {
+            // Obtener datos de la alerta
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            // Actualizar estado
+            $this->actualizarRespuestaInicial($alertaId, 'si');
+            $this->actualizarEstadoAlerta($alertaId, 'interesado');
+            
+            // Registrar respuesta del cliente
+            $this->registrarMensaje(
+                $alertaId,
+                $messageSid,
+                'inbound',
+                "whatsapp:+52{$telefono}",
+                $this->whatsappFrom,
+                'Sí, me interesa',
+                'button',
+                'respuesta_si_interesa'
+            );
+            
+            // Obtener mensaje automático desde BD
+            $mensajeSi = $this->obtenerConfiguracion('mensaje_si_interesa');
+            
+            if (empty($mensajeSi)) {
+                $mensajeSi = "¡Excelente decisión! 🎉\n\nEn breve te asignaremos una fecha que se ajuste perfecto a tu agenda.\n\nNuestro equipo se pondrá en contacto contigo para coordinar todos los detalles.\n\n¡Gracias por confiar en nosotros! 🚗⚡";
+            }
+            
+            // Enviar mensaje de coordinación
+            $resultado = $this->enviarMensajeTexto($telefono, $mensajeSi);
+            
+            if ($resultado['success']) {
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    $mensajeSi,
+                    'text',
+                    'mensaje_coordinacion',
+                    $resultado
+                );
+                
+                // Marcar como requiere atención alta
+                $this->marcarRequiereAtencion($alertaId, 'alta');
+                
+                error_log("TwilioBot: Cliente {$alerta['cliente_nombre']} INTERESADO - enviado mensaje coordinación");
+                
+                return [
+                    'success' => true,
+                    'message_sid' => $resultado['message_sid'],
+                    'accion' => 'interesado'
+                ];
+            }
+            
+            throw new Exception("Error enviando mensaje de coordinación");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR procesarRespuestaSiSimplificado: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * PASO 2B SIMPLIFICADO: Cliente dijo NO - Enviar mensaje psicológico
+     */
+    private function procesarRespuestaNoSimplificado($alertaId, $messageSid) {
+        try {
+            // Obtener datos de la alerta
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            // Actualizar estado
+            $this->actualizarRespuestaInicial($alertaId, 'no');
+            $this->actualizarEstadoAlerta($alertaId, 'rechazado');
+            
+            // Registrar respuesta del cliente
+            $this->registrarMensaje(
+                $alertaId,
+                $messageSid,
+                'inbound',
+                "whatsapp:+52{$telefono}",
+                $this->whatsappFrom,
+                'No, gracias',
+                'button',
+                'respuesta_no_gracias'
+            );
+            
+            // Obtener mensaje psicológico desde BD
+            $mensajeNo = $this->obtenerConfiguracion('mensaje_no_gracias');
+            
+            if (empty($mensajeNo)) {
+                $mensajeNo = "Entendemos perfectamente. A veces el momento no es el ideal 😊\n\nTu vehículo siempre será bienvenido cuando sientes que es el momento correcto para darle el cuidado que se merece.\n\nMientras tanto, si tienes alguna duda o emergencia, estamos aquí.\n\n¡Que tengas un excelente día! 🚗✨";
+            }
+            
+            // Enviar mensaje psicológico
+            $resultado = $this->enviarMensajeTexto($telefono, $mensajeNo);
+            
+            if ($resultado['success']) {
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    $mensajeNo,
+                    'text',
+                    'mensaje_psicologico',
+                    $resultado
+                );
+                
+                // Marcar como baja prioridad (informativo)
+                $this->marcarRequiereAtencion($alertaId, 'baja');
+                
+                error_log("TwilioBot: Cliente {$alerta['cliente_nombre']} RECHAZÓ - enviado mensaje psicológico");
+                
+                return [
+                    'success' => true,
+                    'message_sid' => $resultado['message_sid'],
+                    'accion' => 'rechazado'
+                ];
+            }
+            
+            throw new Exception("Error enviando mensaje psicológico");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR procesarRespuestaNoSimplificado: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
     }
 }

@@ -159,7 +159,7 @@ function procesarMensajeCliente($db, $bot, $telefono, $body, $messageSid, $webho
             case 'enviado':
             case 'esperando_respuesta':
                 // Cliente responde a recordatorio inicial (sí/no)
-                return $bot->procesarRespuestaInicial($alerta['id'], $body, $messageSid);
+                return $bot->procesarRespuestaInicial($alerta['id'], $body, $messageSid, $webhookData);
                 
             case 'esperando_fecha':
                 // Cliente selecciona fecha
