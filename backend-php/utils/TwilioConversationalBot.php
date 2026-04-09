@@ -828,14 +828,29 @@ class TwilioConversationalBot {
      */
     private function enviarMensajeConPlantilla($telefono, $alerta, $step) {
         try {
-            // Credenciales desde .env (como solicitó el usuario)
-            $sid = getenv("TWILIO_ACCOUNT_SID");
-            $token = getenv("TWILIO_AUTH_TOKEN");
-            $fromNumber = getenv("TWILIO_WHATSAPP_FROM");
+            // Cargar credenciales desde .env manualmente
+            $envPath = __DIR__ . '/../../.env'; // Ruta correcta al .env
+            if (!file_exists($envPath)) {
+                $envPath = __DIR__ . '/../.env'; // Fallback
+            }
+            
+            if (!file_exists($envPath)) {
+                throw new Exception("Archivo .env no encontrado en ninguna ubicación");
+            }
+            
+            $env = parse_ini_file($envPath);
+            $sid = $env['TWILIO_ACCOUNT_SID'] ?? '';
+            $token = $env['TWILIO_AUTH_TOKEN'] ?? '';
+            $fromNumber = $env['TWILIO_WHATSAPP_FROM'] ?? '';
+            
+            error_log("TwilioBot DEBUG: Cargando .env desde: {$envPath}");
+            error_log("TwilioBot DEBUG: SID: " . ($sid ? 'ENCONTRADO' : 'VACIO'));
+            error_log("TwilioBot DEBUG: Token: " . ($token ? 'ENCONTRADO' : 'VACIO'));
+            error_log("TwilioBot DEBUG: From: " . ($fromNumber ? $fromNumber : 'VACIO'));
             
             // Verificar que las credenciales estén disponibles
             if (empty($sid) || empty($token) || empty($fromNumber)) {
-                throw new Exception("Credenciales Twilio no encontradas en .env");
+                throw new Exception("Credenciales Twilio no encontradas en .env: sid=" . ($sid ? 'OK' : 'EMPTY') . ", token=" . ($token ? 'OK' : 'EMPTY') . ", from=" . ($fromNumber ? 'OK' : 'EMPTY'));
             }
             
             // Crear cliente Twilio directo
