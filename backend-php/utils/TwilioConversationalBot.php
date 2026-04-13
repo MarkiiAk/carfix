@@ -1304,7 +1304,7 @@ class TwilioConversationalBot {
                 // Guardar slots para mapeo posterior cuando responda el cliente
                 $this->guardarSlotsSession($alertaId, $slots);
                 
-                // Actualizar estado
+                // **CRÍTICO: Actualizar estado después del envío exitoso**
                 $this->actualizarEstadoAlerta($alertaId, 'esperando_seleccion_horario', $resultado['message_sid']);
                 
                 // Registrar mensaje

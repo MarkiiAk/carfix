@@ -319,7 +319,8 @@ function buscarAlertaActivaCliente($db, $telefono, $originalRepliedMessageSid = 
                 FROM alertas_servicio a
                 INNER JOIN clientes c ON a.cliente_id = c.id
                 WHERE c.telefono = ?
-                  AND a.estado_whatsapp IN ('enviado', 'esperando_respuesta', 'esperando_fecha', 'esperando_seleccion_horario', 'pre_agendado')
+                  AND (a.estado_whatsapp IN ('enviado', 'esperando_respuesta', 'esperando_fecha', 'esperando_seleccion_horario', 'pre_agendado') 
+                       OR a.estado_whatsapp IS NULL OR a.estado_whatsapp = '')
                 ORDER BY a.ultima_actividad DESC
                 LIMIT 1";
         
