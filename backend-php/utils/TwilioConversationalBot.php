@@ -1272,19 +1272,24 @@ class TwilioConversationalBot {
                 return $this->enviarContactoDirectoFallback($alertaId);
             }
             
-            // **FORMATEAR horarios como texto numerado**
+            // **FORMATEAR horarios como texto numerado - SIN NEWLINES PARA TWILIO**
             $horariosTexto = "";
             $contador = 1;
             
-            // Agregar slots disponibles (máximo 8)
+            // Agregar slots disponibles (máximo 8) - SIN SALTOS DE LÍNEA
             foreach ($slots as $slot) {
                 if ($contador > 8) break;
-                $horariosTexto .= "{$contador}. {$slot['fecha_display']} {$slot['hora_display']}\n";
+                
+                // USAR SEPARADOR COMPATIBLE CON TWILIO (sin \n)
+                if ($contador > 1) {
+                    $horariosTexto .= " • ";  // Separador bullet point
+                }
+                $horariosTexto .= "{$contador}. {$slot['fecha_display']} {$slot['hora_display']}";
                 $contador++;
             }
             
             // Siempre agregar opción "9. Otro horario"
-            $horariosTexto .= "9. Otro horario";
+            $horariosTexto .= " • 9. Otro horario";
             
             error_log("📅 TwilioBot: Horarios formateados: {$horariosTexto}");
             
