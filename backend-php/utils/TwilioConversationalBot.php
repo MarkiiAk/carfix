@@ -187,20 +187,26 @@ class TwilioConversationalBot {
      */
     public function procesarRespuestaInicial($alertaId, $respuesta, $messageSid, $webhookData = []) {
         try {
-            error_log("TwilioBot: procesarRespuestaInicial - Respuesta: '{$respuesta}'");
-            error_log("TwilioBot: webhookData: " . json_encode($webhookData));
+            error_log("🔥 TwilioBot: procesarRespuestaInicial INICIADO - Respuesta: '{$respuesta}'");
+            error_log("🔥 TwilioBot: webhookData: " . json_encode($webhookData));
             
             // Detectar button ID desde webhook data (preferido)
             $buttonId = $webhookData['ButtonId'] ?? $webhookData['ButtonPayload'] ?? $webhookData['Button'] ?? '';
             
+            error_log("🔥 TwilioBot: ButtonId extraído: '{$buttonId}'");
+            
             if (!empty($buttonId)) {
-                error_log("TwilioBot: Button ID detectado: {$buttonId}");
+                error_log("🔥 TwilioBot: Button ID detectado: {$buttonId}");
                 
                 // Procesar según button ID
                 if ($buttonId === 'si_interesa') {
-                    return $this->procesarRespuestaSiSimplificado($alertaId, $messageSid);
+                    error_log("🔥 TwilioBot: DETECTADO si_interesa - Llamando procesarRespuestaSiSimplificado");
+                    $resultado = $this->procesarRespuestaSiSimplificado($alertaId, $messageSid);
+                    error_log("🔥 TwilioBot: RESULTADO procesarRespuestaSiSimplificado: " . json_encode($resultado));
+                    return $resultado;
                 } 
                 elseif ($buttonId === 'no_gracias') {
+                    error_log("🔥 TwilioBot: DETECTADO no_gracias - Llamando procesarRespuestaNoSimplificado");
                     return $this->procesarRespuestaNoSimplificado($alertaId, $messageSid);
                 }
             }
@@ -1944,22 +1950,29 @@ class TwilioConversationalBot {
 
     /**
      * Formatear horarios como texto numerado para plantilla simple
+     * SOLUCION: Sin saltos de línea - Twilio no permite \n en Content Variables
      */
     private function formatearHorariosTextoNumerado($slots) {
         try {
             $horariosTexto = "";
             $contador = 1;
             
-            // Agregar slots disponibles (máximo 8)
+            // Agregar slots disponibles (máximo 8) - SIN SALTOS DE LÍNEA
             foreach ($slots as $slot) {
                 if ($contador > 8) break;
                 
-                $horariosTexto .= "{$contador}. {$slot['fecha_display']} {$slot['hora_display']}\n";
+                // USAR SEPARADOR COMPATIBLE CON TWILIO (sin \n)
+                if ($contador > 1) {
+                    $horariosTexto .= " • ";  // Separador bullet point
+                }
+                $horariosTexto .= "{$contador}. {$slot['fecha_display']} {$slot['hora_display']}";
                 $contador++;
             }
             
             // Siempre agregar opción "9. Otro horario"
-            $horariosTexto .= "9. Otro horario";
+            $horariosTexto .= " • 9. Otro horario";
+            
+            error_log("📅 TwilioBot: Horarios SIN newlines: " . $horariosTexto);
             
             return $horariosTexto;
             
