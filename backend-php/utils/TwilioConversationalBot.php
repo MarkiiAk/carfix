@@ -2366,12 +2366,28 @@ class TwilioConversationalBot {
      */
     private function guardarSlotsSession($alertaId, $slots) {
         try {
+            error_log("🔧 TwilioBot: guardarSlotsSession INICIADO - AlertaID: {$alertaId}");
+            
+            // **VERIFICAR ESTADO ANTES**
+            $this->verificarEstadoBD($alertaId, "ANTES de guardarSlotsSession");
+            
             $slotsData = json_encode($slots);
             $sql = "UPDATE alertas_servicio SET 
                    respuesta_cliente = ? 
                    WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$slotsData, $alertaId]);
+            $resultado = $stmt->execute([$slotsData, $alertaId]);
+            
+            if ($resultado) {
+                $filasAfectadas = $stmt->rowCount();
+                error_log("🔧 TwilioBot: guardarSlotsSession exitoso - Filas afectadas: {$filasAfectadas}");
+            } else {
+                $errorInfo = $stmt->errorInfo();
+                error_log("❌ TwilioBot: ERROR SQL guardarSlotsSession - SQLSTATE: {$errorInfo[0]}, Error: {$errorInfo[2]}");
+            }
+            
+            // **VERIFICAR ESTADO DESPUÉS**
+            $this->verificarEstadoBD($alertaId, "DESPUÉS de guardarSlotsSession");
             
         } catch (Exception $e) {
             error_log("TwilioBot ERROR guardarSlotsSession: " . $e->getMessage());
