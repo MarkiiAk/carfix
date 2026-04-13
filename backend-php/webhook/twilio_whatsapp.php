@@ -448,12 +448,12 @@ function limpiarTelefonoWebhook($telefono) {
     // Remover espacios, guiones, paréntesis
     $telefono = preg_replace('/[\s\-\(\)\+]+/', '', $telefono);
     
-    // Si tiene más de 10 dígitos, tomar los últimos 10
-    if (strlen($telefono) > 10) {
-        $telefono = substr($telefono, -10);
-    }
+    // **CORRECCIÓN CRÍTICA:** No truncar, mantener formato completo
+    // BD tiene: 5215519330800 (con el 1 móvil)
+    // Webhook: 15519330800 (sin el 52)
+    // Debemos devolver: 5215519330800 para que coincida
     
-    return $telefono;
+    return $telefono; // Devolver completo para que coincida con BD
 }
 
 /**
