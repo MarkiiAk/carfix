@@ -1084,7 +1084,11 @@ class TwilioConversationalBot {
                     a.*,
                     c.nombre as cliente_nombre,
                     c.telefono as cliente_telefono,
-                    CONCAT(v.marca, ' ', v.modelo, ' ', v.anio) as vehiculo_info
+                    CONCAT(
+                        COALESCE(v.marca, 'Sin marca'), ' ',
+                        COALESCE(v.modelo, 'Sin modelo'), ' ',
+                        COALESCE(v.anio, 'Sin año')
+                    ) as vehiculo_info
                 FROM alertas_servicio a
                 INNER JOIN clientes c ON a.cliente_id = c.id
                 INNER JOIN vehiculos v ON a.vehiculo_id = v.id
