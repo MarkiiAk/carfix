@@ -1330,6 +1330,9 @@ class TwilioConversationalBot {
                 // **CRÍTICO: Actualizar estado después del envío exitoso**
                 $this->actualizarEstadoAlerta($alertaId, 'esperando_seleccion_horario', $resultado['message_sid']);
                 
+                // **DEBUG CRÍTICO: Verificar inmediatamente qué quedó en la BD**
+                $this->verificarEstadoBD($alertaId, "DESPUÉS de actualizarEstadoAlerta");
+                
                 // Registrar mensaje
                 $this->registrarMensaje(
                     $alertaId,
@@ -2931,6 +2934,42 @@ class TwilioConversationalBot {
         } catch (Exception $e) {
             error_log("TwilioBot ERROR liberarSlotCalendario: " . $e->getMessage());
             return false;
+        }
+    }
+}
+
+    /**
+     * **DEBUG CRÍTICO**: Verificar inmediatamente el estado en BD
+     */
+    private function verificarEstadoBD($alertaId, $contexto) {
+        try {
+            error_log("🔍 TwilioBot: verificarEstadoBD {$contexto} - AlertaID: {$alertaId}");
+            
+            $sql = "SELECT id, estado_whatsapp, twilio_conversation_sid, ultima_actividad 
+                   FROM alertas_servicio WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$alertaId]);
+            $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($resultado) {
+                error_log("🔍 TwilioBot: BD REAL {$contexto}:");
+                error_log("🔍 TwilioBot:   ID: {$resultado['id']}");
+                error_log("🔍 TwilioBot:   estado_whatsapp: '{$resultado['estado_whatsapp']}'");
+                error_log("🔍 TwilioBot:   twilio_conversation_sid: '{$resultado['twilio_conversation_sid']}'");
+                error_log("🔍 TwilioBot:   ultima_actividad: '{$resultado['ultima_actividad']}'");
+                
+                // **CRÍTICO**: Detectar si está vacío después de actualización exitosa
+                if (empty($resultado['estado_whatsapp'])) {
+                    error_log("🚨 TwilioBot: PROBLEMA CRÍTICO - Estado VACÍO en BD después de actualización exitosa!");
+                } else {
+                    error_log("✅ TwilioBot: Estado BD CORRECTO: '{$resultado['estado_whatsapp']}'");
+                }
+            } else {
+                error_log("❌ TwilioBot: ERROR - Alerta ID {$alertaId} NO EXISTE en BD!");
+            }
+            
+        } catch (Exception $e) {
+            error_log("💥 TwilioBot: EXCEPCIÓN verificarEstadoBD: " . $e->getMessage());
         }
     }
 }
