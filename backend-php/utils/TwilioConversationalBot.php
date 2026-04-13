@@ -1293,11 +1293,11 @@ class TwilioConversationalBot {
             
             error_log("📅 TwilioBot: Horarios formateados: {$horariosTexto}");
             
-            // **ENVIAR PLANTILLA TEMPORAL**
+            // **ENVIAR NUEVA PLANTILLA MEJORADA**
             $resultado = $this->enviarPlantillaTemporal(
                 $telefono,
                 $alerta['cliente_nombre'],  // Variable 1
-                $horariosTexto              // Variable 2
+                $slots                      // Array de slots - NO texto
             );
             
             if ($resultado['success']) {
@@ -1344,14 +1344,14 @@ class TwilioConversationalBot {
     }
     
     /**
-     * **NUEVO**: Enviar plantilla temporal - COPIADO EXACTO del método que SÍ FUNCIONA
+     * **NUEVA PLANTILLA MEJORADA**: Una variable por slot - FORMATO PERFECTO
+     * Template: HX2c89326481fdc97a27d7cb3aa8a873a4
+     * Variables: {{1}} = nombre, {{2}}-{{10}} = slots individuales
      */
-    private function enviarPlantillaTemporal($telefono, $nombreCliente, $horariosTexto) {
+    private function enviarPlantillaTemporal($telefono, $nombreCliente, $slots) {
         try {
-            error_log("📅 TwilioBot: enviarPlantillaTemporal - Nombre: {$nombreCliente}");
-            error_log("📅 TwilioBot: Horarios: {$horariosTexto}");
-            
-            // **COPIADO EXACTO del método enviarMensajeConPlantilla que SÍ FUNCIONA**
+            error_log("📅 TwilioBot: enviarPlantillaTemporal NUEVA - Nombre: {$nombreCliente}");
+            error_log("📅 TwilioBot: Slots individuales: " . count($slots) . " slots");
             
             // Cargar .env con método más directo
             $envPath = __DIR__ . '/../.env';
@@ -1392,27 +1392,40 @@ class TwilioConversationalBot {
                 throw new Exception("Variables Twilio no encontradas en .env. Verificar nombres exactos.");
             }
             
-            // Variables para plantilla temporal (formato igual al que funciona)
+            // **NUEVA LÓGICA: Variables individuales para cada slot**
             $contentVariables = [
-                "1" => $nombreCliente,    // Variable {{1}}
-                "2" => $horariosTexto     // Variable {{2}}
+                "1" => $nombreCliente    // {{1}} = Nombre cliente
             ];
             
-            error_log("TwilioBot: Preparando cURL con variables:");
-            error_log("TwilioBot: Cliente = " . $nombreCliente);
-            error_log("TwilioBot: Horarios = " . $horariosTexto);
-            error_log("TwilioBot: Teléfono = +52{$telefono}");
-            error_log("TwilioBot: ContentVariables = " . json_encode($contentVariables));
-            
-            // Obtener template desde .env
-            $templateHorarios = $env['TWILIO_TEMPLATE_HORARIOS'] ?? '';
-            if (empty($templateHorarios)) {
-                throw new Exception("TWILIO_TEMPLATE_HORARIOS no configurado en .env");
+            // Agregar slots individuales {{2}} a {{9}} (máximo 8 horarios)
+            $contador = 1;
+            foreach ($slots as $slot) {
+                if ($contador > 8) break;
+                
+                $slotTexto = "{$contador}. {$slot['fecha_display']} {$slot['hora_display']}";
+                $contentVariables[($contador + 1)] = $slotTexto; // {{2}}, {{3}}, etc.
+                
+                error_log("📅 TwilioBot: Variable " . ($contador + 1) . " = {$slotTexto}");
+                $contador++;
             }
             
-            error_log("TwilioBot: Using template from .env: {$templateHorarios}");
+            // Completar variables faltantes con vacío si hay menos de 8 slots
+            while ($contador <= 8) {
+                $contentVariables[($contador + 1)] = ""; // Variables vacías
+                $contador++;
+            }
             
-            // **cURL usando template desde .env**
+            // {{10}} siempre = "9. Otro horario"
+            $contentVariables["10"] = "9. Otro horario";
+            
+            error_log("TwilioBot: Preparando cURL con variables individuales:");
+            error_log("TwilioBot: Total variables: " . count($contentVariables));
+            error_log("TwilioBot: ContentVariables = " . json_encode($contentVariables));
+            
+            // **NUEVA PLANTILLA SID - LA BONITA**
+            $templateNuevo = "HX2c89326481fdc97a27d7cb3aa8a873a4";
+            
+            // **cURL usando NUEVA plantilla mejorada**
             $curl = curl_init();
             
             curl_setopt_array($curl, array(
@@ -1425,7 +1438,7 @@ class TwilioConversationalBot {
               CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
               CURLOPT_CUSTOMREQUEST => 'POST',
               CURLOPT_POSTFIELDS => http_build_query([
-                'ContentSid' => $templateHorarios, // DESDE .ENV
+                'ContentSid' => $templateNuevo, // NUEVA PLANTILLA BONITA
                 'From' => $fromNumber,
                 'To' => "whatsapp:+52{$telefono}",
                 'ContentVariables' => json_encode($contentVariables)
@@ -1455,7 +1468,7 @@ class TwilioConversationalBot {
             $responseData = json_decode($response, true);
             
             if ($httpCode >= 200 && $httpCode < 300 && isset($responseData['sid'])) {
-                error_log("TwilioBot cURL: ¡ÉXITO TOTAL! Message SID = {$responseData['sid']}");
+                error_log("TwilioBot cURL: ¡ÉXITO CON NUEVA PLANTILLA BONITA! Message SID = {$responseData['sid']}");
                 
                 return [
                     'success' => true,
