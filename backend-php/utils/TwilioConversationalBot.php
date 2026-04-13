@@ -2935,6 +2935,8 @@ class TwilioConversationalBot {
             error_log("TwilioBot ERROR liberarSlotCalendario: " . $e->getMessage());
             return false;
         }
+    }
+    
     /**
      * **DEBUG CRÍTICO**: Verificar inmediatamente el estado en BD
      */
