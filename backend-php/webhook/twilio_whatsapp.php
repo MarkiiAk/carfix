@@ -168,7 +168,10 @@ function procesarMensajeCliente($db, $bot, $telefono, $body, $messageSid, $webho
             case 'enviado':
             case 'esperando_respuesta':
                 // Cliente responde a recordatorio inicial (sí/no)
-                return $bot->procesarRespuestaInicial($alerta['id'], $body, $messageSid, $webhookData);
+                logWebhook("LLAMANDO a procesarRespuestaInicial - AlertaID: {$alerta['id']}, Body: '{$body}'");
+                $resultado = $bot->procesarRespuestaInicial($alerta['id'], $body, $messageSid, $webhookData);
+                logWebhook("RESULTADO procesarRespuestaInicial: " . json_encode($resultado));
+                return $resultado;
                 
             case 'esperando_fecha':
                 // **SISTEMA ADAPTABLE: Cliente selecciona horario del calendario**

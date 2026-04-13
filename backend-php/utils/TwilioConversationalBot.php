@@ -1230,11 +1230,13 @@ class TwilioConversationalBot {
      */
     private function procesarRespuestaSiSimplificado($alertaId, $messageSid) {
         try {
-            error_log("📅 TwilioBot: procesarRespuestaSiSimplificado - PLANTILLA TEMPORAL ACTIVADA");
+            error_log("🚀 TwilioBot: procesarRespuestaSiSimplificado INICIADO - AlertaID: {$alertaId}");
             
             // Obtener datos de la alerta
             $alerta = $this->obtenerDatosAlerta($alertaId);
             $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            error_log("📋 TwilioBot: Cliente {$alerta['cliente_nombre']} - Teléfono: {$telefono}");
             
             // Actualizar estado inicial
             $this->actualizarRespuestaInicial($alertaId, 'si');
@@ -1251,13 +1253,16 @@ class TwilioConversationalBot {
                 'respuesta_si_interesa'
             );
             
-            error_log("📅 TwilioBot: Cliente {$alerta['cliente_nombre']} INTERESADO - calculando horarios");
+            error_log("🔍 TwilioBot: Iniciando cálculo de horarios disponibles...");
             
             // **NUEVA LÓGICA: Calcular horarios disponibles**
             $slots = $this->calcularSlotsDisponibles();
             
+            error_log("📊 TwilioBot: Resultado cálculo slots: " . count($slots) . " slots encontrados");
+            error_log("🔍 TwilioBot: Slots detalle: " . json_encode($slots));
+            
             if (empty($slots)) {
-                error_log("📅 TwilioBot: No hay horarios disponibles, enviando contacto directo");
+                error_log("❌ TwilioBot: CERO horarios disponibles - Enviando fallback contacto directo");
                 return $this->enviarContactoDirectoFallback($alertaId);
             }
             
@@ -1596,6 +1601,9 @@ class TwilioConversationalBot {
             $horaActual = $horaActual ?: date('H:i');
             $fechaActual = new DateTime();
             
+            error_log("🔍 DEBUG calcularSlotsDisponibles: Hora actual = {$horaActual}");
+            error_log("🔍 DEBUG calcularSlotsDisponibles: Fecha actual = " . $fechaActual->format('Y-m-d H:i:s'));
+            
             // Obtener configuraciones
             $horariosConfig = $this->obtenerConfiguracion('horarios_atencion');
             $horaLimite = $this->obtenerConfiguracion('hora_limite_dia_siguiente');
@@ -1603,8 +1611,15 @@ class TwilioConversationalBot {
             $diasFestivos = json_decode($this->obtenerConfiguracion('dias_festivos_2026'), true) ?: [];
             $slotsMaximo = (int)$this->obtenerConfiguracion('slots_maximo_mostrar');
             
+            error_log("🔍 DEBUG calcularSlotsDisponibles: horariosConfig = '{$horariosConfig}'");
+            error_log("🔍 DEBUG calcularSlotsDisponibles: horaLimite = '{$horaLimite}'");
+            error_log("🔍 DEBUG calcularSlotsDisponibles: diasLaborales = " . json_encode($diasLaborales));
+            error_log("🔍 DEBUG calcularSlotsDisponibles: slotsMaximo = {$slotsMaximo}");
+            
             $horarios = explode(',', $horariosConfig);
             $slots = [];
+            
+            error_log("🔍 DEBUG calcularSlotsDisponibles: horarios array = " . json_encode($horarios));
             
             // Determinar fecha inicial según hora límite
             $fechaInicio = clone $fechaActual;
