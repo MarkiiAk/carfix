@@ -2288,7 +2288,6 @@ class TwilioConversationalBot {
             ];
         }
     }
-}
 
     /**
      * MÉTODOS AUXILIARES FALTANTES
