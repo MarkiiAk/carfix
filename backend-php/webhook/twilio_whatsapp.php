@@ -441,19 +441,21 @@ function limpiarTelefonoWebhook($telefono) {
     // Remover prefijo whatsapp:
     $telefono = str_replace('whatsapp:', '', $telefono);
     
-    // Remover + y prefijos comunes
-    $telefono = preg_replace('/^\+?52/', '', $telefono);
-    $telefono = preg_replace('/^01/', '', $telefono);
-    
     // Remover espacios, guiones, paréntesis
     $telefono = preg_replace('/[\s\-\(\)\+]+/', '', $telefono);
     
-    // **CORRECCIÓN CRÍTICA:** No truncar, mantener formato completo
-    // BD tiene: 5215519330800 (con el 1 móvil)
-    // Webhook: 15519330800 (sin el 52)
-    // Debemos devolver: 5215519330800 para que coincida
+    // **SOLUCIÓN CORRECTA:** Si viene +5215519330800, quitar +
+    // Si viene 15519330800, agregar 52 adelante
     
-    return $telefono; // Devolver completo para que coincida con BD
+    // Quitar + inicial
+    $telefono = ltrim($telefono, '+');
+    
+    // Si NO empieza con 52, agregarlo (para números que empiezan con 1)
+    if (!preg_match('/^52/', $telefono) && preg_match('/^1\d{10}$/', $telefono)) {
+        $telefono = '52' . $telefono;
+    }
+    
+    return $telefono; // Formato: 5215519330800
 }
 
 /**
