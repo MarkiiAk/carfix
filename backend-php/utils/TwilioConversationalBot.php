@@ -191,7 +191,7 @@ class TwilioConversationalBot {
             error_log("TwilioBot: webhookData: " . json_encode($webhookData));
             
             // Detectar button ID desde webhook data (preferido)
-            $buttonId = $webhookData['ButtonId'] ?? $webhookData['Button'] ?? '';
+            $buttonId = $webhookData['ButtonId'] ?? $webhookData['ButtonPayload'] ?? $webhookData['Button'] ?? '';
             
             if (!empty($buttonId)) {
                 error_log("TwilioBot: Button ID detectado: {$buttonId}");
