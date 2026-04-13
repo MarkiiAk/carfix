@@ -117,7 +117,8 @@ try {
     }
     
     if ($resultado['success']) {
-        logWebhook("Procesamiento exitoso: " . $resultado['message']);
+        $message = $resultado['message'] ?? $resultado['accion'] ?? 'Procesado exitosamente';
+        logWebhook("Procesamiento exitoso: " . $message);
         http_response_code(200);
         // Respuesta TwiML vacía - no enviar mensaje adicional
         header('Content-Type: text/xml');

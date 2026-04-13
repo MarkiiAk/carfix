@@ -1096,14 +1096,37 @@ class TwilioConversationalBot {
     }
     
     private function actualizarEstadoAlerta($alertaId, $estado, $messageSid = null) {
-        $sql = "UPDATE alertas_servicio 
-                SET estado_whatsapp = ?, 
-                    fecha_envio_whatsapp = CASE WHEN ? IS NOT NULL THEN NOW() ELSE fecha_envio_whatsapp END,
-                    twilio_conversation_sid = COALESCE(?, twilio_conversation_sid)
-                WHERE id = ?";
-        
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([$estado, $messageSid, $messageSid, $alertaId]);
+        try {
+            error_log("🔄 TwilioBot: actualizarEstadoAlerta - AlertaID: {$alertaId}, Estado: '{$estado}', MessageSid: " . ($messageSid ?? 'NULL'));
+            
+            $sql = "UPDATE alertas_servicio 
+                    SET estado_whatsapp = ?, 
+                        fecha_envio_whatsapp = CASE WHEN ? IS NOT NULL THEN NOW() ELSE fecha_envio_whatsapp END,
+                        twilio_conversation_sid = COALESCE(?, twilio_conversation_sid),
+                        ultima_actividad = NOW()
+                    WHERE id = ?";
+            
+            $stmt = $this->db->prepare($sql);
+            $resultado = $stmt->execute([$estado, $messageSid, $messageSid, $alertaId]);
+            
+            if ($resultado) {
+                $filasAfectadas = $stmt->rowCount();
+                error_log("✅ TwilioBot: Estado actualizado exitosamente - Filas afectadas: {$filasAfectadas}");
+                
+                if ($filasAfectadas === 0) {
+                    error_log("⚠️ TwilioBot: WARNING - No se actualizó ninguna fila para AlertaID: {$alertaId}");
+                }
+            } else {
+                $errorInfo = $stmt->errorInfo();
+                error_log("❌ TwilioBot: ERROR SQL actualizarEstadoAlerta - SQLSTATE: {$errorInfo[0]}, Error: {$errorInfo[2]}");
+            }
+            
+            return $resultado;
+            
+        } catch (Exception $e) {
+            error_log("💥 TwilioBot: EXCEPCIÓN actualizarEstadoAlerta - " . $e->getMessage());
+            return false;
+        }
     }
     
     private function actualizarRespuestaInicial($alertaId, $respuesta) {
