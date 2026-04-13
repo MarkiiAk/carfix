@@ -1990,42 +1990,6 @@ class TwilioConversationalBot {
     }
 
     /**
-     * Pre-agendar cita en el sistema
-     */
-    private function preAgendarCita($alertaId, $slot) {
-        try {
-            $this->db->beginTransaction();
-            
-            // Actualizar calendario_disponibilidad
-            $sql = "UPDATE calendario_disponibilidad 
-                   SET citas_ocupadas = citas_ocupadas + 1
-                   WHERE fecha = ? AND hora = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$slot['fecha'], $slot['hora']]);
-            
-            // Actualizar alerta
-            $sql = "UPDATE alertas_servicio 
-                   SET fecha_cita_seleccionada = ?, 
-                       hora_cita_seleccionada = ?,
-                       estado_whatsapp = 'pre_agendado',
-                       fecha_pre_agendado = NOW(),
-                       confirmacion_sag = 'pendiente',
-                       requiere_atencion = 1
-                   WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$slot['fecha'], $slot['hora'], $alertaId]);
-            
-            $this->db->commit();
-            return ['success' => true];
-            
-        } catch (Exception $e) {
-            $this->db->rollBack();
-            error_log("TwilioBot ERROR preAgendarCita: " . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-
-    /**
      * Enviar confirmación de pre-agendamiento
      */
     private function enviarConfirmacionPreAgenda($alertaId, $slot) {
