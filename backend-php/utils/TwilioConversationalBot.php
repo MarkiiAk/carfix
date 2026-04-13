@@ -1224,10 +1224,12 @@ class TwilioConversationalBot {
         }
     }
     /**
-     * PASO 2A CALENDARIO: Cliente dijo SÍ - Enviar calendario automático
+     * PASO 2A SIMPLIFICADO: Cliente dijo SÍ - Enviar PLANTILLA TEMPORAL con horarios numerados
      */
     private function procesarRespuestaSiSimplificado($alertaId, $messageSid) {
         try {
+            error_log("📅 TwilioBot: procesarRespuestaSiSimplificado - PLANTILLA TEMPORAL ACTIVADA");
+            
             // Obtener datos de la alerta
             $alerta = $this->obtenerDatosAlerta($alertaId);
             $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
@@ -1247,52 +1249,72 @@ class TwilioConversationalBot {
                 'respuesta_si_interesa'
             );
             
-            error_log("📅 TwilioBot: Cliente {$alerta['cliente_nombre']} INTERESADO - enviando calendario automático");
+            error_log("📅 TwilioBot: Cliente {$alerta['cliente_nombre']} INTERESADO - calculando horarios");
             
-            // **NUEVO: Enviar calendario directamente**
-            $resultado = $this->enviarCalendarioTemplate($alertaId);
+            // **NUEVA LÓGICA: Calcular horarios disponibles**
+            $slots = $this->calcularSlotsDisponibles();
+            
+            if (empty($slots)) {
+                error_log("📅 TwilioBot: No hay horarios disponibles, enviando contacto directo");
+                return $this->enviarContactoDirectoFallback($alertaId);
+            }
+            
+            // **FORMATEAR horarios como texto numerado**
+            $horariosTexto = "";
+            $contador = 1;
+            
+            // Agregar slots disponibles (máximo 8)
+            foreach ($slots as $slot) {
+                if ($contador > 8) break;
+                $horariosTexto .= "{$contador}. {$slot['fecha_display']} {$slot['hora_display']}\n";
+                $contador++;
+            }
+            
+            // Siempre agregar opción "9. Otro horario"
+            $horariosTexto .= "9. Otro horario";
+            
+            error_log("📅 TwilioBot: Horarios formateados: {$horariosTexto}");
+            
+            // **ENVIAR PLANTILLA TEMPORAL**
+            $resultado = $this->enviarPlantillaTemporal(
+                $telefono,
+                $alerta['cliente_nombre'],  // Variable 1
+                $horariosTexto              // Variable 2
+            );
             
             if ($resultado['success']) {
-                error_log("📅 TwilioBot: Calendario enviado exitosamente a {$alerta['cliente_nombre']}");
+                // Guardar slots para mapeo posterior cuando responda el cliente
+                $this->guardarSlotsSession($alertaId, $slots);
+                
+                // Actualizar estado
+                $this->actualizarEstadoAlerta($alertaId, 'esperando_seleccion_horario', $resultado['message_sid']);
+                
+                // Registrar mensaje
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    "Plantilla temporal: {$alerta['cliente_nombre']}, horarios numerados",
+                    'template',
+                    'plantilla_temporal_horarios',
+                    $resultado
+                );
+                
+                error_log("📅 TwilioBot: ¡Plantilla temporal enviada exitosamente!");
                 
                 return [
                     'success' => true,
                     'message_sid' => $resultado['message_sid'],
-                    'accion' => 'calendario_enviado'
+                    'accion' => 'horarios_enviados',
+                    'slots_disponibles' => count($slots)
                 ];
-            } else {
-                // FALLBACK: Si falla template, enviar mensaje de contacto
-                error_log("📅 TwilioBot: Template falló, enviando mensaje de contacto directo");
-                
-                $mensajeFallback = "¡Excelente decisión! 🎉\n\nEn breve nuestro equipo se pondrá en contacto contigo para coordinar el horario perfecto para tu cita de mantenimiento.\n\n¡Gracias por confiar en nosotros! 🚗⚡";
-                
-                $resultadoFallback = $this->enviarMensajeTexto($telefono, $mensajeFallback);
-                
-                if ($resultadoFallback['success']) {
-                    $this->registrarMensaje(
-                        $alertaId,
-                        $resultadoFallback['message_sid'],
-                        'outbound',
-                        $this->whatsappFrom,
-                        "whatsapp:+52{$telefono}",
-                        $mensajeFallback,
-                        'text',
-                        'mensaje_coordinacion_fallback',
-                        $resultadoFallback
-                    );
-                    
-                    $this->actualizarEstadoAlerta($alertaId, 'requiere_contacto');
-                    $this->marcarRequiereAtencion($alertaId, 'alta');
-                    
-                    return [
-                        'success' => true,
-                        'message_sid' => $resultadoFallback['message_sid'],
-                        'accion' => 'contacto_directo_fallback'
-                    ];
-                }
             }
             
-            throw new Exception("Error enviando calendario y fallback falló");
+            // FALLBACK si falla la plantilla
+            error_log("📅 TwilioBot: Plantilla temporal falló, usando fallback");
+            return $this->enviarContactoDirectoFallback($alertaId);
             
         } catch (Exception $e) {
             error_log("TwilioBot ERROR procesarRespuestaSiSimplificado: " . $e->getMessage());
@@ -1303,6 +1325,162 @@ class TwilioConversationalBot {
         }
     }
     
+    /**
+     * **NUEVO**: Enviar plantilla temporal con horarios numerados (HX183daf481204160ef29a837ce1b22ecb)
+     */
+    private function enviarPlantillaTemporal($telefono, $nombreCliente, $horariosTexto) {
+        try {
+            error_log("📅 TwilioBot: enviarPlantillaTemporal - Nombre: {$nombreCliente}");
+            error_log("📅 TwilioBot: Horarios: {$horariosTexto}");
+            
+            // Cargar .env directamente
+            $envPath = __DIR__ . '/../.env';
+            
+            if (!file_exists($envPath)) {
+                throw new Exception("Archivo .env no encontrado");
+            }
+            
+            $envContent = file_get_contents($envPath);
+            $envLines = explode("\n", $envContent);
+            $env = [];
+            
+            foreach ($envLines as $line) {
+                $line = trim($line);
+                if (empty($line) || $line[0] === '#') continue;
+                
+                if (strpos($line, '=') !== false) {
+                    list($key, $value) = explode('=', $line, 2);
+                    $env[trim($key)] = trim($value);
+                }
+            }
+            
+            $sid = $env['TWILIO_ACCOUNT_SID'] ?? '';
+            $token = $env['TWILIO_AUTH_TOKEN'] ?? '';  
+            $fromNumber = $env['TWILIO_WHATSAPP_FROM'] ?? '';
+            
+            if (empty($sid) || empty($token) || empty($fromNumber)) {
+                throw new Exception("Variables Twilio no configuradas en .env");
+            }
+            
+            // Variables para plantilla temporal HX183daf481204160ef29a837ce1b22ecb
+            $contentVariables = [
+                "1" => $nombreCliente,    // Variable {{1}}
+                "2" => $horariosTexto     // Variable {{2}}
+            ];
+            
+            error_log("📅 TwilioBot: ContentVariables plantilla temporal: " . json_encode($contentVariables));
+            
+            // cURL DIRECTO con tu plantilla temporal
+            $curl = curl_init();
+            
+            curl_setopt_array($curl, array(
+              CURLOPT_URL => "https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json",
+              CURLOPT_RETURNTRANSFER => true,
+              CURLOPT_ENCODING => '',
+              CURLOPT_MAXREDIRS => 10,
+              CURLOPT_TIMEOUT => 0,
+              CURLOPT_FOLLOWLOCATION => true,
+              CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+              CURLOPT_CUSTOMREQUEST => 'POST',
+              CURLOPT_POSTFIELDS => http_build_query([
+                'ContentSid' => 'HX183daf481204160ef29a837ce1b22ecb', // TU PLANTILLA TEMPORAL
+                'From' => $fromNumber,
+                'To' => "whatsapp:+52{$telefono}",
+                'ContentVariables' => json_encode($contentVariables)
+              ]),
+              CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/x-www-form-urlencoded',
+                'Authorization: Basic ' . base64_encode($sid . ':' . $token)
+              ),
+            ));
+            
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($curl);
+            
+            curl_close($curl);
+            
+            error_log("📅 TwilioBot cURL TEMPORAL: HTTP Code = {$httpCode}");
+            error_log("📅 TwilioBot cURL TEMPORAL: Response = {$response}");
+            
+            if ($curlError) {
+                throw new Exception("cURL Error: {$curlError}");
+            }
+            
+            $responseData = json_decode($response, true);
+            
+            if ($httpCode >= 200 && $httpCode < 300 && isset($responseData['sid'])) {
+                error_log("📅 TwilioBot cURL TEMPORAL: ¡ÉXITO! Message SID = {$responseData['sid']}");
+                
+                return [
+                    'success' => true,
+                    'message_sid' => $responseData['sid'],
+                    'status' => $responseData['status'] ?? 'queued',
+                    'twilio_response' => $responseData
+                ];
+            } else {
+                $errorMsg = isset($responseData['message']) ? $responseData['message'] : "HTTP {$httpCode}";
+                error_log("📅 TwilioBot cURL TEMPORAL: ERROR = {$errorMsg}");
+                throw new Exception("Twilio Template Temporal Error: {$errorMsg}");
+            }
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarPlantillaTemporal: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * **FALLBACK**: Enviar mensaje de contacto directo cuando falla la plantilla
+     */
+    private function enviarContactoDirectoFallback($alertaId) {
+        try {
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            $mensajeFallback = "¡Excelente decisión! 🎉\n\nEn este momento nuestro calendario automático está temporalmente no disponible.\n\nNuestro equipo se pondrá en contacto contigo en breve para coordinar el horario perfecto para tu cita de mantenimiento.\n\n¡Gracias por confiar en nosotros! 🚗⚡";
+            
+            $resultado = $this->enviarMensajeTexto($telefono, $mensajeFallback);
+            
+            if ($resultado['success']) {
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    $mensajeFallback,
+                    'text',
+                    'contacto_directo_fallback',
+                    $resultado
+                );
+                
+                $this->actualizarEstadoAlerta($alertaId, 'requiere_contacto');
+                $this->marcarRequiereAtencion($alertaId, 'alta');
+                
+                error_log("TwilioBot: Fallback enviado para {$alerta['cliente_nombre']} - requiere contacto directo");
+                
+                return [
+                    'success' => true,
+                    'message_sid' => $resultado['message_sid'],
+                    'accion' => 'contacto_directo_fallback'
+                ];
+            }
+            
+            throw new Exception("Error enviando mensaje de fallback");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarContactoDirectoFallback: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
     /**
      * PASO 2B SIMPLIFICADO: Cliente dijo NO - Enviar mensaje psicológico
      */
@@ -1832,19 +2010,27 @@ class TwilioConversationalBot {
     }
 
     /**
-     * Enviar mensaje de ayuda para validación
+     * Enviar mensaje de ayuda para validación CON SISTEMA DE INTENTOS
      */
     private function enviarMensajeAyudaValidacion($alertaId) {
         try {
             $alerta = $this->obtenerDatosAlerta($alertaId);
             $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
             
-            // Obtener mensaje personalizado desde BD
-            $mensajeAyuda = $this->obtenerConfiguracion('mensaje_ayuda_respuesta');
+            // **SISTEMA DE INTENTOS: Incrementar contador de intentos fallidos**
+            $intentosActuales = $this->incrementarIntentosRespuesta($alertaId);
+            $maxIntentos = (int)$this->obtenerConfiguracion('max_intentos_respuesta') ?: 3;
             
-            if (empty($mensajeAyuda)) {
-                $mensajeAyuda = "Por favor responde solo con el *NÚMERO* de la opción que prefieres (ejemplo: 1, 2, 3...). ¡Así podremos ayudarte mejor! 😊";
+            error_log("🚫 TwilioBot: Cliente con respuesta inválida - Intento {$intentosActuales}/{$maxIntentos}");
+            
+            // **VERIFICAR SI EXCEDIÓ MÁXIMO DE INTENTOS**
+            if ($intentosActuales >= $maxIntentos) {
+                error_log("🚨 TwilioBot: Cliente excedió máximo de intentos - Enviando a contacto directo");
+                return $this->manejarExcesoIntentos($alertaId);
             }
+            
+            // **MENSAJE DE AYUDA PROGRESIVO**
+            $mensajeAyuda = $this->obtenerMensajeAyudaPorIntento($intentosActuales);
             
             $resultado = $this->enviarMensajeTexto($telefono, $mensajeAyuda);
             
@@ -1857,7 +2043,7 @@ class TwilioConversationalBot {
                     "whatsapp:+52{$telefono}",
                     $mensajeAyuda,
                     'text',
-                    'mensaje_ayuda_validacion',
+                    "mensaje_ayuda_intento_{$intentosActuales}",
                     $resultado
                 );
             }
@@ -1870,6 +2056,160 @@ class TwilioConversationalBot {
                 'success' => false,
                 'error' => $e->getMessage()
             ];
+        }
+    }
+    
+    /**
+     * Incrementar contador de intentos de respuesta inválida
+     */
+    private function incrementarIntentosRespuesta($alertaId) {
+        try {
+            // Obtener intentos actuales
+            $sql = "SELECT intentos_respuesta_invalida FROM alertas_servicio WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$alertaId]);
+            $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $intentosActuales = ($resultado['intentos_respuesta_invalida'] ?? 0) + 1;
+            
+            // Actualizar contador
+            $sqlUpdate = "UPDATE alertas_servicio 
+                         SET intentos_respuesta_invalida = ?, 
+                             fecha_ultimo_intento_invalido = NOW()
+                         WHERE id = ?";
+            $stmtUpdate = $this->db->prepare($sqlUpdate);
+            $stmtUpdate->execute([$intentosActuales, $alertaId]);
+            
+            return $intentosActuales;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR incrementarIntentosRespuesta: " . $e->getMessage());
+            return 1; // Default fallback
+        }
+    }
+    
+    /**
+     * Obtener mensaje de ayuda progresivo según el intento
+     */
+    private function obtenerMensajeAyudaPorIntento($intento) {
+        switch ($intento) {
+            case 1:
+                // PRIMER INTENTO: Mensaje gentil
+                $mensaje = $this->obtenerConfiguracion('mensaje_ayuda_respuesta');
+                if (empty($mensaje)) {
+                    $mensaje = "Por favor responde solo con el *NÚMERO* de la opción que prefieres (ejemplo: 1, 2, 3...). ¡Así podremos ayudarte mejor! 😊";
+                }
+                break;
+                
+            case 2:
+                // SEGUNDO INTENTO: Más específico
+                $mensaje = "Necesito que respondas *SOLO CON UN NÚMERO* del 1 al 9:\n\n";
+                $mensaje .= "✅ Ejemplos correctos: \"1\", \"3\", \"5\"\n";
+                $mensaje .= "❌ No escribas: \"la primera\", \"opción 2\", \"me gusta la tercera\"\n\n";
+                $mensaje .= "Solo escribe el número y nada más. ¡Inténtalo otra vez! 🎯";
+                break;
+                
+            default:
+                // ÚLTIMO INTENTO: Advertencia
+                $mensaje = "⚠️ *ÚLTIMO INTENTO*\n\n";
+                $mensaje .= "Por favor, responde únicamente con un NÚMERO:\n";
+                $mensaje .= "• Para la primera opción: escribe \"1\"\n";
+                $mensaje .= "• Para la segunda opción: escribe \"2\"\n";
+                $mensaje .= "• Y así sucesivamente...\n\n";
+                $mensaje .= "Si no respondes correctamente, nuestro equipo se pondrá en contacto contigo directamente.";
+                break;
+        }
+        
+        return $mensaje;
+    }
+    
+    /**
+     * Manejar cuando el cliente excede el máximo de intentos
+     */
+    private function manejarExcesoIntentos($alertaId) {
+        try {
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            // Mensaje final explicando que se contactará directamente
+            $mensajeFinal = "Entiendo que puede ser confuso elegir de esta manera. 😅\n\n";
+            $mensajeFinal .= "No te preocupes, nuestro equipo se pondrá en contacto contigo directamente para coordinar tu cita de mantenimiento.\n\n";
+            $mensajeFinal .= "¡Gracias por tu paciencia! 🚗✨";
+            
+            $resultado = $this->enviarMensajeTexto($telefono, $mensajeFinal);
+            
+            if ($resultado['success']) {
+                // Actualizar estado a requiere contacto directo
+                $this->actualizarEstadoAlerta($alertaId, 'requiere_contacto');
+                $this->marcarRequiereAtencion($alertaId, 'alta');
+                
+                // Registrar mensaje
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    $mensajeFinal,
+                    'text',
+                    'exceso_intentos_contacto_directo',
+                    $resultado
+                );
+                
+                // Notificar al admin sobre el caso especial
+                $this->notificarAdminExcesoIntentos($alerta);
+                
+                error_log("TwilioBot: Cliente {$alerta['cliente_nombre']} excedió intentos máximos - derivado a contacto directo");
+            }
+            
+            return $resultado;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR manejarExcesoIntentos: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Notificar al admin cuando un cliente excede intentos
+     */
+    private function notificarAdminExcesoIntentos($alerta) {
+        try {
+            if (empty($this->sagAdminPhone)) {
+                return false;
+            }
+            
+            $mensaje = "⚠️ CLIENTE CON DIFICULTADES TÉCNICAS\n\n";
+            $mensaje .= "Cliente: {$alerta['cliente_nombre']}\n";
+            $mensaje .= "Teléfono: {$alerta['cliente_telefono']}\n";
+            $mensaje .= "Problema: No pudo seleccionar horario en WhatsApp\n";
+            $mensaje .= "Acción: Requiere contacto directo URGENTE\n\n";
+            $mensaje .= "📞 Contactar para agendar manualmente";
+            
+            $this->enviarMensajeTexto($this->sagAdminPhone, $mensaje);
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR notificarAdminExcesoIntentos: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Resetear contador de intentos cuando el cliente responde correctamente
+     */
+    private function resetearIntentosRespuesta($alertaId) {
+        try {
+            $sql = "UPDATE alertas_servicio 
+                   SET intentos_respuesta_invalida = 0,
+                       fecha_ultimo_intento_invalido = NULL
+                   WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$alertaId]);
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR resetearIntentosRespuesta: " . $e->getMessage());
         }
     }
 
