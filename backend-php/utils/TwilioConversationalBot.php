@@ -1224,7 +1224,7 @@ class TwilioConversationalBot {
         }
     }
     /**
-     * PASO 2A SIMPLIFICADO: Cliente dijo SÍ - Enviar mensaje coordinación
+     * PASO 2A CALENDARIO: Cliente dijo SÍ - Enviar calendario automático
      */
     private function procesarRespuestaSiSimplificado($alertaId, $messageSid) {
         try {
@@ -1232,9 +1232,8 @@ class TwilioConversationalBot {
             $alerta = $this->obtenerDatosAlerta($alertaId);
             $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
             
-            // Actualizar estado
+            // Actualizar estado inicial
             $this->actualizarRespuestaInicial($alertaId, 'si');
-            $this->actualizarEstadoAlerta($alertaId, 'interesado');
             
             // Registrar respuesta del cliente
             $this->registrarMensaje(
@@ -1248,42 +1247,52 @@ class TwilioConversationalBot {
                 'respuesta_si_interesa'
             );
             
-            // Obtener mensaje automático desde BD
-            $mensajeSi = $this->obtenerConfiguracion('mensaje_si_interesa');
+            error_log("📅 TwilioBot: Cliente {$alerta['cliente_nombre']} INTERESADO - enviando calendario automático");
             
-            if (empty($mensajeSi)) {
-                $mensajeSi = "¡Excelente decisión! 🎉\n\nEn breve te asignaremos una fecha que se ajuste perfecto a tu agenda.\n\nNuestro equipo se pondrá en contacto contigo para coordinar todos los detalles.\n\n¡Gracias por confiar en nosotros! 🚗⚡";
-            }
-            
-            // Enviar mensaje de coordinación
-            $resultado = $this->enviarMensajeTexto($telefono, $mensajeSi);
+            // **NUEVO: Enviar calendario directamente**
+            $resultado = $this->enviarCalendarioTemplate($alertaId);
             
             if ($resultado['success']) {
-                $this->registrarMensaje(
-                    $alertaId,
-                    $resultado['message_sid'],
-                    'outbound',
-                    $this->whatsappFrom,
-                    "whatsapp:+52{$telefono}",
-                    $mensajeSi,
-                    'text',
-                    'mensaje_coordinacion',
-                    $resultado
-                );
-                
-                // Marcar como requiere atención alta
-                $this->marcarRequiereAtencion($alertaId, 'alta');
-                
-                error_log("TwilioBot: Cliente {$alerta['cliente_nombre']} INTERESADO - enviado mensaje coordinación");
+                error_log("📅 TwilioBot: Calendario enviado exitosamente a {$alerta['cliente_nombre']}");
                 
                 return [
                     'success' => true,
                     'message_sid' => $resultado['message_sid'],
-                    'accion' => 'interesado'
+                    'accion' => 'calendario_enviado'
                 ];
+            } else {
+                // FALLBACK: Si falla template, enviar mensaje de contacto
+                error_log("📅 TwilioBot: Template falló, enviando mensaje de contacto directo");
+                
+                $mensajeFallback = "¡Excelente decisión! 🎉\n\nEn breve nuestro equipo se pondrá en contacto contigo para coordinar el horario perfecto para tu cita de mantenimiento.\n\n¡Gracias por confiar en nosotros! 🚗⚡";
+                
+                $resultadoFallback = $this->enviarMensajeTexto($telefono, $mensajeFallback);
+                
+                if ($resultadoFallback['success']) {
+                    $this->registrarMensaje(
+                        $alertaId,
+                        $resultadoFallback['message_sid'],
+                        'outbound',
+                        $this->whatsappFrom,
+                        "whatsapp:+52{$telefono}",
+                        $mensajeFallback,
+                        'text',
+                        'mensaje_coordinacion_fallback',
+                        $resultadoFallback
+                    );
+                    
+                    $this->actualizarEstadoAlerta($alertaId, 'requiere_contacto');
+                    $this->marcarRequiereAtencion($alertaId, 'alta');
+                    
+                    return [
+                        'success' => true,
+                        'message_sid' => $resultadoFallback['message_sid'],
+                        'accion' => 'contacto_directo_fallback'
+                    ];
+                }
             }
             
-            throw new Exception("Error enviando mensaje de coordinación");
+            throw new Exception("Error enviando calendario y fallback falló");
             
         } catch (Exception $e) {
             error_log("TwilioBot ERROR procesarRespuestaSiSimplificado: " . $e->getMessage());
@@ -1362,6 +1371,1164 @@ class TwilioConversationalBot {
                 'success' => false,
                 'error' => $e->getMessage()
             ];
+        }
+    }
+
+    /**
+     * ========================================
+     * SISTEMA DE CALENDARIO INTELIGENTE
+     * ========================================
+     */
+
+    /**
+     * Calcular slots disponibles para calendario
+     */
+    public function calcularSlotsDisponibles($horaActual = null) {
+        try {
+            $horaActual = $horaActual ?: date('H:i');
+            $fechaActual = new DateTime();
+            
+            // Obtener configuraciones
+            $horariosConfig = $this->obtenerConfiguracion('horarios_atencion');
+            $horaLimite = $this->obtenerConfiguracion('hora_limite_dia_siguiente');
+            $diasLaborales = explode(',', $this->obtenerConfiguracion('dias_laborales'));
+            $diasFestivos = json_decode($this->obtenerConfiguracion('dias_festivos_2026'), true) ?: [];
+            $slotsMaximo = (int)$this->obtenerConfiguracion('slots_maximo_mostrar');
+            
+            $horarios = explode(',', $horariosConfig);
+            $slots = [];
+            
+            // Determinar fecha inicial según hora límite
+            $fechaInicio = clone $fechaActual;
+            if ($horaActual >= $horaLimite) {
+                // Después de 6 PM → pasado mañana
+                $fechaInicio->modify('+2 days');
+            } else {
+                // Antes de 6 PM → mañana
+                $fechaInicio->modify('+1 day');
+            }
+            
+            $slotCount = 0;
+            $diasBuscados = 0;
+            $maxDiasBuscar = 14; // Máximo 2 semanas
+            
+            while ($slotCount < $slotsMaximo && $diasBuscados < $maxDiasBuscar) {
+                $fechaBuscar = clone $fechaInicio;
+                $fechaBuscar->modify("+{$diasBuscados} days");
+                
+                // Verificar si es día laborable
+                $nombreDia = $fechaBuscar->format('l'); // Monday, Tuesday, etc.
+                if (!in_array($nombreDia, $diasLaborales)) {
+                    $diasBuscados++;
+                    continue;
+                }
+                
+                // Verificar si es día festivo
+                $fechaString = $fechaBuscar->format('Y-m-d');
+                if (in_array($fechaString, $diasFestivos)) {
+                    $diasBuscados++;
+                    continue;
+                }
+                
+                // Verificar horarios disponibles para este día
+                foreach ($horarios as $hora) {
+                    if ($slotCount >= $slotsMaximo) break;
+                    
+                    $horaFormateada = trim($hora);
+                    if ($this->verificarSlotDisponible($fechaString, $horaFormateada)) {
+                        $slots[] = [
+                            'fecha' => $fechaString,
+                            'hora' => $horaFormateada,
+                            'fecha_display' => $this->formatearFechaCliente($fechaBuscar),
+                            'hora_display' => $this->formatearHoraCliente($horaFormateada),
+                            'slot_id' => 'slot_' . ($slotCount + 1)
+                        ];
+                        $slotCount++;
+                    }
+                }
+                
+                $diasBuscados++;
+            }
+            
+            return $slots;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR calcularSlotsDisponibles: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Verificar si un slot específico está disponible
+     */
+    private function verificarSlotDisponible($fecha, $hora) {
+        try {
+            $capacidadTotal = (int)$this->obtenerConfiguracion('capacidad_por_slot');
+            
+            // Verificar en calendario_disponibilidad
+            $sql = "SELECT citas_ocupadas, esta_disponible FROM calendario_disponibilidad 
+                   WHERE fecha = ? AND hora = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$fecha, $hora]);
+            $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($resultado) {
+                return $resultado['esta_disponible'] == 1 && 
+                       $resultado['citas_ocupadas'] < $capacidadTotal;
+            }
+            
+            // Si no existe registro, crear uno y está disponible
+            $sqlInsert = "INSERT IGNORE INTO calendario_disponibilidad 
+                         (fecha, hora, capacidad_total, citas_ocupadas, esta_disponible) 
+                         VALUES (?, ?, ?, 0, 1)";
+            $stmtInsert = $this->db->prepare($sqlInsert);
+            $stmtInsert->execute([$fecha, $hora, $capacidadTotal]);
+            
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR verificarSlotDisponible: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Formatear fecha para mostrar al cliente
+     */
+    private function formatearFechaCliente($fechaObj) {
+        $formatoConfig = $this->obtenerConfiguracion('formato_fecha_cliente');
+        $formato = $formatoConfig ?: 'D j M';
+        
+        // Traducir al español
+        $meses = [
+            'Jan' => 'Ene', 'Feb' => 'Feb', 'Mar' => 'Mar', 'Apr' => 'Abr',
+            'May' => 'May', 'Jun' => 'Jun', 'Jul' => 'Jul', 'Aug' => 'Ago',
+            'Sep' => 'Sep', 'Oct' => 'Oct', 'Nov' => 'Nov', 'Dec' => 'Dic'
+        ];
+        
+        $dias = [
+            'Mon' => 'Lun', 'Tue' => 'Mar', 'Wed' => 'Mié', 'Thu' => 'Jue',
+            'Fri' => 'Vie', 'Sat' => 'Sáb', 'Sun' => 'Dom'
+        ];
+        
+        $fechaFormateada = $fechaObj->format($formato);
+        $fechaFormateada = strtr($fechaFormateada, $meses);
+        $fechaFormateada = strtr($fechaFormateada, $dias);
+        
+        return $fechaFormateada;
+    }
+
+    /**
+     * Formatear hora para mostrar al cliente
+     */
+    private function formatearHoraCliente($hora) {
+        $formatoConfig = $this->obtenerConfiguracion('formato_hora_cliente');
+        $formato = $formatoConfig ?: 'g:i A';
+        
+        $horaObj = DateTime::createFromFormat('H:i', $hora);
+        return $horaObj->format($formato);
+    }
+
+    /**
+     * Enviar calendario con template dinámico (SISTEMA ADAPTABLE)
+     * Soporta modo simple (texto) y modo interactive (botones)
+     */
+    public function enviarCalendarioTemplate($alertaId) {
+        try {
+            // **DEBUGGING CALENDARIO**
+            error_log("📅 TwilioBot: enviarCalendarioTemplate iniciado para alerta ID: {$alertaId}");
+            
+            // Obtener datos de la alerta
+            $sql = "SELECT a.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono,
+                           v.marca, v.modelo, v.anio
+                    FROM alertas_servicio a
+                    JOIN clientes c ON a.cliente_id = c.id
+                    JOIN vehiculos v ON a.vehiculo_id = v.id
+                    WHERE a.id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$alertaId]);
+            $alerta = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$alerta) {
+                throw new Exception("Alerta no encontrada: {$alertaId}");
+            }
+            
+            // Calcular slots disponibles
+            $slots = $this->calcularSlotsDisponibles();
+            
+            if (empty($slots)) {
+                error_log("📅 TwilioBot: No hay slots disponibles, enviando mensaje de contacto directo");
+                return $this->enviarMensajeContactoDirecto($alerta);
+            }
+            
+            error_log("📅 TwilioBot: {" . count($slots) . "} slots calculados");
+            
+            // **DETECCIÓN DEL MODO DE TEMPLATE**
+            $templateMode = $this->obtenerConfiguracion('template_mode');
+            
+            if ($templateMode === 'simple') {
+                // **MODO SIMPLE: Plantilla con texto numerado**
+                error_log("📅 TwilioBot: Usando modo SIMPLE (texto numerado)");
+                return $this->enviarCalendarioTemplateSimple($alertaId, $alerta, $slots);
+            } else {
+                // **MODO INTERACTIVE: Plantilla con botones (modo original)**
+                error_log("📅 TwilioBot: Usando modo INTERACTIVE (botones)");
+                return $this->enviarCalendarioTemplateInteractive($alertaId, $alerta, $slots);
+            }
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarCalendarioTemplate: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * MODO SIMPLE: Enviar calendario con plantilla simple (TEXTO NUMERADO)
+     * Usa la plantilla aprobada HX183daf481204160ef29a837ce1b22ecb
+     */
+    private function enviarCalendarioTemplateSimple($alertaId, $alerta, $slots) {
+        try {
+            error_log("📅 TwilioBot: enviarCalendarioTemplateSimple - Modo TEXTO numerado");
+            
+            // Obtener template SID para modo simple
+            $templateSid = $this->obtenerConfiguracion('template_simple_sid');
+            if (empty($templateSid)) {
+                throw new Exception("Template simple no configurado en BD");
+            }
+            
+            // Formatear horarios como texto numerado (1-8 + 9=otro horario)
+            $horariosTexto = $this->formatearHorariosTextoNumerado($slots);
+            
+            // Variables para la plantilla simple
+            // Variable 1: Nombre cliente
+            // Variable 2: Lista horarios numerados
+            $variables = [
+                $alerta['cliente_nombre'],  // {1}
+                $horariosTexto              // {2}
+            ];
+            
+            error_log("📅 TwilioBot: Variables template simple:");
+            error_log("📅 TwilioBot: Nombre: " . $alerta['cliente_nombre']);
+            error_log("📅 TwilioBot: Horarios: " . $horariosTexto);
+            
+            // Enviar con plantilla simple
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            $resultado = $this->enviarTemplate($templateSid, $telefono, $variables);
+            
+            if ($resultado['success']) {
+                // Guardar slots en sesión
+                $this->guardarSlotsSession($alertaId, $slots);
+                
+                // Actualizar estado alerta
+                $this->actualizarEstadoAlerta($alertaId, 'esperando_fecha', $resultado['message_sid']);
+                
+                // Registrar mensaje
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    "Template Simple: {$alerta['cliente_nombre']}, horarios numerados",
+                    'template',
+                    'calendario_simple',
+                    $resultado
+                );
+                
+                error_log("📅 TwilioBot: Template SIMPLE enviado exitosamente");
+                return $resultado;
+            }
+            
+            throw new Exception("Error enviando template simple");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarCalendarioTemplateSimple: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * MODO INTERACTIVE: Enviar calendario con plantilla interactiva (BOTONES)
+     * Usa la plantilla pendiente HX765eae763cf778deacde6238674d4108
+     */
+    private function enviarCalendarioTemplateInteractive($alertaId, $alerta, $slots) {
+        try {
+            error_log("📅 TwilioBot: enviarCalendarioTemplateInteractive - Modo BOTONES");
+            
+            // Obtener template SID para modo interactive
+            $templateSid = $this->obtenerConfiguracion('template_interactive_sid');
+            if (empty($templateSid)) {
+                throw new Exception("Template interactive no configurado en BD");
+            }
+            
+            // Preparar variables del template (modo original)
+            $variables = [];
+            foreach ($slots as $index => $slot) {
+                $variables[] = $slot['fecha_display'] . ' - ' . $slot['hora_display'];
+            }
+            
+            // Completar hasta 8 variables si hay menos slots
+            while (count($variables) < 8) {
+                $variables[] = '';
+            }
+            
+            error_log("📅 TwilioBot: Variables template interactive: " . json_encode($variables));
+            
+            // Enviar template interactivo
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            $resultado = $this->enviarTemplate($templateSid, $telefono, $variables);
+            
+            if ($resultado['success']) {
+                // Guardar slots en sesión
+                $this->guardarSlotsSession($alertaId, $slots);
+                
+                // Actualizar estado alerta
+                $this->actualizarEstadoAlerta($alertaId, 'esperando_fecha', $resultado['message_sid']);
+                
+                // Registrar mensaje
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    "Template Interactive: calendario con botones",
+                    'template',
+                    'calendario_interactive',
+                    $resultado
+                );
+                
+                error_log("📅 TwilioBot: Template INTERACTIVE enviado exitosamente");
+                return $resultado;
+            }
+            
+            throw new Exception("Error enviando template interactive");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarCalendarioTemplateInteractive: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Formatear horarios como texto numerado para plantilla simple
+     */
+    private function formatearHorariosTextoNumerado($slots) {
+        try {
+            $horariosTexto = "";
+            $contador = 1;
+            
+            // Agregar slots disponibles (máximo 8)
+            foreach ($slots as $slot) {
+                if ($contador > 8) break;
+                
+                $horariosTexto .= "{$contador}. {$slot['fecha_display']} {$slot['hora_display']}\n";
+                $contador++;
+            }
+            
+            // Siempre agregar opción "9. Otro horario"
+            $horariosTexto .= "9. Otro horario";
+            
+            return $horariosTexto;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR formatearHorariosTextoNumerado: " . $e->getMessage());
+            return "Error generando horarios";
+        }
+    }
+
+    /**
+     * Procesar respuesta numérica de cliente (para modo simple)
+     */
+    public function procesarRespuestaNumericaSimple($alertaId, $respuesta, $messageSid) {
+        try {
+            error_log("📅 TwilioBot: procesarRespuestaNumericaSimple - Respuesta: '{$respuesta}'");
+            
+            // Obtener datos de la alerta
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            // Registrar respuesta del cliente
+            $this->registrarMensaje(
+                $alertaId,
+                $messageSid,
+                'inbound',
+                "whatsapp:+52{$telefono}",
+                $this->whatsappFrom,
+                $respuesta,
+                'text',
+                'seleccion_horario_simple'
+            );
+            
+            // Validar respuesta numérica con manejo de "clientes estúpidos" 😂
+            $numeroSeleccion = $this->validarRespuestaNumericaRobusta($respuesta);
+            
+            if ($numeroSeleccion === false) {
+                return $this->enviarMensajeAyudaValidacion($alertaId);
+            }
+            
+            // Manejar opción 9 = "Otro horario"
+            if ($numeroSeleccion === 9) {
+                error_log("📅 TwilioBot: Cliente seleccionó 'Otro horario' (opción 9)");
+                return $this->procesarOtroHorario($alertaId, $messageSid);
+            }
+            
+            // Manejar selección de horario (1-8)
+            if ($numeroSeleccion >= 1 && $numeroSeleccion <= 8) {
+                return $this->procesarSeleccionHorarioSimple($alertaId, $numeroSeleccion, $messageSid);
+            }
+            
+            // Si llega aquí, número fuera de rango
+            return $this->enviarMensajeAyudaValidacion($alertaId);
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR procesarRespuestaNumericaSimple: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Validar respuesta numérica con manejo robusto de "clientes estúpidos"
+     */
+    private function validarRespuestaNumericaRobusta($respuesta) {
+        try {
+            // Limpiar la respuesta
+            $respuestaLimpia = trim(strtolower($respuesta));
+            
+            // Extraer primer número encontrado
+            if (preg_match('/(\d+)/', $respuestaLimpia, $matches)) {
+                $numero = (int)$matches[1];
+                
+                // Validar rango 1-9
+                if ($numero >= 1 && $numero <= 9) {
+                    return $numero;
+                }
+            }
+            
+            // Manejo de texto especial para "otro horario"
+            if (preg_match('/\b(otro|contacto|directo|diferente|cambiar)\b/i', $respuestaLimpia)) {
+                return 9;
+            }
+            
+            error_log("TwilioBot: Respuesta inválida detectada: '{$respuesta}'");
+            return false;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR validarRespuestaNumericaRobusta: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Enviar mensaje de ayuda para validación
+     */
+    private function enviarMensajeAyudaValidacion($alertaId) {
+        try {
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            // Obtener mensaje personalizado desde BD
+            $mensajeAyuda = $this->obtenerConfiguracion('mensaje_ayuda_respuesta');
+            
+            if (empty($mensajeAyuda)) {
+                $mensajeAyuda = "Por favor responde solo con el *NÚMERO* de la opción que prefieres (ejemplo: 1, 2, 3...). ¡Así podremos ayudarte mejor! 😊";
+            }
+            
+            $resultado = $this->enviarMensajeTexto($telefono, $mensajeAyuda);
+            
+            if ($resultado['success']) {
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    $mensajeAyuda,
+                    'text',
+                    'mensaje_ayuda_validacion',
+                    $resultado
+                );
+            }
+            
+            return $resultado;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarMensajeAyudaValidacion: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Procesar selección de horario en modo simple
+     */
+    private function procesarSeleccionHorarioSimple($alertaId, $numeroSeleccion, $messageSid) {
+        try {
+            error_log("📅 TwilioBot: procesarSeleccionHorarioSimple - Opción: {$numeroSeleccion}");
+            
+            // Obtener slots guardados de la sesión
+            $sql = "SELECT respuesta_cliente FROM alertas_servicio WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$alertaId]);
+            $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $slots = json_decode($resultado['respuesta_cliente'], true);
+            if (!$slots) {
+                throw new Exception("Slots no encontrados en sesión");
+            }
+            
+            // Obtener slot seleccionado (índice 0-based)
+            $indiceSlot = $numeroSeleccion - 1;
+            if (!isset($slots[$indiceSlot])) {
+                throw new Exception("Slot no válido: {$numeroSeleccion}");
+            }
+            
+            $slotSeleccionado = $slots[$indiceSlot];
+            
+            error_log("📅 TwilioBot: Slot seleccionado: {$slotSeleccionado['fecha']} {$slotSeleccionado['hora']}");
+            
+            // Pre-agendar cita
+            $resultadoPreAgenda = $this->preAgendarCita($alertaId, $slotSeleccionado);
+            
+            if ($resultadoPreAgenda['success']) {
+                return $this->enviarConfirmacionPreAgenda($alertaId, $slotSeleccionado);
+            }
+            
+            throw new Exception("Error en pre-agendamiento");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR procesarSeleccionHorarioSimple: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Guardar slots de la sesión para mapeo posterior
+     */
+    private function guardarSlotsSession($alertaId, $slots) {
+        try {
+            $slotsData = json_encode($slots);
+            $sql = "UPDATE alertas_servicio SET 
+                   respuesta_cliente = ? 
+                   WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$slotsData, $alertaId]);
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR guardarSlotsSession: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Procesar selección de slot del calendario
+     */
+    public function procesarSeleccionSlot($alertaId, $slotId, $messageSid) {
+        try {
+            error_log("📅 TwilioBot: procesarSeleccionSlot - Slot: {$slotId}");
+            
+            if ($slotId === 'otro_horario') {
+                return $this->procesarOtroHorario($alertaId, $messageSid);
+            }
+            
+            // Obtener slots guardados
+            $sql = "SELECT respuesta_cliente FROM alertas_servicio WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$alertaId]);
+            $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $slots = json_decode($resultado['respuesta_cliente'], true);
+            if (!$slots) {
+                throw new Exception("Slots no encontrados en sesión");
+            }
+            
+            // Buscar slot seleccionado
+            $slotSeleccionado = null;
+            foreach ($slots as $slot) {
+                if ($slot['slot_id'] === $slotId) {
+                    $slotSeleccionado = $slot;
+                    break;
+                }
+            }
+            
+            if (!$slotSeleccionado) {
+                throw new Exception("Slot no válido: {$slotId}");
+            }
+            
+            // Pre-agendar cita
+            $resultadoPreAgenda = $this->preAgendarCita($alertaId, $slotSeleccionado);
+            
+            if ($resultadoPreAgenda['success']) {
+                return $this->enviarConfirmacionPreAgenda($alertaId, $slotSeleccionado);
+            }
+            
+            throw new Exception("Error en pre-agendamiento");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR procesarSeleccionSlot: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Pre-agendar cita en el sistema
+     */
+    private function preAgendarCita($alertaId, $slot) {
+        try {
+            $this->db->beginTransaction();
+            
+            // Actualizar calendario_disponibilidad
+            $sql = "UPDATE calendario_disponibilidad 
+                   SET citas_ocupadas = citas_ocupadas + 1
+                   WHERE fecha = ? AND hora = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$slot['fecha'], $slot['hora']]);
+            
+            // Actualizar alerta
+            $sql = "UPDATE alertas_servicio 
+                   SET fecha_cita_seleccionada = ?, 
+                       hora_cita_seleccionada = ?,
+                       estado_whatsapp = 'pre_agendado',
+                       fecha_pre_agendado = NOW(),
+                       confirmacion_sag = 'pendiente',
+                       requiere_atencion = 1
+                   WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$slot['fecha'], $slot['hora'], $alertaId]);
+            
+            $this->db->commit();
+            return ['success' => true];
+            
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("TwilioBot ERROR preAgendarCita: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Enviar confirmación de pre-agendamiento
+     */
+    private function enviarConfirmacionPreAgenda($alertaId, $slot) {
+        try {
+            // Obtener datos completos
+            $sql = "SELECT a.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono
+                    FROM alertas_servicio a
+                    JOIN clientes c ON a.cliente_id = c.id
+                    WHERE a.id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$alertaId]);
+            $alerta = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Mensaje de confirmación al cliente
+            $plantillaMensaje = $this->obtenerConfiguracion('mensaje_pre_agenda_exito');
+            $mensaje = str_replace(
+                ['{{fecha}}', '{{hora}}'],
+                [$slot['fecha_display'], $slot['hora_display']],
+                $plantillaMensaje
+            );
+            
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            $resultadoCliente = $this->enviarMensajeTexto($telefono, $mensaje);
+            
+            // Notificación al admin
+            if ($resultadoCliente['success']) {
+                $this->notificarAdminPreAgenda($alerta, $slot);
+            }
+            
+            return $resultadoCliente;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarConfirmacionPreAgenda: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Procesar opción "Otro horario"
+     */
+    private function procesarOtroHorario($alertaId, $messageSid) {
+        try {
+            // Actualizar estado alerta
+            $sql = "UPDATE alertas_servicio 
+                   SET estado_whatsapp = 'requiere_contacto',
+                       requiere_atencion = 1,
+                       fecha_respuesta_inicial = NOW()
+                   WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$alertaId]);
+            
+            // Obtener datos completos
+            $sql = "SELECT a.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono,
+                           v.marca, v.modelo, v.anio
+                    FROM alertas_servicio a
+                    JOIN clientes c ON a.cliente_id = c.id
+                    JOIN vehiculos v ON a.vehiculo_id = v.id
+                    WHERE a.id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$alertaId]);
+            $alerta = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Mensaje al cliente
+            $mensajeCliente = $this->obtenerConfiguracion('mensaje_otro_horario');
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            $resultadoCliente = $this->enviarMensajeTexto($telefono, $mensajeCliente);
+            
+            // Notificar al admin
+            if ($resultadoCliente['success']) {
+                $this->notificarAdminOtroHorario($alerta);
+            }
+            
+            return $resultadoCliente;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR procesarOtroHorario: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Notificar al admin sobre pre-agendamiento
+     */
+    private function notificarAdminPreAgenda($alerta, $slot) {
+        try {
+            $plantillaNotificacion = $this->obtenerConfiguracion('notificacion_admin_pre_agenda');
+            $vehiculoInfo = "{$alerta['marca']} {$alerta['modelo']} {$alerta['anio']}";
+            
+            $mensaje = str_replace([
+                '{{cliente}}', '{{fecha}}', '{{hora}}', 
+                '{{vehiculo}}', '{{servicio}}'
+            ], [
+                $alerta['cliente_nombre'],
+                $slot['fecha_display'],
+                $slot['hora_display'], 
+                $vehiculoInfo,
+                $alerta['servicios_que_dispararon']
+            ], $plantillaNotificacion);
+            
+            $adminPhone = $this->sagAdminPhone;
+            if (!empty($adminPhone)) {
+                $this->enviarMensajeTexto($adminPhone, $mensaje);
+            }
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR notificarAdminPreAgenda: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Notificar al admin sobre "otro horario"
+     */
+    private function notificarAdminOtroHorario($alerta) {
+        try {
+            $plantillaNotificacion = $this->obtenerConfiguracion('notificacion_admin_otro_horario');
+            $vehiculoInfo = "{$alerta['marca']} {$alerta['modelo']} {$alerta['anio']}";
+            
+            $mensaje = str_replace([
+                '{{cliente}}', '{{telefono}}', '{{vehiculo}}', '{{servicio}}'
+            ], [
+                $alerta['cliente_nombre'],
+                $alerta['cliente_telefono'],
+                $vehiculoInfo,
+                $alerta['servicios_que_dispararon']
+            ], $plantillaNotificacion);
+            
+            $adminPhone = $this->sagAdminPhone;
+            if (!empty($adminPhone)) {
+                $this->enviarMensajeTexto($adminPhone, $mensaje);
+            }
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR notificarAdminOtroHorario: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Enviar mensaje de contacto directo (fallback)
+     */
+    private function enviarMensajeContactoDirecto($alerta) {
+        try {
+            $mensaje = "En este momento no tenemos horarios disponibles en nuestro calendario automático. 📅\n\nNuestro equipo se pondrá en contacto contigo para coordinar tu cita de mantenimiento.\n\n¡Gracias por tu paciencia! 🚗✨";
+            
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            $resultado = $this->enviarMensajeTexto($telefono, $mensaje);
+            
+            if ($resultado['success']) {
+                // Actualizar estado y notificar admin
+                $sql = "UPDATE alertas_servicio 
+                       SET estado_whatsapp = 'requiere_contacto',
+                           requiere_atencion = 1
+                       WHERE id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$alerta['id']]);
+                
+                $this->notificarAdminOtroHorario($alerta);
+            }
+            
+            return $resultado;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarMensajeContactoDirecto: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Enviar template con cURL directo
+     */
+    private function enviarTemplate($templateSid, $telefono, $variables) {
+        try {
+            // Cargar configuración desde .env
+            $envPath = __DIR__ . '/../.env';
+            
+            if (!file_exists($envPath)) {
+                throw new Exception("Archivo .env no encontrado");
+            }
+            
+            $envContent = file_get_contents($envPath);
+            $envLines = explode("\n", $envContent);
+            $env = [];
+            
+            foreach ($envLines as $line) {
+                $line = trim($line);
+                if (empty($line) || $line[0] === '#') continue;
+                
+                if (strpos($line, '=') !== false) {
+                    list($key, $value) = explode('=', $line, 2);
+                    $env[trim($key)] = trim($value);
+                }
+            }
+            
+            $sid = $env['TWILIO_ACCOUNT_SID'] ?? '';
+            $token = $env['TWILIO_AUTH_TOKEN'] ?? '';  
+            $fromNumber = $env['TWILIO_WHATSAPP_FROM'] ?? '';
+            
+            if (empty($sid) || empty($token) || empty($fromNumber)) {
+                throw new Exception("Variables Twilio no configuradas en .env");
+            }
+            
+            // Preparar variables del template
+            $contentVariables = [];
+            foreach ($variables as $index => $value) {
+                $contentVariables[($index + 1)] = $value;
+            }
+            
+            // cURL para enviar template
+            $curl = curl_init();
+            
+            curl_setopt_array($curl, array(
+              CURLOPT_URL => "https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json",
+              CURLOPT_RETURNTRANSFER => true,
+              CURLOPT_ENCODING => '',
+              CURLOPT_MAXREDIRS => 10,
+              CURLOPT_TIMEOUT => 0,
+              CURLOPT_FOLLOWLOCATION => true,
+              CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+              CURLOPT_CUSTOMREQUEST => 'POST',
+              CURLOPT_POSTFIELDS => http_build_query([
+                'ContentSid' => $templateSid,
+                'From' => $fromNumber,
+                'To' => "whatsapp:+52{$telefono}",
+                'ContentVariables' => json_encode($contentVariables)
+              ]),
+              CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/x-www-form-urlencoded',
+                'Authorization: Basic ' . base64_encode($sid . ':' . $token)
+              ),
+            ));
+            
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($curl);
+            
+            curl_close($curl);
+            
+            if ($curlError) {
+                throw new Exception("cURL Error: {$curlError}");
+            }
+            
+            $responseData = json_decode($response, true);
+            
+            if ($httpCode >= 200 && $httpCode < 300 && isset($responseData['sid'])) {
+                return [
+                    'success' => true,
+                    'message_sid' => $responseData['sid'],
+                    'status' => $responseData['status'] ?? 'queued',
+                    'twilio_response' => $responseData
+                ];
+            } else {
+                $errorMsg = isset($responseData['message']) ? $responseData['message'] : "HTTP {$httpCode}";
+                throw new Exception("Twilio Template Error: {$errorMsg}");
+            }
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarTemplate: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+}
+
+    /**
+     * MÉTODOS AUXILIARES FALTANTES
+     */
+    
+    /**
+     * Enviar mensaje de aclaración cuando la selección no es válida
+     */
+    private function enviarMensajeAclaracion($alertaId) {
+        try {
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            $mensajeAclaracion = "Por favor, selecciona una opción válida del 1 al 6, o escribe 'otra fecha' para contacto directo.\n\n¿Podrías intentarlo de nuevo?";
+            
+            $resultado = $this->enviarMensajeTexto($telefono, $mensajeAclaracion);
+            
+            if ($resultado['success']) {
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    $mensajeAclaracion,
+                    'text',
+                    'mensaje_aclaracion',
+                    $resultado
+                );
+            }
+            
+            return $resultado;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarMensajeAclaracion: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Cancelar cita por parte de SAG
+     */
+    private function cancelarCita($alertaId, $userId = null) {
+        try {
+            // Obtener datos de la alerta
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            // Actualizar estado en BD
+            $this->actualizarConfirmacionSAG($alertaId, 'cancelado', $userId);
+            $this->actualizarEstadoAlerta($alertaId, 'cancelado');
+            
+            // Liberar slot en calendario
+            if ($alerta['fecha_cita_seleccionada'] && $alerta['hora_cita_seleccionada']) {
+                $this->liberarSlotCalendario($alerta['fecha_cita_seleccionada'], $alerta['hora_cita_seleccionada']);
+            }
+            
+            // Enviar notificación de cancelación al cliente
+            $mensajeCancelacion = $this->obtenerConfiguracion('mensaje_cancelacion');
+            if (empty($mensajeCancelacion)) {
+                $mensajeCancelacion = "Lamentamos informarte que tu cita ha sido cancelada por motivos internos. Nuestro equipo se pondrá en contacto contigo para reprogramarla. Disculpa las molestias.";
+            }
+            
+            $resultado = $this->enviarMensajeTexto($telefono, $mensajeCancelacion);
+            
+            if ($resultado['success']) {
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    $mensajeCancelacion,
+                    'text',
+                    'mensaje_cancelacion',
+                    $resultado
+                );
+                
+                // Marcar como requiere atención para reprogramar
+                $this->marcarRequiereAtencion($alertaId, 'alta');
+                
+                error_log("TwilioBot: Cita CANCELADA para {$alerta['cliente_nombre']}");
+                
+                return [
+                    'success' => true,
+                    'message_sid' => $resultado['message_sid'],
+                    'accion' => 'cancelado'
+                ];
+            }
+            
+            throw new Exception("Error enviando mensaje de cancelación");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR cancelarCita: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Reprogramar cita por parte de SAG
+     */
+    private function reprogramarCita($alertaId, $userId = null) {
+        try {
+            // Obtener datos de la alerta
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
+            
+            // Actualizar estado en BD
+            $this->actualizarConfirmacionSAG($alertaId, 'reprogramar', $userId);
+            $this->actualizarEstadoAlerta($alertaId, 'reprogramando');
+            
+            // Liberar slot actual
+            if ($alerta['fecha_cita_seleccionada'] && $alerta['hora_cita_seleccionada']) {
+                $this->liberarSlotCalendario($alerta['fecha_cita_seleccionada'], $alerta['hora_cita_seleccionada']);
+            }
+            
+            // Enviar mensaje al cliente para reprogramar
+            $mensajeReprogramar = $this->obtenerConfiguracion('mensaje_reprogramar');
+            if (empty($mensajeReprogramar)) {
+                $mensajeReprogramar = "Necesitamos reprogramar tu cita. ¿Te gustaría seleccionar una nueva fecha? Responde 'SÍ' para ver fechas disponibles o nuestro equipo se pondrá en contacto contigo.";
+            }
+            
+            $resultado = $this->enviarMensajeTexto($telefono, $mensajeReprogramar);
+            
+            if ($resultado['success']) {
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+52{$telefono}",
+                    $mensajeReprogramar,
+                    'text',
+                    'mensaje_reprogramar',
+                    $resultado
+                );
+                
+                // Marcar como requiere atención
+                $this->marcarRequiereAtencion($alertaId, 'alta');
+                
+                error_log("TwilioBot: Iniciando REPROGRAMACIÓN para {$alerta['cliente_nombre']}");
+                
+                return [
+                    'success' => true,
+                    'message_sid' => $resultado['message_sid'],
+                    'accion' => 'reprogramando'
+                ];
+            }
+            
+            throw new Exception("Error enviando mensaje de reprogramación");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR reprogramarCita: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Enviar mensaje de aclaración a SAG cuando la respuesta no es reconocida
+     */
+    private function enviarAclaracionSAG($alertaId) {
+        try {
+            if (empty($this->sagAdminPhone)) {
+                error_log("TwilioBot: No hay teléfono admin configurado para enviar aclaración");
+                return [
+                    'success' => false,
+                    'error' => 'No hay teléfono admin configurado'
+                ];
+            }
+            
+            // Obtener datos de la alerta
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            
+            $mensajeAclaracion = "⚠️ RESPUESTA NO RECONOCIDA\n\n";
+            $mensajeAclaracion .= "Cliente: {$alerta['cliente_nombre']}\n";
+            $mensajeAclaracion .= "Fecha: {$alerta['fecha_cita_seleccionada']} {$alerta['hora_cita_seleccionada']}\n\n";
+            $mensajeAclaracion .= "Por favor responde:\n";
+            $mensajeAclaracion .= "1. CONFIRMAR\n";
+            $mensajeAclaracion .= "2. CANCELAR\n";
+            $mensajeAclaracion .= "3. REPROGRAMAR";
+            
+            $resultado = $this->enviarMensajeTexto($this->sagAdminPhone, $mensajeAclaracion);
+            
+            if ($resultado['success']) {
+                $this->registrarMensaje(
+                    $alertaId,
+                    $resultado['message_sid'],
+                    'outbound',
+                    $this->whatsappFrom,
+                    "whatsapp:+{$this->sagAdminPhone}",
+                    $mensajeAclaracion,
+                    'text',
+                    'aclaracion_sag',
+                    $resultado
+                );
+                
+                return [
+                    'success' => true,
+                    'message_sid' => $resultado['message_sid']
+                ];
+            }
+            
+            throw new Exception("Error enviando aclaración a SAG");
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarAclaracionSAG: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Liberar slot en calendario cuando se cancela una cita
+     */
+    private function liberarSlotCalendario($fecha, $hora) {
+        try {
+            $sql = "UPDATE calendario_disponibilidad 
+                    SET citas_ocupadas = GREATEST(0, citas_ocupadas - 1)
+                    WHERE fecha = ? AND hora = ?";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$fecha, $hora]);
+            
+            error_log("TwilioBot: Slot liberado en calendario - {$fecha} {$hora}");
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR liberarSlotCalendario: " . $e->getMessage());
+            return false;
         }
     }
 }

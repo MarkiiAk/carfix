@@ -171,8 +171,44 @@ function procesarMensajeCliente($db, $bot, $telefono, $body, $messageSid, $webho
                 return $bot->procesarRespuestaInicial($alerta['id'], $body, $messageSid, $webhookData);
                 
             case 'esperando_fecha':
-                // Cliente selecciona fecha
-                return $bot->procesarSeleccionFecha($alerta['id'], $body, $messageSid);
+                // **SISTEMA ADAPTABLE: Cliente selecciona horario del calendario**
+                logWebhook("Cliente seleccionando horario de calendario - Sistema Adaptable");
+                
+                // **MODO INTERACTIVE: Detectar slot ID desde webhook data (List Picker/Button response)**
+                $slotId = $webhookData['Button'] ?? $webhookData['ButtonId'] ?? $webhookData['ListItem'] ?? '';
+                
+                if (!empty($slotId)) {
+                    logWebhook("MODO INTERACTIVE - Slot ID detectado desde webhook: {$slotId}");
+                    return $bot->procesarSeleccionSlot($alerta['id'], $slotId, $messageSid);
+                }
+                
+                // **MODO SIMPLE: Detectar respuesta numérica (1-9)**
+                logWebhook("MODO SIMPLE - Analizando respuesta numérica: '{$body}'");
+                
+                // Validar si es respuesta numérica simple (1-9)
+                if (preg_match('/^\s*([1-9])\s*$/', trim($body), $matches)) {
+                    $numeroSeleccion = (int)$matches[1];
+                    logWebhook("MODO SIMPLE - Número detectado: {$numeroSeleccion}");
+                    return $bot->procesarRespuestaNumericaSimple($alerta['id'], $body, $messageSid);
+                }
+                
+                // **FALLBACKS para compatibilidad**
+                // Buscar patrones de slot en el texto (modo interactive legacy)
+                if (preg_match('/slot_(\d+)/', $body, $matches)) {
+                    $slotId = 'slot_' . $matches[1];
+                    logWebhook("FALLBACK - Slot ID extraído del texto: {$slotId}");
+                    return $bot->procesarSeleccionSlot($alerta['id'], $slotId, $messageSid);
+                } 
+                elseif (preg_match('/\b(otro|9|contacto|directo)\b/i', $body)) {
+                    logWebhook("FALLBACK - Detectada selección 'Otro horario'");
+                    return $bot->procesarSeleccionSlot($alerta['id'], 'otro_horario', $messageSid);
+                } 
+                else {
+                    // Último fallback: método original
+                    logWebhook("FALLBACK FINAL - Usando método original procesarSeleccionFecha");
+                    return $bot->procesarSeleccionFecha($alerta['id'], $body, $messageSid);
+                    }
+                }
                 
             case 'pre_agendado':
                 // Cliente escribió algo después de pre-agendar
