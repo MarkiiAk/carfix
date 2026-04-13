@@ -1324,14 +1324,14 @@ class TwilioConversationalBot {
             );
             
             if ($resultado['success']) {
-                // Guardar slots para mapeo posterior cuando responda el cliente
+                // **CRÍTICO: Actualizar estado ANTES de guardar slots**
+                $this->actualizarEstadoAlerta($alertaId, 'esperando_fecha', $resultado['message_sid']);
+                
+                // Guardar slots para mapeo posterior cuando responda el cliente  
                 $this->guardarSlotsSession($alertaId, $slots);
                 
-                // **CRÍTICO: Actualizar estado después del envío exitoso**
-                $this->actualizarEstadoAlerta($alertaId, 'esperando_seleccion_horario', $resultado['message_sid']);
-                
                 // **DEBUG CRÍTICO: Verificar inmediatamente qué quedó en la BD**
-                $this->verificarEstadoBD($alertaId, "DESPUÉS de actualizarEstadoAlerta");
+                $this->verificarEstadoBD($alertaId, "DESPUÉS de guardarSlotsSession");
                 
                 // Registrar mensaje
                 $this->registrarMensaje(
