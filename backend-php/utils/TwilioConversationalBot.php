@@ -1069,6 +1069,37 @@ class TwilioConversationalBot {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
+    /**
+     * Obtener datos reales del vehículo por ID
+     */
+    private function obtenerDatosVehiculo($vehiculoId) {
+        try {
+            if (empty($vehiculoId)) {
+                return 'Vehículo no especificado';
+            }
+            
+            $sql = "SELECT marca, modelo, anio FROM vehiculos WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$vehiculoId]);
+            $vehiculo = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$vehiculo) {
+                return 'Vehículo no encontrado';
+            }
+            
+            // Formatear datos del vehículo con valores reales
+            $marca = !empty($vehiculo['marca']) ? $vehiculo['marca'] : 'Sin especificar';
+            $modelo = !empty($vehiculo['modelo']) ? $vehiculo['modelo'] : 'Sin especificar'; 
+            $anio = !empty($vehiculo['anio']) ? $vehiculo['anio'] : 'Sin especificar';
+            
+            return "{$marca} {$modelo} {$anio}";
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR obtenerDatosVehiculo: " . $e->getMessage());
+            return 'Error obteniendo datos del vehículo';
+        }
+    }
+    
     private function actualizarEstadoAlerta($alertaId, $estado, $messageSid = null) {
         try {
             error_log("🔄 TwilioBot: actualizarEstadoAlerta - AlertaID: {$alertaId}, Estado: '{$estado}', MessageSid: " . ($messageSid ?? 'NULL'));
@@ -2558,13 +2589,11 @@ class TwilioConversationalBot {
     private function notificarAdminOtroHorario($alerta) {
         try {
             $plantillaNotificacion = $this->obtenerConfiguracion('notificacion_admin_otro_horario');
-            // **FIX: Usar vehiculo_info que ya viene formateado desde obtenerDatosAlerta()**
-            $vehiculoInfo = $alerta['vehiculo_info'] ?? 'Vehículo no especificado';
             
-            // Si vehiculo_info contiene "Sin marca Sin modelo Sin año", usar fallback genérico
-            if (strpos($vehiculoInfo, 'Sin marca Sin modelo Sin año') !== false) {
-                $vehiculoInfo = 'Vehículo no especificado';
-            }
+            // **FIX: USAR NUEVO MÉTODO para obtener datos reales del vehículo**
+            $vehiculoInfo = $this->obtenerDatosVehiculo($alerta['vehiculo_id'] ?? null);
+            
+            error_log("📧 TwilioBot: notificarAdminOtroHorario - Vehículo obtenido = {$vehiculoInfo}");
             
             $mensaje = str_replace([
                 '{{cliente}}', '{{telefono}}', '{{vehiculo}}', '{{servicio}}'
@@ -2630,24 +2659,24 @@ class TwilioConversationalBot {
             
             error_log("📧 TwilioBot: Template SID admin: {$templateSid}");
             
-            // **MANEJO ROBUSTO DE NULL en datos del vehículo**
-            $marca = !empty($alerta['marca']) ? $alerta['marca'] : 'N/A';
-            $modelo = !empty($alerta['modelo']) ? $alerta['modelo'] : 'N/A';
-            $anio = !empty($alerta['anio']) ? $alerta['anio'] : 'N/A';
-            $vehiculoInfo = "{$marca} {$modelo} {$anio}";
+            // **FIX: OBTENER DATOS REALES DEL VEHÍCULO DESDE BD**
+            $vehiculoInfo = $this->obtenerDatosVehiculo($alerta['vehiculo_id'] ?? null);
+            
+            error_log("📧 TwilioBot: Vehículo obtenido = {$vehiculoInfo}");
             
             // Formatear fecha y hora para display
             $fechaFormateada = $fechaSeleccionada['fecha_display'];
             $horaFormateada = $fechaSeleccionada['hora_display'];
             
             // Variables para plantilla admin
-            // {{1}} = Cliente, {{2}} = Fecha, {{3}} = Hora, {{4}} = Vehículo, {{5}} = Servicio
+            // {{1}} = Cliente, {{2}} = Fecha, {{3}} = Hora, {{4}} = Vehículo, {{5}} = Servicio, {{6}} = Teléfono Cliente
             $contentVariables = [
                 "1" => $alerta['cliente_nombre'],
                 "2" => $fechaFormateada,
                 "3" => $horaFormateada,
                 "4" => $vehiculoInfo,
-                "5" => $alerta['servicios_que_dispararon']
+                "5" => $alerta['servicios_que_dispararon'],
+                "6" => $alerta['cliente_telefono']
             ];
             
             error_log("📧 TwilioBot: Variables admin template:");
@@ -2656,6 +2685,7 @@ class TwilioConversationalBot {
             error_log("📧 TwilioBot: Hora = {$horaFormateada}");
             error_log("📧 TwilioBot: Vehículo = {$vehiculoInfo}");
             error_log("📧 TwilioBot: Servicio = " . $alerta['servicios_que_dispararon']);
+            error_log("📧 TwilioBot: Teléfono Cliente = " . $alerta['cliente_telefono']);
             
             // **CAMBIO: Obtener credenciales desde BD (consistente con otros templates)**
             $sid = $this->obtenerConfiguracion('account_sid');
