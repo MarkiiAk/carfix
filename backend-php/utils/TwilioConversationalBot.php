@@ -487,23 +487,20 @@ class TwilioConversationalBot {
             
             // Enviar notificación a SAG Garage
             $this->enviarNotificacionSAG($alertaId, $alerta, $fechaSeleccionada);
-                
-                // Actualizar estado y marcar como requiere atención urgente
-                $this->actualizarEstadoAlerta($alertaId, 'pre_agendado');
-                $this->marcarRequiereAtencion($alertaId, 'alta');
-                
-                error_log("TwilioBot: Cita pre-agendada para {$alerta['cliente_nombre']} - {$fechaSeleccionada['fecha']} {$fechaSeleccionada['hora']}");
-                
-                return [
-                    'success' => true,
-                    'message_sid' => $resultado['message_sid'],
-                    'cita_id' => $citaId,
-                    'fecha' => $fechaSeleccionada['fecha'],
-                    'hora' => $fechaSeleccionada['hora']
-                ];
-            }
             
-            throw new Exception("Error enviando confirmación de pre-agenda");
+            // Actualizar estado y marcar como requiere atención urgente
+            $this->actualizarEstadoAlerta($alertaId, 'pre_agendado');
+            $this->marcarRequiereAtencion($alertaId, 'alta');
+            
+            error_log("TwilioBot: Cita pre-agendada para {$alerta['cliente_nombre']} - {$fechaSeleccionada['fecha']} {$fechaSeleccionada['hora']}");
+            
+            return [
+                'success' => true,
+                'message_sid' => 'pre_agendado_' . uniqid(),
+                'cita_id' => $citaId,
+                'fecha' => $fechaSeleccionada['fecha'],
+                'hora' => $fechaSeleccionada['hora']
+            ];
             
         } catch (Exception $e) {
             error_log("TwilioBot ERROR preAgendarCita: " . $e->getMessage());
