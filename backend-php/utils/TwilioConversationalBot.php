@@ -524,17 +524,27 @@ class TwilioConversationalBot {
                 return false;
             }
             
-            // Crear mensaje para SAG
-            $mensaje = "📅 CONFIRMAR CITA\n\n";
-            $mensaje .= "Cliente: {$alerta['cliente_nombre']}\n";
-            $mensaje .= "Servicio: {$alerta['servicios_que_dispararon']}\n";
-            $mensaje .= "Vehículo: {$alerta['vehiculo_info']}\n";
-            $mensaje .= "Fecha: " . date('l j \d\e F', strtotime($fechaSeleccionada['fecha'])) . "\n";
-            $mensaje .= "Hora: " . date('H:i', strtotime($fechaSeleccionada['hora'])) . "\n\n";
-            $mensaje .= "Responde para confirmar:\n";
-            $mensaje .= "1. ✅ CONFIRMAR\n";
-            $mensaje .= "2. ❌ CANCELAR\n";
-            $mensaje .= "3. 📅 REPROGRAMAR";
+            // Crear mensaje para SAG usando plantilla de BD
+            $plantillaMensaje = $this->obtenerConfiguracion('notificacion_admin_pre_agenda');
+            if (empty($plantillaMensaje)) {
+                // Fallback si no existe en BD
+                $plantillaMensaje = "🟢 NUEVA CITA PRE-AGENDADA\n\nCliente: {{cliente}}\nFecha: {{fecha}} {{hora}}\nVehículo: {{vehiculo}}\nServicio: {{servicio}}\n\n⚠️ REQUIERE CONFIRMACIÓN DIRECTA CON EL CLIENTE";
+            }
+            
+            // Reemplazar variables en la plantilla
+            $fechaFormateada = date('l j \d\e F', strtotime($fechaSeleccionada['fecha']));
+            $horaFormateada = date('H:i', strtotime($fechaSeleccionada['hora']));
+            
+            $mensaje = str_replace([
+                '{{cliente}}', '{{fecha}}', '{{hora}}', 
+                '{{vehiculo}}', '{{servicio}}'
+            ], [
+                $alerta['cliente_nombre'],
+                $fechaFormateada,
+                $horaFormateada,
+                $alerta['vehiculo_info'],
+                $alerta['servicios_que_dispararon']
+            ], $plantillaMensaje);
             
             // FIX: Limpiar teléfono admin para evitar +52 duplicado
             $adminTelefonoLimpio = $this->limpiarTelefono($this->sagAdminPhone);
@@ -557,7 +567,7 @@ class TwilioConversationalBot {
                     $resultado['message_sid'],
                     'outbound',
                     $this->whatsappFrom,
-                    "whatsapp:+{$this->sagAdminPhone}",
+                    "whatsapp:+52{$adminTelefonoLimpio}",
                     $mensaje,
                     'interactive',
                     'confirmacion_sag',
