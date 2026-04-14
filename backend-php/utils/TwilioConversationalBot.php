@@ -521,41 +521,17 @@ class TwilioConversationalBot {
                 return false;
             }
             
-            // Crear mensaje para SAG usando plantilla de BD
-            $plantillaMensaje = $this->obtenerConfiguracion('notificacion_admin_pre_agenda');
-            if (empty($plantillaMensaje)) {
-                // Fallback si no existe en BD
-                $plantillaMensaje = "🟢 NUEVA CITA PRE-AGENDADA\n\nCliente: {{cliente}}\nFecha: {{fecha}} {{hora}}\nVehículo: {{vehiculo}}\nServicio: {{servicio}}\n\n⚠️ REQUIERE CONFIRMACIÓN DIRECTA CON EL CLIENTE";
-            }
-            
-            // Reemplazar variables en la plantilla
-            $fechaFormateada = date('l j \d\e F', strtotime($fechaSeleccionada['fecha']));
-            $horaFormateada = date('H:i', strtotime($fechaSeleccionada['hora']));
-            
-            $mensaje = str_replace([
-                '{{cliente}}', '{{fecha}}', '{{hora}}', 
-                '{{vehiculo}}', '{{servicio}}'
-            ], [
-                $alerta['cliente_nombre'],
-                $fechaFormateada,
-                $horaFormateada,
-                $alerta['vehiculo_info'],
-                $alerta['servicios_que_dispararon']
-            ], $plantillaMensaje);
+            // **NUEVO: Usar plantilla aprobada en lugar de mensaje libre**
+            error_log("TwilioBot: Enviando notificación admin con PLANTILLA para evitar 'Outside messaging window'");
             
             // FIX: Limpiar teléfono admin para evitar +52 duplicado
             $adminTelefonoLimpio = $this->limpiarTelefono($this->sagAdminPhone);
             
-            // Enviar via Twilio con botones
-            $resultado = $this->enviarMensajeConBotones(
+            // **ENVIAR PLANTILLA ADMIN**
+            $resultado = $this->enviarPlantillaNotificacionAdmin(
                 $adminTelefonoLimpio,
-                $mensaje,
-                [
-                    ['id' => 'confirmar_cita', 'title' => '✅ CONFIRMAR'],
-                    ['id' => 'cancelar_cita', 'title' => '❌ CANCELAR'],
-                    ['id' => 'reprogramar_cita', 'title' => '📅 REPROGRAMAR']
-                ],
-                'confirmacion_sag'
+                $alerta,
+                $fechaSeleccionada
             );
             
             if ($resultado['success']) {
@@ -565,17 +541,17 @@ class TwilioConversationalBot {
                     'outbound',
                     $this->whatsappFrom,
                     "whatsapp:+52{$adminTelefonoLimpio}",
-                    $mensaje,
-                    'interactive',
-                    'confirmacion_sag',
+                    "Plantilla admin: {$alerta['cliente_nombre']}, {$fechaSeleccionada['fecha_display']} {$fechaSeleccionada['hora_display']}",
+                    'template',
+                    'notificacion_admin_pre_agenda',
                     $resultado
                 );
                 
-                error_log("TwilioBot: Notificación enviada a SAG para confirmación");
+                error_log("TwilioBot: Notificación admin enviada con PLANTILLA - SID: {$resultado['message_sid']}");
                 return true;
             }
             
-            throw new Exception("Error enviando notificación a SAG");
+            throw new Exception("Error enviando plantilla admin: " . $resultado['error']);
             
         } catch (Exception $e) {
             error_log("TwilioBot ERROR enviarNotificacionSAG: " . $e->getMessage());
@@ -2457,10 +2433,12 @@ class TwilioConversationalBot {
      */
     private function enviarConfirmacionPreAgenda($alertaId, $slot) {
         try {
-            // Obtener datos completos
-            $sql = "SELECT a.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono
+            // Obtener datos completos CON vehículo
+            $sql = "SELECT a.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono,
+                           v.marca, v.modelo, v.anio
                     FROM alertas_servicio a
                     JOIN clientes c ON a.cliente_id = c.id
+                    JOIN vehiculos v ON a.vehiculo_id = v.id
                     WHERE a.id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$alertaId]);
@@ -2539,7 +2517,12 @@ class TwilioConversationalBot {
     private function notificarAdminPreAgenda($alerta, $slot) {
         try {
             $plantillaNotificacion = $this->obtenerConfiguracion('notificacion_admin_pre_agenda');
-            $vehiculoInfo = "{$alerta['marca']} {$alerta['modelo']} {$alerta['anio']}";
+            
+            // **MANEJO ROBUSTO DE NULL en datos del vehículo**
+            $marca = !empty($alerta['marca']) ? $alerta['marca'] : 'N/A';
+            $modelo = !empty($alerta['modelo']) ? $alerta['modelo'] : 'N/A';
+            $anio = !empty($alerta['anio']) ? $alerta['anio'] : 'N/A';
+            $vehiculoInfo = "{$marca} {$modelo} {$anio}";
             
             $mensaje = str_replace([
                 '{{cliente}}', '{{fecha}}', '{{hora}}', 
@@ -2616,6 +2599,126 @@ class TwilioConversationalBot {
         } catch (Exception $e) {
             error_log("TwilioBot ERROR enviarMensajeContactoDirecto: " . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * **NUEVO: Enviar plantilla de notificación admin (solución Outside messaging window)**
+     */
+    private function enviarPlantillaNotificacionAdmin($telefono, $alerta, $fechaSeleccionada) {
+        try {
+            error_log("📧 TwilioBot: enviarPlantillaNotificacionAdmin - Teléfono: {$telefono}");
+            
+            // Obtener template SID desde BD (nombre correcto)
+            $templateSid = $this->obtenerConfiguracion('sag_notificacion_cita_admin');
+            if (empty($templateSid)) {
+                throw new Exception("Template sag_notificacion_cita_admin no configurado en BD");
+            }
+            
+            error_log("📧 TwilioBot: Template SID admin: {$templateSid}");
+            
+            // **MANEJO ROBUSTO DE NULL en datos del vehículo**
+            $marca = !empty($alerta['marca']) ? $alerta['marca'] : 'N/A';
+            $modelo = !empty($alerta['modelo']) ? $alerta['modelo'] : 'N/A';
+            $anio = !empty($alerta['anio']) ? $alerta['anio'] : 'N/A';
+            $vehiculoInfo = "{$marca} {$modelo} {$anio}";
+            
+            // Formatear fecha y hora para display
+            $fechaFormateada = $fechaSeleccionada['fecha_display'];
+            $horaFormateada = $fechaSeleccionada['hora_display'];
+            
+            // Variables para plantilla admin
+            // {{1}} = Cliente, {{2}} = Fecha, {{3}} = Hora, {{4}} = Vehículo, {{5}} = Servicio
+            $contentVariables = [
+                "1" => $alerta['cliente_nombre'],
+                "2" => $fechaFormateada,
+                "3" => $horaFormateada,
+                "4" => $vehiculoInfo,
+                "5" => $alerta['servicios_que_dispararon']
+            ];
+            
+            error_log("📧 TwilioBot: Variables admin template:");
+            error_log("📧 TwilioBot: Cliente = " . $alerta['cliente_nombre']);
+            error_log("📧 TwilioBot: Fecha = {$fechaFormateada}");
+            error_log("📧 TwilioBot: Hora = {$horaFormateada}");
+            error_log("📧 TwilioBot: Vehículo = {$vehiculoInfo}");
+            error_log("📧 TwilioBot: Servicio = " . $alerta['servicios_que_dispararon']);
+            
+            // **CAMBIO: Obtener credenciales desde BD (consistente con otros templates)**
+            $sid = $this->obtenerConfiguracion('account_sid');
+            $token = $this->obtenerConfiguracion('auth_token');
+            $fromNumber = $this->obtenerConfiguracion('whatsapp_from');
+            
+            error_log("📧 TwilioBot: Credenciales desde BD:");
+            error_log("📧 TwilioBot: Account SID = " . ($sid ? 'ENCONTRADO (' . substr($sid, 0, 10) . '...)' : 'VACIO'));
+            error_log("📧 TwilioBot: Auth Token = " . ($token ? 'ENCONTRADO (' . substr($token, 0, 10) . '...)' : 'VACIO'));
+            error_log("📧 TwilioBot: WhatsApp From = " . ($fromNumber ? $fromNumber : 'VACIO'));
+            
+            if (empty($sid) || empty($token) || empty($fromNumber)) {
+                throw new Exception("Credenciales Twilio no configuradas en BD (account_sid, auth_token, whatsapp_from)");
+            }
+            
+            // **cURL para enviar plantilla admin**
+            $curl = curl_init();
+            
+            curl_setopt_array($curl, array(
+              CURLOPT_URL => "https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json",
+              CURLOPT_RETURNTRANSFER => true,
+              CURLOPT_ENCODING => '',
+              CURLOPT_MAXREDIRS => 10,
+              CURLOPT_TIMEOUT => 0,
+              CURLOPT_FOLLOWLOCATION => true,
+              CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+              CURLOPT_CUSTOMREQUEST => 'POST',
+              CURLOPT_POSTFIELDS => http_build_query([
+                'ContentSid' => $templateSid,
+                'From' => $fromNumber,
+                'To' => "whatsapp:+52{$telefono}",
+                'ContentVariables' => json_encode($contentVariables)
+              ]),
+              CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/x-www-form-urlencoded',
+                'Authorization: Basic ' . base64_encode($sid . ':' . $token)
+              ),
+            ));
+            
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($curl);
+            
+            curl_close($curl);
+            
+            error_log("TwilioBot cURL ADMIN: HTTP Code = {$httpCode}");
+            error_log("TwilioBot cURL ADMIN: Response = {$response}");
+            
+            if ($curlError) {
+                throw new Exception("cURL Error: {$curlError}");
+            }
+            
+            $responseData = json_decode($response, true);
+            
+            if ($httpCode >= 200 && $httpCode < 300 && isset($responseData['sid'])) {
+                error_log("TwilioBot cURL ADMIN: ¡ÉXITO PLANTILLA ADMIN! Message SID = {$responseData['sid']}");
+                
+                return [
+                    'success' => true,
+                    'message_sid' => $responseData['sid'],
+                    'status' => $responseData['status'] ?? 'queued',
+                    'twilio_response' => $responseData
+                ];
+            } else {
+                $errorMsg = isset($responseData['message']) ? $responseData['message'] : "HTTP {$httpCode}";
+                error_log("TwilioBot cURL ADMIN: ERROR = {$errorMsg}");
+                error_log("TwilioBot cURL ADMIN: Full Response = " . json_encode($responseData));
+                throw new Exception("Twilio Admin Template Error: {$errorMsg}");
+            }
+            
+        } catch (Exception $e) {
+            error_log("TwilioBot ERROR enviarPlantillaNotificacionAdmin: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
     }
 
