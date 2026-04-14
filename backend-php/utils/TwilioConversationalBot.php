@@ -1743,7 +1743,7 @@ class TwilioConversationalBot {
             $capacidadTotal = (int)$this->obtenerConfiguracion('capacidad_por_slot');
             
             // Verificar en calendario_disponibilidad
-            $sql = "SELECT citas_ocupadas, esta_disponible FROM calendario_disponibilidad 
+            $sql = "SELECT citas_ocupadas, esta_disponible, capacidad_total FROM calendario_disponibilidad 
                    WHERE fecha = ? AND hora = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$fecha, $hora]);
@@ -1751,7 +1751,7 @@ class TwilioConversationalBot {
             
             if ($resultado) {
                 return $resultado['esta_disponible'] == 1 && 
-                       $resultado['citas_ocupadas'] < $capacidadTotal;
+                       $resultado['citas_ocupadas'] < $resultado['capacidad_total'];
             }
             
             // Si no existe registro, crear uno y está disponible
@@ -2346,6 +2346,13 @@ class TwilioConversationalBot {
             $slotSeleccionado = $slots[$indiceSlot];
             
             error_log("📅 TwilioBot: Slot seleccionado: {$slotSeleccionado['fecha']} {$slotSeleccionado['hora']}");
+            
+            // **VERIFICACIÓN DOBLE: Re-verificar disponibilidad antes de pre-agendar**
+            if (!$this->verificarSlotDisponible($slotSeleccionado['fecha'], $slotSeleccionado['hora'])) {
+                error_log("📅 TwilioBot: Slot {$slotSeleccionado['fecha']} {$slotSeleccionado['hora']} ya no está disponible");
+                // Slot ocupado desde que se generó la lista, ofrecer alternativa
+                return $this->enviarContactoDirectoFallback($alertaId);
+            }
             
             // Pre-agendar cita
             $resultadoPreAgenda = $this->preAgendarCita($alertaId, $slotSeleccionado);
