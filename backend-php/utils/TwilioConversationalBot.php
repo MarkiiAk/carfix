@@ -2433,16 +2433,12 @@ class TwilioConversationalBot {
      */
     private function enviarConfirmacionPreAgenda($alertaId, $slot) {
         try {
-            // Obtener datos completos CON vehículo
-            $sql = "SELECT a.*, c.nombre as cliente_nombre, c.telefono as cliente_telefono,
-                           v.marca, v.modelo, v.anio
-                    FROM alertas_servicio a
-                    JOIN clientes c ON a.cliente_id = c.id
-                    JOIN vehiculos v ON a.vehiculo_id = v.id
-                    WHERE a.id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$alertaId]);
-            $alerta = $stmt->fetch(PDO::FETCH_ASSOC);
+            // **FIX: Usar obtenerDatosAlerta() que ya incluye datos del vehículo**
+            $alerta = $this->obtenerDatosAlerta($alertaId);
+            
+            if (!$alerta) {
+                throw new Exception("Alerta no encontrada: {$alertaId}");
+            }
             
             // Mensaje de confirmación al cliente
             $plantillaMensaje = $this->obtenerConfiguracion('mensaje_pre_agenda_exito');
@@ -2455,10 +2451,8 @@ class TwilioConversationalBot {
             $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
             $resultadoCliente = $this->enviarMensajeTexto($telefono, $mensaje);
             
-            // Notificación al admin
-            if ($resultadoCliente['success']) {
-                $this->notificarAdminPreAgenda($alerta, $slot);
-            }
+            // **ELIMINADO: Notificación duplicada por texto (causa "Outside messaging window")**
+            // Ya se envió la plantilla admin en preAgendarCita() → enviarNotificacionSAG()
             
             return $resultadoCliente;
             
@@ -2518,11 +2512,24 @@ class TwilioConversationalBot {
         try {
             $plantillaNotificacion = $this->obtenerConfiguracion('notificacion_admin_pre_agenda');
             
-            // **MANEJO ROBUSTO DE NULL en datos del vehículo**
-            $marca = !empty($alerta['marca']) ? $alerta['marca'] : 'N/A';
-            $modelo = !empty($alerta['modelo']) ? $alerta['modelo'] : 'N/A';
-            $anio = !empty($alerta['anio']) ? $alerta['anio'] : 'N/A';
-            $vehiculoInfo = "{$marca} {$modelo} {$anio}";
+            // **FIX: Usar vehiculo_info que ya viene formateado desde obtenerDatosAlerta()**
+            $vehiculoInfo = $alerta['vehiculo_info'] ?? 'Vehículo no especificado';
+            
+            // Si vehiculo_info contiene "Sin marca Sin modelo Sin año", usar datos individuales si existen
+            if (strpos($vehiculoInfo, 'Sin marca Sin modelo Sin año') !== false) {
+                // Hacer consulta específica para obtener datos del vehículo
+                $sqlVehiculo = "SELECT marca, modelo, anio FROM vehiculos WHERE id = ?";
+                $stmtVehiculo = $this->db->prepare($sqlVehiculo);
+                $stmtVehiculo->execute([$alerta['vehiculo_id']]);
+                $vehiculoData = $stmtVehiculo->fetch(PDO::FETCH_ASSOC);
+                
+                if ($vehiculoData) {
+                    $marca = !empty($vehiculoData['marca']) ? $vehiculoData['marca'] : 'N/A';
+                    $modelo = !empty($vehiculoData['modelo']) ? $vehiculoData['modelo'] : 'N/A';
+                    $anio = !empty($vehiculoData['anio']) ? $vehiculoData['anio'] : 'N/A';
+                    $vehiculoInfo = "{$marca} {$modelo} {$anio}";
+                }
+            }
             
             $mensaje = str_replace([
                 '{{cliente}}', '{{fecha}}', '{{hora}}', 
@@ -2551,7 +2558,13 @@ class TwilioConversationalBot {
     private function notificarAdminOtroHorario($alerta) {
         try {
             $plantillaNotificacion = $this->obtenerConfiguracion('notificacion_admin_otro_horario');
-            $vehiculoInfo = "{$alerta['marca']} {$alerta['modelo']} {$alerta['anio']}";
+            // **FIX: Usar vehiculo_info que ya viene formateado desde obtenerDatosAlerta()**
+            $vehiculoInfo = $alerta['vehiculo_info'] ?? 'Vehículo no especificado';
+            
+            // Si vehiculo_info contiene "Sin marca Sin modelo Sin año", usar fallback genérico
+            if (strpos($vehiculoInfo, 'Sin marca Sin modelo Sin año') !== false) {
+                $vehiculoInfo = 'Vehículo no especificado';
+            }
             
             $mensaje = str_replace([
                 '{{cliente}}', '{{telefono}}', '{{vehiculo}}', '{{servicio}}'
