@@ -482,27 +482,11 @@ class TwilioConversationalBot {
             // Crear registro en citas pre-agendadas
             $citaId = $this->crearCitaPreAgendada($alertaId, $slotId, $alerta);
             
-            // Enviar confirmación al cliente
-            $mensajePreAgenda = $this->obtenerConfiguracion('mensaje_pre_agenda');
-            $mensaje = $this->reemplazarVariablesFecha($mensajePreAgenda, $fechaSeleccionada['fecha'], $fechaSeleccionada['hora']);
+            // FIX: ELIMINADO mensaje_pre_agenda duplicado
+            // Solo se mantiene mensaje_pre_agenda_exito que se envía en enviarConfirmacionPreAgenda()
             
-            $resultado = $this->enviarMensajeTexto($telefono, $mensaje);
-            
-            if ($resultado['success']) {
-                $this->registrarMensaje(
-                    $alertaId,
-                    $resultado['message_sid'],
-                    'outbound',
-                    $this->whatsappFrom,
-                    "whatsapp:+52{$telefono}",
-                    $mensaje,
-                    'text',
-                    'confirmacion_pre_agenda',
-                    $resultado
-                );
-                
-                // Enviar notificación a SAG Garage
-                $this->enviarNotificacionSAG($alertaId, $alerta, $fechaSeleccionada);
+            // Enviar notificación a SAG Garage
+            $this->enviarNotificacionSAG($alertaId, $alerta, $fechaSeleccionada);
                 
                 // Actualizar estado y marcar como requiere atención urgente
                 $this->actualizarEstadoAlerta($alertaId, 'pre_agendado');
@@ -552,9 +536,12 @@ class TwilioConversationalBot {
             $mensaje .= "2. ❌ CANCELAR\n";
             $mensaje .= "3. 📅 REPROGRAMAR";
             
+            // FIX: Limpiar teléfono admin para evitar +52 duplicado
+            $adminTelefonoLimpio = $this->limpiarTelefono($this->sagAdminPhone);
+            
             // Enviar via Twilio con botones
             $resultado = $this->enviarMensajeConBotones(
-                $this->sagAdminPhone,
+                $adminTelefonoLimpio,
                 $mensaje,
                 [
                     ['id' => 'confirmar_cita', 'title' => '✅ CONFIRMAR'],
