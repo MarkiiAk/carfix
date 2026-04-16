@@ -2874,7 +2874,7 @@ class TwilioConversationalBot {
             $alerta = $this->obtenerDatosAlerta($alertaId);
             $telefono = $this->limpiarTelefono($alerta['cliente_telefono']);
             
-            $mensajeAclaracion = "Por favor, selecciona una opción válida del 1 al 6, o escribe 'otra fecha' para contacto directo.\n\n¿Podrías intentarlo de nuevo?";
+            $$mensajeAclaracion = "✨ Por favor, responde únicamente con un número del 1️⃣ al 9️⃣.\n\n🔁 Si escribiste otra cosa, inténtalo de nuevo 😊";
             
             $resultado = $this->enviarMensajeTexto($telefono, $mensajeAclaracion);
             
