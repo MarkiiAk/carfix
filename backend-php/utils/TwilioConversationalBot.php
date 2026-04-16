@@ -2652,9 +2652,9 @@ class TwilioConversationalBot {
             error_log("📧 TwilioBot: enviarPlantillaNotificacionAdmin - Teléfono: {$telefono}");
             
             // Obtener template SID desde BD (nombre correcto)
-            $templateSid = $this->obtenerConfiguracion('sag_notificacion_cita_admin');
+            $templateSid = $this->obtenerConfiguracion('sag_confirma_cita');
             if (empty($templateSid)) {
-                throw new Exception("Template sag_notificacion_cita_admin no configurado en BD");
+                throw new Exception("Template sag_confirma_cita no configurado en BD");
             }
             
             error_log("📧 TwilioBot: Template SID admin: {$templateSid}");
