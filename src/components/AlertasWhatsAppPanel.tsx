@@ -9,9 +9,7 @@ import {
   Send,
   Phone,
   User,
-  DollarSign,
   RefreshCw,
-  TrendingUp,
   Activity
 } from 'lucide-react';
 import './AlertasWhatsApp.css';
@@ -44,13 +42,11 @@ interface Alerta {
 
 const AlertasWhatsAppPanel: React.FC = () => {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
-  const [estadisticas, setEstadisticas] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
 
   useEffect(() => {
     cargarAlertas();
-    cargarEstadisticas();
   }, []);
 
   const cargarAlertas = async () => {
@@ -80,25 +76,6 @@ const AlertasWhatsAppPanel: React.FC = () => {
     }
   };
 
-  const cargarEstadisticas = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('/backend-php/api/alertas.php?action=estadisticas', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        }
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        setEstadisticas(data.estadisticas);
-      }
-    } catch (error) {
-      console.error('Error al cargar estadísticas:', error);
-    }
-  };
 
   const obtenerIcono = (estado: string) => {
     switch (estado) {
@@ -155,12 +132,6 @@ const AlertasWhatsAppPanel: React.FC = () => {
     });
   };
 
-  const formatearMoneda = (cantidad: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN'
-    }).format(cantidad);
-  };
 
   if (loading) {
     return (
@@ -217,7 +188,6 @@ const AlertasWhatsAppPanel: React.FC = () => {
           <button
             onClick={() => {
               cargarAlertas();
-              cargarEstadisticas();
             }}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
