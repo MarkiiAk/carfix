@@ -117,15 +117,9 @@ class AlertasController {
                 'success' => false,
                 'error' => 'Error al obtener alertas: ' . $e->getMessage()
             ];
+        }
     }
-}
-
-// Inicializar el controlador si es llamado directamente
-if (basename($_SERVER['PHP_SELF']) == basename(__FILE__)) {
-    $controller = new AlertasController();
-    $controller->handleRequest();
-}
-
+    
     // PUT /alertas/{id}/marcar-leida - Marcar una alerta como leída
     public function marcarComoLeida($alertaId, $userData = null) {
         try {
