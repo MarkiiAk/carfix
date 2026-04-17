@@ -419,6 +419,9 @@ export const Alertas: React.FC = () => {
                       Estado
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
+                      WhatsApp
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
                       Acciones
                     </th>
                   </tr>
@@ -483,6 +486,17 @@ export const Alertas: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {obtenerBadgeEstado(alerta.estado)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {(alerta as any)?.estado_visual_whatsapp ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                            {(alerta as any).estado_visual_whatsapp}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                            📝 Sin WhatsApp
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex gap-2">
