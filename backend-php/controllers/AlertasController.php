@@ -117,8 +117,14 @@ class AlertasController {
                 'success' => false,
                 'error' => 'Error al obtener alertas: ' . $e->getMessage()
             ];
-        }
     }
+}
+
+// Inicializar el controlador si es llamado directamente
+if (basename($_SERVER['PHP_SELF']) == basename(__FILE__)) {
+    $controller = new AlertasController();
+    $controller->handleRequest();
+}
 
     // PUT /alertas/{id}/marcar-leida - Marcar una alerta como leída
     public function marcarComoLeida($alertaId, $userData = null) {
@@ -471,7 +477,183 @@ class AlertasController {
         } catch (Exception $e) {
             return [
                 'success' => false,
-                'error' => 'Error al obtener estadísticas: ' . $e->getMessage()
+                'message' => 'Error al obtener alertas: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    private function obtenerEstadoWhatsAppTracking($alerta) {
+        $tracking = [
+            'estado' => 'no_enviado',
+            'descripcion' => 'Sin mensaje enviado',
+            'color' => 'gray',
+            'icono' => 'clock',
+            'detalles' => []
+        ];
+
+        // Si no hay estado de WhatsApp, retornar estado por defecto
+        if (empty($alerta['whatsapp_estado'])) {
+            return $tracking;
+        }
+
+        $estadoWA = $alerta['whatsapp_estado'];
+        $intentActual = $alerta['intent_actual'];
+        
+        // Determinar estado y apariencia basado en el estado de conversación
+        switch ($estadoWA) {
+            case 'inicial':
+                $tracking = [
+                    'estado' => 'mensaje_enviado',
+                    'descripcion' => 'Mensaje inicial enviado',
+                    'color' => 'blue',
+                    'icono' => 'paper-plane',
+                    'detalles' => [
+                        'ultimo_envio' => $alerta['fecha_ultimo_mensaje_enviado'],
+                        'esperando_respuesta' => true
+                    ]
+                ];
+                break;
+
+            case 'esperando_respuesta':
+                $tracking = [
+                    'estado' => 'esperando_respuesta',
+                    'descripcion' => 'Esperando respuesta del cliente',
+                    'color' => 'yellow',
+                    'icono' => 'clock',
+                    'detalles' => [
+                        'ultimo_envio' => $alerta['fecha_ultimo_mensaje_enviado'],
+                        'tiempo_espera' => $this->calcularTiempoEspera($alerta['fecha_ultimo_mensaje_enviado'])
+                    ]
+                ];
+                break;
+
+            case 'activa':
+                if ($intentActual === 'agendar_cita') {
+                    $tracking = [
+                        'estado' => 'agendando_cita',
+                        'descripcion' => 'Cliente interesado - Agendando cita',
+                        'color' => 'green',
+                        'icono' => 'calendar',
+                        'detalles' => [
+                            'ultimo_mensaje' => $alerta['fecha_ultimo_mensaje_recibido'],
+                            'interesado' => true,
+                            'proceso' => 'agendamiento'
+                        ]
+                    ];
+                } else {
+                    $tracking = [
+                        'estado' => 'conversacion_activa',
+                        'descripcion' => 'Conversación activa',
+                        'color' => 'green',
+                        'icono' => 'message-circle',
+                        'detalles' => [
+                            'ultimo_mensaje' => $alerta['fecha_ultimo_mensaje_recibido'],
+                            'intent_actual' => $intentActual
+                        ]
+                    ];
+                }
+                break;
+
+            case 'cita_agendada':
+                $tracking = [
+                    'estado' => 'cita_confirmada',
+                    'descripcion' => 'Cita agendada exitosamente',
+                    'color' => 'green',
+                    'icono' => 'check-circle',
+                    'detalles' => [
+                        'cita_agendada' => $alerta['cita_agendada'],
+                        'completado' => true
+                    ]
+                ];
+                break;
+
+            case 'no_interesado':
+                $tracking = [
+                    'estado' => 'no_interesado',
+                    'descripcion' => 'Cliente no interesado',
+                    'color' => 'red',
+                    'icono' => 'x-circle',
+                    'detalles' => [
+                        'motivo' => 'Cliente declinó el servicio',
+                        'final' => true
+                    ]
+                ];
+                break;
+
+            case 'timeout':
+                $tracking = [
+                    'estado' => 'sin_respuesta',
+                    'descripcion' => 'Cliente no respondió',
+                    'color' => 'gray',
+                    'icono' => 'clock',
+                    'detalles' => [
+                        'ultimo_intento' => $alerta['fecha_ultimo_mensaje_enviado'],
+                        'timeout' => true
+                    ]
+                ];
+                break;
+
+            case 'error':
+                $tracking = [
+                    'estado' => 'error',
+                    'descripcion' => 'Error en envío de mensaje',
+                    'color' => 'red',
+                    'icono' => 'alert-circle',
+                    'detalles' => [
+                        'requiere_atencion' => true
+                    ]
+                ];
+                break;
+
+            default:
+                $tracking['detalles']['estado_original'] = $estadoWA;
+        }
+
+        return $tracking;
+    }
+
+    private function calcularTiempoEspera($fechaEnvio) {
+        if (empty($fechaEnvio)) return null;
+        
+        $envio = new DateTime($fechaEnvio);
+        $ahora = new DateTime();
+        $diferencia = $ahora->diff($envio);
+        
+        if ($diferencia->days > 0) {
+            return $diferencia->days . ' día(s)';
+        } else if ($diferencia->h > 0) {
+            return $diferencia->h . ' hora(s)';
+        } else {
+            return $diferencia->i . ' minuto(s)';
+        }
+    }
+
+    public function obtenerEstadisticasWhatsApp() {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT 
+                    wc.estado_conversacion,
+                    COUNT(*) as cantidad
+                FROM alertas a
+                LEFT JOIN cotizaciones co ON a.cotizacion_id = co.id
+                LEFT JOIN clientes c ON co.cliente_id = c.id
+                LEFT JOIN whatsapp_conversaciones wc ON c.telefono = wc.numero_telefono
+                WHERE a.activa = 1
+                GROUP BY wc.estado_conversacion
+            ");
+            
+            $stmt->execute();
+            $estadisticas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return [
+                'success' => true,
+                'data' => $estadisticas
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error al obtener estadísticas: ' . $e->getMessage()
             ];
         }
     }
