@@ -135,7 +135,7 @@ try {
     logWebhook("Excepción crítica: " . $e->getMessage(), 'FATAL');
     logWebhook("Stack trace: " . $e->getTraceAsString(), 'FATAL');
     
-    http_response_code(500);
+    http_response_code(200);
     echo '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
 } finally {
     logWebhook("=== FIN WEBHOOK TWILIO ===");
@@ -213,14 +213,6 @@ function procesarMensajeCliente($db, $bot, $telefono, $body, $messageSid, $webho
                     return $bot->procesarSeleccionFecha($alerta['id'], $body, $messageSid);
                 }
                 
-            case 'esperando_seleccion_horario':
-                // **NUEVO: Cliente responde después de plantilla temporal con horarios numerados**
-                logWebhook("Cliente respondiendo a plantilla temporal - Estado: esperando_seleccion_horario");
-                
-                // **PROCESAMIENTO PRINCIPAL: Respuesta numérica con validación anti-estúpidos**
-                logWebhook("Procesando respuesta numérica con validación robusta: '{$body}'");
-                return $bot->procesarRespuestaNumericaSimple($alerta['id'], $body, $messageSid);
-                
             case 'pre_agendado':
                 // Cliente escribió algo después de pre-agendar
                 // Solo registrar, no hacer nada más
@@ -294,7 +286,7 @@ function buscarAlertaActivaCliente($db, $telefono, $originalRepliedMessageSid = 
                     FROM alertas_servicio a
                     INNER JOIN clientes c ON a.cliente_id = c.id
                     WHERE a.twilio_conversation_sid = ?
-                      AND a.estado_whatsapp IN ('enviado', 'esperando_respuesta', 'esperando_fecha', 'esperando_seleccion_horario', 'pre_agendado')
+                      AND a.estado_whatsapp IN ('enviado', 'esperando_respuesta', 'esperando_fecha', 'pre_agendado')
                     ORDER BY a.ultima_actividad DESC
                     LIMIT 1";
             
@@ -320,7 +312,7 @@ function buscarAlertaActivaCliente($db, $telefono, $originalRepliedMessageSid = 
                 FROM alertas_servicio a
                 INNER JOIN clientes c ON a.cliente_id = c.id
                 WHERE c.telefono = ?
-                  AND (a.estado_whatsapp IN ('enviado', 'esperando_respuesta', 'esperando_fecha', 'esperando_seleccion_horario', 'pre_agendado') 
+                  AND (a.estado_whatsapp IN ('enviado', 'esperando_respuesta', 'esperando_fecha', 'pre_agendado')
                        OR a.estado_whatsapp IS NULL OR a.estado_whatsapp = '')
                 ORDER BY a.ultima_actividad DESC
                 LIMIT 1";

@@ -39,8 +39,16 @@ fix_usuario_*
 # Backend PHP sensitive files
 backend-php/.env
 backend-php/.env.local
+backend-php/.env.staging
 backend-php/.env.production
 backend-php/config/.env*
+
+# Empresa — documentación interna, memoria de agentes e infraestructura del equipo
+# El producto es SAG Garage (código). La empresa somos nosotros (Claude + agentes).
+/.claude/
+/memory/
+/*.md
+!README.md
 
 # Editor directories and files
 .vscode/*
