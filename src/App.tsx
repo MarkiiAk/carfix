@@ -7,7 +7,7 @@ import { AlertasGuard } from './components/AlertasGuard';
 
 function App() {
   return (
-    <BrowserRouter basename="/gestion">
+    <BrowserRouter basename={import.meta.env.VITE_BASE_PATH ?? '/gestion'}>
       <ToastProvider>
         <AuthProvider>
           <Routes>
