@@ -480,24 +480,30 @@ class TwilioConversationalBotRefactored
     // ============================================================================
     
     /**
-     * Formatear variables para plantilla sag_garage_agendar ({{1}} nombre, {{2}} bloque de slots)
-     *
-     * @param string $clienteNombre
-     * @param array $horarios  Cada elemento tiene numero, fecha_display, hora_display
-     * @return array ['1' => nombre, '2' => texto con todos los slots numerados]
+     * Formatear variables para plantilla HX2c89326481fdc97a27d7cb3aa8a873a4
+     * {{1}}=nombre, {{2}}-{{9}}=slots individuales, {{10}}="9. Otro horario"
+     * Una variable por slot — Twilio rechaza \n dentro de ContentVariables.
      */
     private function formatearVariablesHorarios(string $clienteNombre, array $horarios): array
     {
-        $lineas = [];
-        foreach ($horarios as $h) {
-            $lineas[] = "{$h['numero']}. {$h['fecha_display']} {$h['hora_display']}";
-        }
-        $lineas[] = (count($horarios) + 1) . ". Otro horario";
+        $variables = ['1' => $clienteNombre];
 
-        return [
-            '1' => $clienteNombre,
-            '2' => implode("\n", $lineas),
-        ];
+        $contador = 1;
+        foreach ($horarios as $h) {
+            if ($contador > 8) break;
+            $variables[strval($contador + 1)] = "{$contador}. {$h['fecha_display']} {$h['hora_display']}";
+            $contador++;
+        }
+
+        // Rellenar con vacío si hay menos de 8 slots
+        while ($contador <= 8) {
+            $variables[strval($contador + 1)] = '';
+            $contador++;
+        }
+
+        $variables['10'] = '9. Otro horario';
+
+        return $variables;
     }
     
     /**
