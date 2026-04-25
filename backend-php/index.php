@@ -61,8 +61,8 @@ $request_method = $_SERVER['REQUEST_METHOD'];
 // Remover query string y obtener path
 $path = parse_url($request_uri, PHP_URL_PATH);
 
-// Remover el prefijo /gestion/backend-php/ de la URL
-$path = str_replace('/gestion/backend-php/', '', $path);
+// Remover el prefijo /[entorno]/backend-php/ de la URL (funciona para /gestion/ y /staging/)
+$path = preg_replace('#^.*/backend-php/#', '', $path);
 $path = trim($path, '/');
 
 // Router simple
