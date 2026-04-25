@@ -33,6 +33,7 @@ jobs:
         env:
           NODE_ENV: production
           VITE_BASE_PATH: /staging/
+          VITE_API_URL: https://saggarage.com.mx/staging/backend-php
 
       # 5. Verificar que el build se creó correctamente
       - name: Verificar build
