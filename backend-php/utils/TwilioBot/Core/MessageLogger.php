@@ -219,13 +219,21 @@ class MessageLogger
     }
     
     /**
+     * Log de nivel INFO — alias de logOperation para consistencia interna
+     */
+    public function logInfo(string $message, array $data = []): void
+    {
+        $this->logToFile('INFO', $message, $data);
+    }
+
+    /**
      * Log de debugging con información detallada
-     * 
+     *
      * @param string $message Mensaje de debug
      * @param array $data Datos para debugging
      * @return void
      */
-    public function logDebug(string $message, array $data = []): void 
+    public function logDebug(string $message, array $data = []): void
     {
         $this->logToFile('DEBUG', $message, $data);
     }
