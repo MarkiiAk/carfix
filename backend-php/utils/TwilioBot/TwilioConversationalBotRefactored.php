@@ -645,7 +645,7 @@ class TwilioConversationalBotRefactored
             );
 
             if ($slotId === 'otro_horario') {
-                return $this->enviarContactoDirectoFallback($alertaId);
+                return $this->procesarOtroHorario($alertaId, $alerta, $telefonoLimpio);
             }
 
             $slots = $this->alertRepo->getSlotsOfrecidos($alertaId);
@@ -740,6 +740,88 @@ class TwilioConversationalBotRefactored
         } catch (Exception $e) {
             $this->logger->logError("Error enviando mensaje de ayuda", $e, ['alerta_id' => $alertaId]);
             return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Cliente eligió "Otro horario": confirmar al cliente y notificar al admin para coordinar.
+     */
+    private function procesarOtroHorario(int $alertaId, array $alerta, string $telefonoLimpio): array
+    {
+        try {
+            // 1. Confirmar al cliente
+            $mensajeCliente = $this->config->getMessage('mensaje_contacto_directo');
+            $resultado = $this->messageSender->sendTextMessage($telefonoLimpio, $mensajeCliente);
+
+            if ($resultado['success']) {
+                $this->logger->logMessage(
+                    $alertaId, $resultado['message_sid'], 'outbound',
+                    $this->config->getWhatsappFrom(), "whatsapp:+52{$telefonoLimpio}",
+                    $mensajeCliente, 'text', 'otro_horario_confirmacion_cliente',
+                    $resultado['twilio_response'] ?? null
+                );
+                $this->alertRepo->updateEstadoWhatsApp($alertaId, 'requiere_contacto');
+                $this->alertRepo->markRequiereAtencion($alertaId, 'alta');
+            }
+
+            // 2. Notificar al admin (no bloquea el flujo del cliente)
+            $this->notificarAdminOtroHorario($alertaId, $alerta);
+
+            return [
+                'success'    => $resultado['success'] ?? false,
+                'message_sid' => $resultado['message_sid'] ?? null,
+                'accion'     => 'otro_horario',
+            ];
+
+        } catch (Exception $e) {
+            $this->logger->logError("Error en procesarOtroHorario", $e, ['alerta_id' => $alertaId]);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Notificar al admin que un cliente solicitó coordinar horario directamente.
+     * Usa template sag_otro_horario_cita (HX8426371cf12251f300d04c2884f869f0):
+     * {{1}}=nombre, {{2}}=teléfono, {{3}}=vehículo, {{4}}=servicio
+     */
+    private function notificarAdminOtroHorario(int $alertaId, array $alerta): void
+    {
+        try {
+            $adminPhone  = $this->config->getConfig('sag_admin_phone');
+            $templateSid = $this->config->getConfig('template_otro_horario_sid');
+            if (empty($adminPhone) || empty($templateSid)) {
+                return;
+            }
+
+            $tipoServicio = is_array($alerta['servicios_que_dispararon'])
+                ? implode(', ', $alerta['servicios_que_dispararon'])
+                : ($alerta['servicios_que_dispararon'] ?? 'Servicio general');
+
+            $telefonoCliente = $this->phoneValidator->cleanPhoneNumber($alerta['cliente_telefono'])
+                ?? $alerta['cliente_telefono'];
+
+            $resultado = $this->messageSender->sendTemplateMessage(
+                $adminPhone,
+                $templateSid,
+                [
+                    '1' => $alerta['cliente_nombre'],
+                    '2' => $telefonoCliente,
+                    '3' => $alerta['vehiculo_info'] ?? 'Sin vehículo',
+                    '4' => $tipoServicio,
+                ]
+            );
+
+            if ($resultado['success']) {
+                $this->logger->logMessage(
+                    $alertaId, $resultado['message_sid'], 'outbound',
+                    $this->config->getWhatsappFrom(), "whatsapp:{$adminPhone}",
+                    "Notificación admin otro horario: {$alerta['cliente_nombre']}",
+                    'template', 'notificacion_admin_otro_horario',
+                    $resultado['twilio_response'] ?? null
+                );
+            }
+        } catch (Exception $e) {
+            $this->logger->logError("Error notificando admin otro horario", $e, ['alerta_id' => $alertaId]);
         }
     }
 
