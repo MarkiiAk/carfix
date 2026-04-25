@@ -597,6 +597,9 @@ class AlertRepository
                 return [];
             }
 
+            // Auto-poblar si no hay suficientes slots futuros
+            $this->autoPopularCalendario($diasFestivos, $diasMinimo, $maxSlots);
+
             $sql = "SELECT id, fecha, hora
                     FROM calendario_disponibilidad
                     WHERE esta_disponible = TRUE
@@ -653,6 +656,86 @@ class AlertRepository
         } catch (Exception $e) {
             $this->logger->logError("Error obteniendo horarios disponibles", $e);
             return [];
+        }
+    }
+
+    /**
+     * Auto-poblar calendario_disponibilidad con los próximos 60 días hábiles.
+     * Se ejecuta solo cuando hay menos de $minSlots slots futuros disponibles.
+     * Así el calendario nunca se queda vacío sin intervención manual.
+     */
+    private function autoPopularCalendario(array $diasFestivos = [], int $diasMinimo = 1, int $minSlots = 8): void
+    {
+        try {
+            // Verificar cuántos slots futuros existen
+            $stmtCheck = $this->db->prepare(
+                "SELECT COUNT(*) FROM calendario_disponibilidad
+                 WHERE esta_disponible = TRUE
+                   AND es_dia_laborable = TRUE
+                   AND fecha >= DATE_ADD(CURDATE(), INTERVAL :dias_minimo DAY)
+                   AND citas_ocupadas < capacidad_total"
+            );
+            $stmtCheck->execute([':dias_minimo' => $diasMinimo]);
+            $disponibles = (int)$stmtCheck->fetchColumn();
+
+            if ($disponibles >= $minSlots) {
+                return; // Ya hay suficientes slots, no hacer nada
+            }
+
+            // Leer horarios desde config (default: 10:00, 12:00, 14:00, 16:00)
+            $horariosRaw = '10:00,12:00,14:00,16:00';
+            try {
+                $stmtCfg = $this->db->prepare(
+                    "SELECT config_value FROM twilio_config WHERE config_key = 'horarios_atencion' AND is_active = 1"
+                );
+                $stmtCfg->execute();
+                $val = $stmtCfg->fetchColumn();
+                if ($val) {
+                    $horariosRaw = $val;
+                }
+            } catch (Exception $e) {
+                // usar default
+            }
+
+            $horarios    = array_map('trim', explode(',', $horariosRaw));
+            $festivosSet = array_flip($diasFestivos);
+
+            $stmtInsert = $this->db->prepare(
+                "INSERT IGNORE INTO calendario_disponibilidad
+                 (fecha, hora, capacidad_total, citas_ocupadas, esta_disponible, es_dia_laborable)
+                 VALUES (?, ?, 1, 0, 1, 1)"
+            );
+
+            $fecha    = new DateTime('tomorrow');
+            $diasGen  = 0;
+            $maxDias  = 90; // nunca iterar más de 90 días de calendario
+            $contador = 0;
+
+            while ($diasGen < 60 && $contador < $maxDias) {
+                $contador++;
+                $dowNum     = (int)$fecha->format('N'); // 1=Lun … 7=Dom
+                $fechaStr   = $fecha->format('Y-m-d');
+                $esFestivo  = isset($festivosSet[$fechaStr]);
+                $esLaboral  = ($dowNum >= 1 && $dowNum <= 5);
+
+                if ($esLaboral && !$esFestivo) {
+                    foreach ($horarios as $hora) {
+                        $stmtInsert->execute([$fechaStr, $hora . ':00']);
+                    }
+                    $diasGen++;
+                }
+
+                $fecha->modify('+1 day');
+            }
+
+            $this->logger->logInfo("Calendario auto-poblado", [
+                'dias_generados' => $diasGen,
+                'horarios'       => $horarios,
+            ]);
+
+        } catch (Exception $e) {
+            // Fallo silencioso — el sistema intentará devolver slots vacíos
+            $this->logger->logError("Error en autoPopularCalendario", $e);
         }
     }
 
