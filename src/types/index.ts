@@ -247,6 +247,12 @@ export interface VehiculoConHistorial {
   ordenes: OrdenResumen[];
 }
 
+export interface ResumenFinancieroCliente {
+  total_gastado: number;
+  total_servicios: number;
+  total_refacciones: number;
+}
+
 export interface ClientePerfil {
   cliente: {
     id: number;
@@ -256,5 +262,6 @@ export interface ClientePerfil {
     total_visitas: number;
     ultima_visita: string | null;
   };
+  resumen_financiero: ResumenFinancieroCliente;
   vehiculos: VehiculoConHistorial[];
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { clientesAPI } from '../services/api';
-import type { ClientePerfil as ClientePerfilData, VehiculoConHistorial, OrdenResumen } from '../types';
+import type { ClientePerfil as ClientePerfilData, VehiculoConHistorial, OrdenResumen, ResumenFinancieroCliente } from '../types';
 
 const formatFecha = (fecha: string | null | undefined): string => {
   if (!fecha) return '—';
@@ -91,7 +91,7 @@ export const ClientePerfil = () => {
     );
   }
 
-  const { cliente, vehiculos } = data;
+  const { cliente, vehiculos, resumen_financiero } = data;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -178,6 +178,11 @@ export const ClientePerfil = () => {
         </div>
       </div>
 
+      {/* Bloque financiero — solo si hay más de 1 visita */}
+      {cliente.total_visitas > 1 && (
+        <ResumenFinancieroBloque resumen={resumen_financiero} />
+      )}
+
       {/* Bloque 2 — Vehiculos con acordeon */}
       {vehiculos.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
@@ -201,6 +206,33 @@ export const ClientePerfil = () => {
     </div>
   );
 };
+
+// --- Resumen financiero ---
+
+const ResumenFinancieroBloque = ({ resumen }: { resumen: ResumenFinancieroCliente }) => (
+  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5 mb-6">
+    <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700 text-center">
+      <div className="px-4">
+        <p className="text-xl font-bold text-gray-900 dark:text-white">
+          {formatMoneda(resumen.total_gastado)}
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Total gastado</p>
+      </div>
+      <div className="px-4">
+        <p className="text-xl font-bold text-gray-900 dark:text-white">
+          {formatMoneda(resumen.total_servicios)}
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Servicios y mano de obra</p>
+      </div>
+      <div className="px-4">
+        <p className="text-xl font-bold text-gray-900 dark:text-white">
+          {formatMoneda(resumen.total_refacciones)}
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Refacciones</p>
+      </div>
+    </div>
+  </div>
+);
 
 // --- Acordeon de vehículo ---
 

@@ -218,7 +218,21 @@ class ClientesController {
                 return;
             }
 
-            // 2. Vehículos del cliente
+            // 2. Resumen financiero del cliente
+            $stmtF = $this->db->prepare("
+                SELECT
+                    COALESCE(SUM(o.total), 0)                    AS total_gastado,
+                    COALESCE(SUM(o.subtotal_servicios), 0)
+                      + COALESCE(SUM(o.subtotal_mano_obra), 0)   AS total_servicios,
+                    COALESCE(SUM(o.subtotal_refacciones), 0)     AS total_refacciones
+                FROM ordenes_servicio o
+                WHERE o.cliente_id = :cid
+            ");
+            $stmtF->bindParam(':cid', $clienteId, PDO::PARAM_INT);
+            $stmtF->execute();
+            $financiero = $stmtF->fetch(PDO::FETCH_ASSOC);
+
+            // 3. Vehículos del cliente
             $stmtV = $this->db->prepare("
                 SELECT id, marca, modelo, anio, placas, niv
                 FROM vehiculos
@@ -285,6 +299,11 @@ class ClientesController {
                     'email'         => $cliente['email'],
                     'total_visitas' => (int) $cliente['total_visitas'],
                     'ultima_visita' => $cliente['ultima_visita'],
+                ],
+                'resumen_financiero' => [
+                    'total_gastado'    => (float) $financiero['total_gastado'],
+                    'total_servicios'  => (float) $financiero['total_servicios'],
+                    'total_refacciones'=> (float) $financiero['total_refacciones'],
                 ],
                 'vehiculos' => $vehiculosConHistorial,
             ]);
