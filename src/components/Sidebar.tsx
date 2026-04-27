@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { alertasAutoService } from '../services/alertasAutoService';
 import { isAlertasAuthorized } from '../utils/alertsAuth';
 import { useAuth } from '../contexts/AuthContext';
+import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import type { Alerta } from '../services/alertasAutoService';
 
 // --- Iconos SVG inline para no depender de paquetes adicionales ---
@@ -208,6 +209,17 @@ export const AppShell = ({ children, moduleName }: AppShellProps) => {
     fetchCount();
   }, [user]);
 
+  const { themeMode, toggleTheme } = usePresupuestoStore();
+
+  // Aplicar tema al documento
+  useEffect(() => {
+    if (themeMode === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [themeMode]);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -241,11 +253,30 @@ export const AppShell = ({ children, moduleName }: AppShellProps) => {
               </span>
             </div>
 
+            {/* Toggle tema */}
+            <button
+              onClick={toggleTheme}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title={themeMode === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            >
+              {themeMode === 'dark' ? (
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
+
             <button
               onClick={handleLogout}
               className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
             >
-              Cerrar sesion
+              Cerrar sesión
             </button>
           </div>
         </header>
