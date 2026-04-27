@@ -184,7 +184,7 @@ class FinancieroController {
                 COUNT(o.id)                              AS num_ordenes
             FROM ordenes_servicio o
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND o.fecha_ingreso BETWEEN :fecha_inicio AND :fecha_fin
+              AND IFNULL(o.fecha_completada, o.fecha_entregada) BETWEEN :fecha_inicio AND :fecha_fin
         ";
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
@@ -193,10 +193,10 @@ class FinancieroController {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return [
-            'total_facturado'     => (float) $row['total_facturado'],
-            'ingresos_servicios'  => (float) $row['ingresos_servicios'],
-            'ingresos_mano_obra'  => (float) $row['ingresos_mano_obra'],
-            'ingresos_refacciones'=> (float) $row['ingresos_refacciones'],
+            'total_facturado'     => round((float) $row['total_facturado'], 2),
+            'ingresos_servicios'  => round((float) $row['ingresos_servicios'], 2),
+            'ingresos_mano_obra'  => round((float) $row['ingresos_mano_obra'], 2),
+            'ingresos_refacciones'=> round((float) $row['ingresos_refacciones'], 2),
             'total_iva'           => (float) $row['total_iva'],
             'num_ordenes'         => (int)   $row['num_ordenes'],
         ];
@@ -214,7 +214,7 @@ class FinancieroController {
             FROM refacciones_orden r
             INNER JOIN ordenes_servicio o ON r.orden_id = o.id
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND o.fecha_ingreso BETWEEN :fecha_inicio AND :fecha_fin
+              AND IFNULL(o.fecha_completada, o.fecha_entregada) BETWEEN :fecha_inicio AND :fecha_fin
         ";
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
@@ -244,7 +244,7 @@ class FinancieroController {
             FROM servicios_orden s
             INNER JOIN ordenes_servicio o ON s.orden_id = o.id
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND o.fecha_ingreso BETWEEN :fecha_inicio AND :fecha_fin
+              AND IFNULL(o.fecha_completada, o.fecha_entregada) BETWEEN :fecha_inicio AND :fecha_fin
               AND s.tipo != 'mano_obra'
             GROUP BY s.descripcion
             ORDER BY total_generado DESC
@@ -272,7 +272,7 @@ class FinancieroController {
                 COALESCE(SUM(o.total), 0)   AS total
             FROM ordenes_servicio o
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND o.fecha_ingreso BETWEEN :fecha_inicio AND :fecha_fin
+              AND IFNULL(o.fecha_completada, o.fecha_entregada) BETWEEN :fecha_inicio AND :fecha_fin
             GROUP BY DATE(o.fecha_ingreso)
             ORDER BY dia ASC
         ";
