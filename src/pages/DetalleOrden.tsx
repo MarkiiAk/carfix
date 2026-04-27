@@ -307,11 +307,11 @@ export const DetalleOrden = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
+          {/* Información del Cliente — teléfono primero */}
+          <ClienteSection disabled={estadoNormalizado === 'cerrada'} />
+
           {/* Información del Vehículo */}
           <VehiculoSection disabled={estadoNormalizado === 'cerrada'} />
-
-          {/* Información del Cliente */}
-          <ClienteSection disabled={estadoNormalizado === 'cerrada'} />
 
           {/* Inspección Visual del Vehículo */}
           <InspeccionSection disabled={estadoNormalizado === 'cerrada'} />
