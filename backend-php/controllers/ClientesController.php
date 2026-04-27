@@ -22,43 +22,44 @@ class ClientesController {
 
             $q = isset($_GET['q']) ? trim($_GET['q']) : '';
 
+            $baseSelect = "
+                SELECT
+                    c.id,
+                    c.nombre,
+                    c.telefono,
+                    c.email,
+                    COUNT(DISTINCT o.id)  AS total_visitas,
+                    MAX(o.fecha_ingreso)  AS ultima_visita,
+                    COUNT(DISTINCT v.id)  AS total_vehiculos
+                FROM clientes c
+                LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
+                LEFT JOIN vehiculos v        ON v.cliente_id = c.id
+                WHERE c.activo = 1
+            ";
+
             if ($q !== '') {
-                $sql = "
-                    SELECT
-                        c.id,
-                        c.nombre,
-                        c.telefono,
-                        c.email,
-                        COUNT(DISTINCT o.id)  AS total_visitas,
-                        MAX(o.fecha_ingreso)  AS ultima_visita,
-                        COUNT(DISTINCT v.id)  AS total_vehiculos
-                    FROM clientes c
-                    LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
-                    LEFT JOIN vehiculos v        ON v.cliente_id = c.id
-                    WHERE c.activo = 1
-                      AND (c.nombre LIKE :q OR c.telefono LIKE :q)
+                $sql = $baseSelect . "
+                      AND (
+                          c.nombre   LIKE :q_nombre
+                       OR c.telefono LIKE :q_tel
+                       OR v.marca    LIKE :q_marca
+                       OR v.modelo   LIKE :q_modelo
+                       OR v.placas   LIKE :q_placas
+                      )
                     GROUP BY c.id
-                    ORDER BY ultima_visita DESC
+                    ORDER BY total_visitas DESC, ultima_visita DESC
                 ";
                 $stmt = $this->db->prepare($sql);
                 $like = '%' . $q . '%';
-                $stmt->bindParam(':q', $like, PDO::PARAM_STR);
+                $stmt->bindValue(':q_nombre',  $like, PDO::PARAM_STR);
+                $stmt->bindValue(':q_tel',     $like, PDO::PARAM_STR);
+                $stmt->bindValue(':q_marca',   $like, PDO::PARAM_STR);
+                $stmt->bindValue(':q_modelo',  $like, PDO::PARAM_STR);
+                $stmt->bindValue(':q_placas',  $like, PDO::PARAM_STR);
             } else {
-                $sql = "
-                    SELECT
-                        c.id,
-                        c.nombre,
-                        c.telefono,
-                        c.email,
-                        COUNT(DISTINCT o.id)  AS total_visitas,
-                        MAX(o.fecha_ingreso)  AS ultima_visita,
-                        COUNT(DISTINCT v.id)  AS total_vehiculos
-                    FROM clientes c
-                    LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
-                    LEFT JOIN vehiculos v        ON v.cliente_id = c.id
-                    WHERE c.activo = 1
+                $sql = $baseSelect . "
                     GROUP BY c.id
-                    ORDER BY ultima_visita DESC
+                    ORDER BY total_visitas DESC, ultima_visita DESC
                 ";
                 $stmt = $this->db->prepare($sql);
             }
