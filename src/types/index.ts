@@ -215,3 +215,46 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
 }
+
+// Tipos para el módulo de Clientes y Vehículos (Mes 1 Roadmap Q2 2026)
+
+export interface ClienteListItem {
+  id: number;
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  total_visitas: number;
+  ultima_visita: string | null;
+  total_vehiculos: number;
+}
+
+export interface OrdenResumen {
+  id: number;
+  numero_orden: string;
+  fecha_ingreso: string;
+  servicio_principal: string;
+  total: number;
+  estado: string;
+}
+
+export interface VehiculoConHistorial {
+  id: number;
+  marca: string;
+  modelo: string;
+  anio: string | null;
+  placas: string;
+  niv: string | null;
+  ordenes: OrdenResumen[];
+}
+
+export interface ClientePerfil {
+  cliente: {
+    id: number;
+    nombre: string;
+    telefono: string | null;
+    email: string | null;
+    total_visitas: number;
+    ultima_visita: string | null;
+  };
+  vehiculos: VehiculoConHistorial[];
+}

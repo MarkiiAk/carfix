@@ -49,6 +49,7 @@ require_once __DIR__ . '/controllers/OrdenesController.php';
 require_once __DIR__ . '/controllers/EstadosSeguridadController.php';
 require_once __DIR__ . '/controllers/PuntosSeguridadController.php';
 require_once __DIR__ . '/controllers/AlertasController.php';
+require_once __DIR__ . '/controllers/ClientesController.php';
 // require_once __DIR__ . '/controllers/WhatsappController.php'; // No necesario - usando TwilioConversationalBot
 
 // Obtener conexión a base de datos
@@ -196,6 +197,21 @@ try {
     }
     */
     
+    // Rutas de Clientes
+    // IMPORTANTE: buscar-por-telefono debe ir ANTES del patrón /:id
+    elseif ($path === 'clientes/buscar-por-telefono' && $request_method === 'GET') {
+        $controller = new ClientesController();
+        $controller->buscarPorTelefono();
+    }
+    elseif ($path === 'clientes' && $request_method === 'GET') {
+        $controller = new ClientesController();
+        $controller->listar();
+    }
+    elseif (preg_match('#^clientes/([0-9]+)$#', $path, $matches) && $request_method === 'GET') {
+        $controller = new ClientesController();
+        $controller->perfil($matches[1]);
+    }
+
     // Ruta de salud
     elseif ($path === 'health' && $request_method === 'GET') {
         echo json_encode([

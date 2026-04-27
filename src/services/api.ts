@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden } from '../types';
+import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -185,6 +185,30 @@ export const puntosSeguridadAPI = {
 
   deletePunto: async (id: number) => {
     const response = await api.delete(`/admin/puntos-seguridad/catalogo/${id}`);
+    return response.data;
+  },
+};
+
+export const clientesAPI = {
+  listar: async (q?: string) => {
+    const params = q ? { q } : {};
+    const response = await api.get<{ success: boolean; clientes: ClienteListItem[]; total: number }>(
+      '/clientes',
+      { params }
+    );
+    return response.data;
+  },
+
+  perfil: async (id: number) => {
+    const response = await api.get<ClientePerfil & { success: boolean }>(`/clientes/${id}`);
+    return response.data;
+  },
+
+  buscarPorTelefono: async (tel: string) => {
+    const response = await api.get<{ success: boolean; matches: any[] }>(
+      '/clientes/buscar-por-telefono',
+      { params: { tel } }
+    );
     return response.data;
   },
 };

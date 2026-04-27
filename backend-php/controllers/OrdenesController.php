@@ -947,13 +947,13 @@ class OrdenesController {
         $existing = $stmt->fetch();
         
         if ($existing) {
-            // Actualizar
+            // Actualizar solo datos técnicos — NO tocar cliente_id para preservar al dueño original
             $stmt = $this->db->prepare('
-                UPDATE vehiculos SET marca = ?, modelo = ?, anio = ?, 
-                       color = ?, niv = ?, cliente_id = ?
+                UPDATE vehiculos SET marca = ?, modelo = ?, anio = ?,
+                       color = ?, niv = ?
                 WHERE id = ?
             ');
-            $stmt->execute([$marca, $modelo, $anio, $color, $niv, $cliente_id, $existing['id']]);
+            $stmt->execute([$marca, $modelo, $anio, $color, $niv, $existing['id']]);
             return $existing['id'];
         } else {
             // Insertar
