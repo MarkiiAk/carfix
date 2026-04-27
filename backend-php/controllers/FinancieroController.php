@@ -203,12 +203,14 @@ class FinancieroController {
     }
 
     private function queryRefacciones(string $fechaInicio, string $fechaFin): array {
-        // refacciones_orden solo guarda precio_unitario (venta) y subtotal
-        // El precio de costo nunca se persistió en BD — no se puede calcular margen real
+        // precio_unitario ya incluye el 30% de margen fijo: precioVenta = precioCosto * 1.30
+        // Por lo tanto: costo = subtotal / 1.30, margen = subtotal - (subtotal / 1.30)
         $sql = "
             SELECT
-                COALESCE(SUM(r.subtotal), 0) AS vendido,
-                COUNT(r.id)                  AS num_items
+                COALESCE(SUM(r.subtotal), 0)                    AS vendido,
+                COALESCE(SUM(r.subtotal / 1.30), 0)             AS costo_estimado,
+                COALESCE(SUM(r.subtotal - r.subtotal / 1.30), 0) AS margen_estimado,
+                COUNT(r.id)                                      AS num_items
             FROM refacciones_orden r
             INNER JOIN ordenes_servicio o ON r.orden_id = o.id
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
@@ -220,12 +222,16 @@ class FinancieroController {
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        $vendido = (float) $row['vendido'];
+        $costo   = (float) $row['costo_estimado'];
+        $margen  = (float) $row['margen_estimado'];
+
         return [
-            'vendido'    => (float) $row['vendido'],
-            'num_items'  => (int)   $row['num_items'],
-            'costo'      => 0.0,
-            'margen'     => 0.0,
-            'margen_pct' => 0.0,
+            'vendido'    => $vendido,
+            'num_items'  => (int) $row['num_items'],
+            'costo'      => round($costo, 2),
+            'margen'     => round($margen, 2),
+            'margen_pct' => 30.0, // siempre 30% — regla fija del negocio
         ];
     }
 
