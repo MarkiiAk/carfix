@@ -287,6 +287,14 @@ export interface MargenRefacciones {
   margen_pct: number;
 }
 
+export interface TopCliente {
+  id: number;
+  nombre: string;
+  telefono: string | null;
+  num_visitas: number;
+  total_gastado: number;
+}
+
 export interface TopServicio {
   descripcion: string;
   veces: number;
@@ -309,5 +317,6 @@ export interface ResumenFinancieroResponse {
   resumen: ResumenPeriodo;
   refacciones: MargenRefacciones;
   top_servicios: TopServicio[];
+  top_clientes: TopCliente[];
   por_dia: IngresosDia[];
 }

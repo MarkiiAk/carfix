@@ -48,6 +48,7 @@ class FinancieroController {
             $resumen      = $this->queryResumen($fechaInicio, $fechaFin);
             $refacciones  = $this->queryRefacciones($fechaInicio, $fechaFin);
             $topServicios = $this->queryTopServicios($fechaInicio, $fechaFin);
+            $topClientes  = $this->queryTopClientes($fechaInicio, $fechaFin);
             $porDia       = $this->queryPorDia($fechaInicio, $fechaFin);
 
             http_response_code(200);
@@ -59,9 +60,10 @@ class FinancieroController {
                     'fecha_fin'    => $fechaFin,
                     'label'        => $label,
                 ],
-                'resumen'      => $resumen,
-                'refacciones'  => $refacciones,
+                'resumen'       => $resumen,
+                'refacciones'   => $refacciones,
                 'top_servicios' => $topServicios,
+                'top_clientes'  => $topClientes,
                 'por_dia'      => $porDia,
             ]);
 
@@ -286,6 +288,40 @@ class FinancieroController {
             return [
                 'dia'   => $r['dia'],
                 'total' => (float) $r['total'],
+            ];
+        }, $rows);
+    }
+
+    private function queryTopClientes(string $fechaInicio, string $fechaFin): array {
+        $sql = "
+            SELECT
+                c.id,
+                c.nombre,
+                c.telefono,
+                COUNT(o.id)            AS num_visitas,
+                SUM(o.total)           AS total_gastado
+            FROM ordenes_servicio o
+            INNER JOIN clientes c ON c.id = o.cliente_id
+            WHERE o.estado IN ('cerrada', 'entregada', 'completada')
+              AND c.activo = 1
+              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
+            GROUP BY c.id
+            ORDER BY total_gastado DESC
+            LIMIT 5
+        ";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+        $stmt->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(function ($r) {
+            return [
+                'id'           => (int)   $r['id'],
+                'nombre'       => $r['nombre'],
+                'telefono'     => $r['telefono'],
+                'num_visitas'  => (int)   $r['num_visitas'],
+                'total_gastado'=> round((float) $r['total_gastado'], 2),
             ];
         }, $rows);
     }

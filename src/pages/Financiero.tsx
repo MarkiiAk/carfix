@@ -15,6 +15,7 @@ import type {
   ResumenFinancieroResponse,
   MargenRefacciones,
   TopServicio,
+  TopCliente,
   IngresosDia,
 } from '../types';
 
@@ -181,6 +182,43 @@ const TopServicios = ({ servicios }: TopServiciosProps) => {
                 className="h-full bg-sag-500 rounded-full transition-all duration-500"
                 style={{ width: `${pct}%` }}
               />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Top clientes
+// ---------------------------------------------------------------------------
+
+interface TopClientesProps { clientes: TopCliente[]; }
+
+const TopClientes = ({ clientes }: TopClientesProps) => {
+  if (clientes.length === 0) {
+    return <p className="text-sm text-gray-400 dark:text-gray-500 py-4">Sin clientes en este periodo.</p>;
+  }
+  const maximo = clientes[0].total_gastado;
+  return (
+    <div className="space-y-3">
+      {clientes.map((c, i) => {
+        const pct = maximo > 0 ? Math.round((c.total_gastado / maximo) * 100) : 0;
+        return (
+          <div key={c.id} className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 w-4">{i + 1}</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{c.nombre}</span>
+                <span className="text-xs text-gray-400 hidden sm:inline">· {c.num_visitas} {c.num_visitas === 1 ? 'visita' : 'visitas'}</span>
+              </div>
+              <span className="font-semibold text-gray-700 dark:text-gray-300 flex-shrink-0 ml-2">
+                {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(c.total_gastado)}
+              </span>
+            </div>
+            <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+              <div className="bg-sag-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
             </div>
           </div>
         );
@@ -426,7 +464,7 @@ export const Financiero = () => {
 
   if (!datos) return null;
 
-  const { periodo, resumen, refacciones, top_servicios, por_dia } = datos;
+  const { periodo, resumen, refacciones, top_servicios, top_clientes, por_dia } = datos;
   const sinDatos = resumen.num_ordenes === 0;
 
   return (
@@ -512,6 +550,18 @@ export const Financiero = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Top clientes que más gastan                                          */}
+      {/* ------------------------------------------------------------------ */}
+      {!sinDatos && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
+            Top 5 clientes
+          </h2>
+          <TopClientes clientes={top_clientes} />
+        </div>
       )}
 
       {/* ------------------------------------------------------------------ */}
