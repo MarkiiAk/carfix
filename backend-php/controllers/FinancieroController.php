@@ -184,7 +184,7 @@ class FinancieroController {
                 COUNT(o.id)                              AS num_ordenes
             FROM ordenes_servicio o
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND IFNULL(o.fecha_completada, o.fecha_entregada) BETWEEN :fecha_inicio AND :fecha_fin
+              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
         ";
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
@@ -214,7 +214,7 @@ class FinancieroController {
             FROM refacciones_orden r
             INNER JOIN ordenes_servicio o ON r.orden_id = o.id
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND IFNULL(o.fecha_completada, o.fecha_entregada) BETWEEN :fecha_inicio AND :fecha_fin
+              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
         ";
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
@@ -244,7 +244,7 @@ class FinancieroController {
             FROM servicios_orden s
             INNER JOIN ordenes_servicio o ON s.orden_id = o.id
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND IFNULL(o.fecha_completada, o.fecha_entregada) BETWEEN :fecha_inicio AND :fecha_fin
+              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
               AND s.tipo != 'mano_obra'
             GROUP BY s.descripcion
             ORDER BY total_generado DESC
@@ -272,7 +272,7 @@ class FinancieroController {
                 COALESCE(SUM(o.total), 0)   AS total
             FROM ordenes_servicio o
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND IFNULL(o.fecha_completada, o.fecha_entregada) BETWEEN :fecha_inicio AND :fecha_fin
+              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
             GROUP BY DATE(o.fecha_ingreso)
             ORDER BY dia ASC
         ";
