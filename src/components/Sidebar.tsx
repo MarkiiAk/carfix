@@ -225,16 +225,38 @@ export const AppShell = ({ children, moduleName }: AppShellProps) => {
     navigate('/login');
   };
 
+  const isStaging =
+    (import.meta.env.VITE_BASE_PATH ?? '').includes('staging') ||
+    window.location.pathname.includes('/staging/');
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      {/* Banner staging — solo visible en ambiente de pruebas */}
+      {isStaging && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 bg-amber-500 text-black text-xs font-semibold py-2 px-4">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          AMBIENTE DE PRUEBAS — Los cambios aquí no afectan el sistema real
+        </div>
+      )}
+
+      {/* Badge flotante staging */}
+      {isStaging && (
+        <div className="fixed bottom-20 right-4 md:bottom-6 z-50 bg-amber-500 text-black text-xs font-bold px-3 py-1.5 rounded-full shadow-lg select-none">
+          STAGING
+        </div>
+      )}
+
       {/* Sidebar fijo */}
       <Sidebar alertasPendientes={alertasPendientes} />
 
       {/* Contenido principal — margen izquierdo para dejar espacio al sidebar en desktop */}
-      <div className="flex-1 flex flex-col md:ml-[220px]">
+      <div className={`flex-1 flex flex-col md:ml-[220px] ${isStaging ? 'pt-8' : ''}`}>
         {/* Top bar simplificado */}
         <header
-          className="sticky top-0 z-20 flex items-center justify-between px-4 sm:px-6 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+          className={`sticky z-20 flex items-center justify-between px-4 sm:px-6 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${isStaging ? 'top-8' : 'top-0'}`}
         >
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
             {moduleName ?? 'SAG Garage'}
