@@ -13,6 +13,7 @@ export interface ClienteInfo {
   telefono: string;
   email: string;
   domicilio: string;
+  cliente_id?: number | null;
 }
 
 export interface VehiculoInfo {
@@ -25,6 +26,7 @@ export interface VehiculoInfo {
   kilometrajeEntrada: string;
   kilometrajeSalida: string;
   nivelGasolina: number; // 0-100 (porcentaje)
+  vehiculo_id?: number | null;
 }
 
 export interface InspeccionVehiculo {

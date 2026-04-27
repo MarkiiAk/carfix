@@ -910,22 +910,56 @@ class OrdenesController {
     }
     
     private function upsertCliente($clienteData) {
-        $nombre = $clienteData['nombreCompleto'] ?? $clienteData['nombre'] ?? null;
-        $telefono = $clienteData['telefono'] ?? null;
-        $email = $clienteData['email'] ?? null;
+        $nombre    = $clienteData['nombreCompleto'] ?? $clienteData['nombre'] ?? null;
+        $telefono  = $clienteData['telefono'] ?? null;
+        $email     = $clienteData['email'] ?? null;
         $direccion = $clienteData['domicilio'] ?? $clienteData['direccion'] ?? null;
-        
+        $clienteId = isset($clienteData['cliente_id']) ? (int)$clienteData['cliente_id'] : null;
+
         if (!$nombre || !$telefono) {
             throw new Exception('Nombre y teléfono del cliente son requeridos');
         }
-        
-        // SIEMPRE INSERTAR NUEVO CLIENTE - No buscar por teléfono
-        // Cada orden tiene su propio cliente, aunque compartan teléfono
-        $stmt = $this->db->prepare('
-            INSERT INTO clientes (nombre, telefono, email, direccion)
-            VALUES (?, ?, ?, ?)
-        ');
-        $stmt->execute([$nombre, $telefono, $email, $direccion]);
+
+        // Normalizar teléfono: solo dígitos, sin prefijo 52
+        $telNormalizado = preg_replace('/[^0-9]/', '', $telefono);
+        $telNormalizado = preg_replace('/^52/', '', $telNormalizado);
+
+        // 1. El frontend identificó explícitamente al cliente (selección de sugerencia)
+        if ($clienteId) {
+            $stmt = $this->db->prepare(
+                'UPDATE clientes SET ultima_visita = NOW() WHERE id = ? AND activo = 1'
+            );
+            $stmt->execute([$clienteId]);
+            if ($stmt->rowCount() > 0) {
+                return $clienteId;
+            }
+        }
+
+        // 2. Buscar por teléfono normalizado — solo si hay un único match (número no compartido)
+        if ($telNormalizado) {
+            $stmt = $this->db->prepare(
+                'SELECT id FROM clientes WHERE telefono_normalizado = ? AND activo = 1'
+            );
+            $stmt->execute([$telNormalizado]);
+            $existentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (count($existentes) === 1) {
+                $existingId = (int)$existentes[0]['id'];
+                $stmt = $this->db->prepare(
+                    'UPDATE clientes SET nombre = ?, email = ?, ultima_visita = NOW() WHERE id = ?'
+                );
+                $stmt->execute([$nombre, $email, $existingId]);
+                return $existingId;
+            }
+            // Número compartido (>1 match) sin cliente_id explícito → crear nuevo
+        }
+
+        // 3. Cliente nuevo
+        $stmt = $this->db->prepare(
+            'INSERT INTO clientes (nombre, telefono, email, direccion, telefono_normalizado)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([$nombre, $telefono, $email, $direccion, $telNormalizado]);
         return $this->db->lastInsertId();
     }
     

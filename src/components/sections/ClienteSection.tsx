@@ -7,13 +7,23 @@ interface ClienteSectionProps {
   disabled?: boolean;
 }
 
+interface VehiculoMatch {
+  id: number;
+  marca: string;
+  modelo: string;
+  anio: string | null;
+  color: string | null;
+  placas: string;
+  niv: string | null;
+}
+
 interface ClienteMatch {
   id: number;
   nombre: string;
   telefono: string | null;
   total_visitas: number;
   ultima_visita: string | null;
-  vehiculos: { marca: string; modelo: string; placas: string }[];
+  vehiculos: VehiculoMatch[];
   total_vehiculos: number;
 }
 
@@ -23,13 +33,14 @@ const formatFecha = (fecha: string | null | undefined) => {
 };
 
 export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false }) => {
-  const { presupuesto, updateCliente } = usePresupuestoStore();
+  const { presupuesto, updateCliente, updateVehiculo } = usePresupuestoStore();
   const { cliente } = presupuesto;
 
-  const [matches, setMatches]         = useState<ClienteMatch[]>([]);
-  const [buscando, setBuscando]       = useState(false);
+  const [matches, setMatches]           = useState<ClienteMatch[]>([]);
+  const [buscando, setBuscando]         = useState(false);
   const [seleccionado, setSeleccionado] = useState<ClienteMatch | null>(null);
-  const [mostrarForm, setMostrarForm] = useState(false);
+  const [mostrarForm, setMostrarForm]   = useState(false);
+  const [vehiculoSel, setVehiculoSel]   = useState<VehiculoMatch | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleChange = (field: keyof typeof cliente) => (value: string) => {
@@ -68,19 +79,38 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
 
   const seleccionarCliente = (match: ClienteMatch) => {
     setSeleccionado(match);
+    setVehiculoSel(null);
     setMatches([]);
     setMostrarForm(true);
     updateCliente({
       nombreCompleto: match.nombre,
       telefono: match.telefono ?? cliente.telefono,
       email: '',
+      cliente_id: match.id,
+    });
+    // Si tiene un solo vehículo, pre-seleccionarlo automáticamente
+    if (match.vehiculos.length === 1) {
+      preSeleccionarVehiculo(match.vehiculos[0]);
+    }
+  };
+
+  const preSeleccionarVehiculo = (v: VehiculoMatch) => {
+    setVehiculoSel(v);
+    updateVehiculo({
+      marca: v.marca,
+      modelo: v.modelo,
+      color: v.color ?? '',
+      placas: v.placas,
+      niv: v.niv ?? '',
+      vehiculo_id: v.id,
     });
   };
 
   const ignorarSugerencia = () => {
     setMatches([]);
     setMostrarForm(true);
-    updateCliente({ nombreCompleto: '', email: '', domicilio: '' });
+    setVehiculoSel(null);
+    updateCliente({ nombreCompleto: '', email: '', domicilio: '', cliente_id: null });
   };
 
   // Limpiar selección si el usuario edita el teléfono manualmente
@@ -191,6 +221,51 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
               className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               Limpiar
+            </button>
+          </div>
+        )}
+
+        {/* Selector de vehículo — cuando el cliente tiene más de uno */}
+        {seleccionado && seleccionado.vehiculos.length > 1 && !disabled && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              ¿Qué vehículo trae hoy?
+            </p>
+            {seleccionado.vehiculos.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => preSeleccionarVehiculo(v)}
+                className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                  vehiculoSel?.id === v.id
+                    ? 'border-sag-400 bg-sag-50 dark:bg-sag-900/20'
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-sag-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {v.marca} {v.modelo}{v.anio ? ` ${v.anio}` : ''}
+                    </p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5">
+                      {v.placas}{v.color ? ` · ${v.color}` : ''}
+                    </p>
+                  </div>
+                  {vehiculoSel?.id === v.id && (
+                    <span className="text-sag-600 dark:text-sag-400 text-sm font-medium">✓</span>
+                  )}
+                </div>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setVehiculoSel(null);
+                updateVehiculo({ marca: '', modelo: '', color: '', placas: '', niv: '', vehiculo_id: null });
+              }}
+              className="w-full text-center text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 py-1.5 transition-colors"
+            >
+              + Viene con otro vehículo
             </button>
           </div>
         )}

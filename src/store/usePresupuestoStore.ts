@@ -114,6 +114,7 @@ const initialPresupuesto: Presupuesto = {
     telefono: '',
     email: '',
     domicilio: '',
+    cliente_id: null,
   },
   vehiculo: {
     marca: '',
@@ -124,6 +125,7 @@ const initialPresupuesto: Presupuesto = {
     kilometrajeEntrada: '',
     kilometrajeSalida: '',
     nivelGasolina: 50,
+    vehiculo_id: null,
   },
   inspeccion: initialInspeccion,
   problemaReportado: '',

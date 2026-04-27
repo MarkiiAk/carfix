@@ -142,7 +142,7 @@ class ClientesController {
                 $clienteId = (int) $cliente['id'];
 
                 $stmtV = $this->db->prepare("
-                    SELECT id, marca, modelo, placas
+                    SELECT id, marca, modelo, anio, color, placas, niv
                     FROM vehiculos
                     WHERE cliente_id = :cid
                     ORDER BY id DESC
