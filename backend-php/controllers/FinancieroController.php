@@ -68,7 +68,7 @@ class FinancieroController {
         } catch (Exception $e) {
             error_log('[FinancieroController::resumen] ERROR: ' . $e->getMessage());
             http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Error al obtener datos financieros', 'debug' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener datos financieros']);
         }
     }
 
@@ -203,11 +203,12 @@ class FinancieroController {
     }
 
     private function queryRefacciones(string $fechaInicio, string $fechaFin): array {
+        // refacciones_orden solo guarda precio_unitario (venta) y subtotal
+        // El precio de costo nunca se persistió en BD — no se puede calcular margen real
         $sql = "
             SELECT
-                COALESCE(SUM(r.precio_venta * r.cantidad), 0)                      AS vendido,
-                COALESCE(SUM(r.precio_costo * r.cantidad), 0)                      AS costo,
-                COALESCE(SUM((r.precio_venta - r.precio_costo) * r.cantidad), 0)   AS margen
+                COALESCE(SUM(r.subtotal), 0) AS vendido,
+                COUNT(r.id)                  AS num_items
             FROM refacciones_orden r
             INNER JOIN ordenes_servicio o ON r.orden_id = o.id
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
@@ -219,16 +220,12 @@ class FinancieroController {
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $vendido = (float) $row['vendido'];
-        $costo   = (float) $row['costo'];
-        $margen  = (float) $row['margen'];
-        $margenPct = $vendido > 0 ? round($margen / $vendido * 100, 1) : 0.0;
-
         return [
-            'vendido'    => $vendido,
-            'costo'      => $costo,
-            'margen'     => $margen,
-            'margen_pct' => $margenPct,
+            'vendido'    => (float) $row['vendido'],
+            'num_items'  => (int)   $row['num_items'],
+            'costo'      => 0.0,
+            'margen'     => 0.0,
+            'margen_pct' => 0.0,
         ];
     }
 
