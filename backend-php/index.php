@@ -50,6 +50,7 @@ require_once __DIR__ . '/controllers/EstadosSeguridadController.php';
 require_once __DIR__ . '/controllers/PuntosSeguridadController.php';
 require_once __DIR__ . '/controllers/AlertasController.php';
 require_once __DIR__ . '/controllers/ClientesController.php';
+require_once __DIR__ . '/controllers/FinancieroController.php';
 // require_once __DIR__ . '/controllers/WhatsappController.php'; // No necesario - usando TwilioConversationalBot
 
 // Obtener conexión a base de datos
@@ -210,6 +211,12 @@ try {
     elseif (preg_match('#^clientes/([0-9]+)$#', $path, $matches) && $request_method === 'GET') {
         $controller = new ClientesController();
         $controller->perfil($matches[1]);
+    }
+
+    // Módulo Financiero / Ingresos
+    elseif ($path === 'financiero' && $request_method === 'GET') {
+        $controller = new FinancieroController();
+        $controller->resumen();
     }
 
     // Ruta de salud

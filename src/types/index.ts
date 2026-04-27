@@ -268,3 +268,46 @@ export interface ClientePerfil {
   resumen_financiero: ResumenFinancieroCliente;
   vehiculos: VehiculoConHistorial[];
 }
+
+// Tipos para el módulo de Ingresos (M2-005, Q2 2026)
+
+export interface ResumenPeriodo {
+  total_facturado: number;
+  ingresos_servicios: number;
+  ingresos_mano_obra: number;
+  ingresos_refacciones: number;
+  total_iva: number;
+  num_ordenes: number;
+}
+
+export interface MargenRefacciones {
+  vendido: number;
+  costo: number;
+  margen: number;
+  margen_pct: number;
+}
+
+export interface TopServicio {
+  descripcion: string;
+  veces: number;
+  total_generado: number;
+}
+
+export interface IngresosDia {
+  dia: string;
+  total: number;
+}
+
+export interface ResumenFinancieroResponse {
+  success: boolean;
+  periodo: {
+    tipo: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+    label: string;
+  };
+  resumen: ResumenPeriodo;
+  refacciones: MargenRefacciones;
+  top_servicios: TopServicio[];
+  por_dia: IngresosDia[];
+}

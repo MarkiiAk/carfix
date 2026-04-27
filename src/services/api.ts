@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil } from '../types';
+import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil, ResumenFinancieroResponse } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -209,6 +209,13 @@ export const clientesAPI = {
       '/clientes/buscar-por-telefono',
       { params: { tel } }
     );
+    return response.data;
+  },
+};
+
+export const financieroAPI = {
+  resumen: async (tipo: 'semana' | 'quincena' | 'mes', offset = 0): Promise<ResumenFinancieroResponse> => {
+    const response = await api.get<ResumenFinancieroResponse>('/financiero', { params: { tipo, offset } });
     return response.data;
   },
 };

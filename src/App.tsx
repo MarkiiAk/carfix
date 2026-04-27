@@ -7,6 +7,7 @@ import { AlertasGuard } from './components/AlertasGuard';
 import { Login, Dashboard, NuevaOrden, DetalleOrden, Alertas } from './pages';
 import { Clientes } from './pages/Clientes';
 import { ClientePerfil } from './pages/ClientePerfil';
+import { Financiero } from './pages/Financiero';
 
 function App() {
   return (
@@ -81,6 +82,17 @@ function App() {
                 <ProtectedRoute>
                   <AppShell moduleName="Perfil de Cliente">
                     <ClientePerfil />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/financiero"
+              element={
+                <ProtectedRoute>
+                  <AppShell moduleName="Ingresos">
+                    <Financiero />
                   </AppShell>
                 </ProtectedRoute>
               }

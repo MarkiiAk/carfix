@@ -55,8 +55,7 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
   const inactiveClasses =
     'text-gray-400 hover:bg-white/5 hover:text-gray-200 border-l-[3px] border-transparent pl-[9px]';
 
-  const disabledClasses =
-    'text-gray-600 cursor-not-allowed border-l-[3px] border-transparent pl-[9px]';
+
 
   // --- Desktop Sidebar ---
   const DesktopSidebar = () => (
@@ -95,14 +94,13 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
           <span>Clientes y Vehiculos</span>
         </button>
 
-        {/* Financiero — Próximamente */}
-        <div className={`${navItemBase} ${disabledClasses} w-full`}>
+        <button
+          onClick={() => navigate('/financiero')}
+          className={`${navItemBase} w-full text-left ${isActive('/financiero') ? activeClasses : inactiveClasses}`}
+        >
           <IconFinanciero />
-          <span className="flex-1">Financiero</span>
-          <span className="text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded-full font-normal">
-            Pronto
-          </span>
-        </div>
+          <span>Financiero</span>
+        </button>
 
         {/* Separador */}
         <div className="border-t border-gray-800 my-2" />
@@ -146,11 +144,13 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
         <span className="text-xs">Clientes</span>
       </button>
 
-      {/* Financiero deshabilitado */}
-      <div className="flex flex-col items-center gap-0.5 px-4 py-2 text-gray-700">
+      <button
+        onClick={() => navigate('/financiero')}
+        className={`flex flex-col items-center gap-0.5 px-4 py-2 transition-colors ${isActive('/financiero') ? 'text-sag-500' : 'text-gray-500'}`}
+      >
         <IconFinanciero />
         <span className="text-xs">Financiero</span>
-      </div>
+      </button>
 
       <button
         onClick={() => navigate('/alertas')}
