@@ -364,11 +364,16 @@ const TimelineItem = ({ orden, onVer }: TimelineItemProps) => {
         {formatFecha(orden.fecha_ingreso)}
       </span>
 
-      {/* Servicio + total */}
+      {/* Servicio + km */}
       <div className="flex-1 min-w-0">
         <span className="text-sm text-gray-700 dark:text-gray-300 truncate block">
           {orden.servicio_principal || 'Servicio general'}
         </span>
+        {orden.kilometraje_entrada && (
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            {parseInt(orden.kilometraje_entrada).toLocaleString('es-MX')} km
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-3 flex-shrink-0">

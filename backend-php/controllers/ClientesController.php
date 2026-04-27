@@ -255,7 +255,8 @@ class ClientesController {
                         o.numero_orden,
                         o.fecha_ingreso,
                         o.estado,
-                        COALESCE(o.total, 0) AS total,
+                        COALESCE(o.total, 0)          AS total,
+                        o.kilometraje_entrada,
                         (
                             SELECT s.descripcion
                             FROM servicios_orden s
@@ -276,6 +277,7 @@ class ClientesController {
                     $orden['id']    = (int) $orden['id'];
                     $orden['total'] = (float) $orden['total'];
                     $orden['servicio_principal'] = $orden['servicio_principal'] ?? '';
+                    $orden['kilometraje_entrada'] = $orden['kilometraje_entrada'] ?? null;
                 }
                 unset($orden);
 

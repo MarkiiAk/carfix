@@ -237,6 +237,7 @@ export interface OrdenResumen {
   servicio_principal: string;
   total: number;
   estado: string;
+  kilometraje_entrada: string | null;
 }
 
 export interface VehiculoConHistorial {
