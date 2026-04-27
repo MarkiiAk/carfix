@@ -251,6 +251,7 @@ export interface ResumenFinancieroCliente {
   total_gastado: number;
   total_servicios: number;
   total_refacciones: number;
+  total_iva: number;
 }
 
 export interface ClientePerfil {

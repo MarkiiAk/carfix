@@ -224,7 +224,8 @@ class ClientesController {
                     COALESCE(SUM(o.total), 0)                    AS total_gastado,
                     COALESCE(SUM(o.subtotal_servicios), 0)
                       + COALESCE(SUM(o.subtotal_mano_obra), 0)   AS total_servicios,
-                    COALESCE(SUM(o.subtotal_refacciones), 0)     AS total_refacciones
+                    COALESCE(SUM(o.subtotal_refacciones), 0)     AS total_refacciones,
+                    COALESCE(SUM(o.iva), 0)                      AS total_iva
                 FROM ordenes_servicio o
                 WHERE o.cliente_id = :cid
             ");
@@ -304,6 +305,7 @@ class ClientesController {
                     'total_gastado'    => (float) $financiero['total_gastado'],
                     'total_servicios'  => (float) $financiero['total_servicios'],
                     'total_refacciones'=> (float) $financiero['total_refacciones'],
+                    'total_iva'        => (float) $financiero['total_iva'],
                 ],
                 'vehiculos' => $vehiculosConHistorial,
             ]);

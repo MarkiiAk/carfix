@@ -211,24 +211,32 @@ export const ClientePerfil = () => {
 
 const ResumenFinancieroBloque = ({ resumen }: { resumen: ResumenFinancieroCliente }) => (
   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5 mb-6">
+    {/* Fila superior: total destacado */}
+    <div className="text-center mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+        {formatMoneda(resumen.total_gastado)}
+      </p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Total gastado</p>
+    </div>
+    {/* Fila inferior: desglose que suma al total */}
     <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700 text-center">
-      <div className="px-4">
-        <p className="text-xl font-bold text-gray-900 dark:text-white">
-          {formatMoneda(resumen.total_gastado)}
-        </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Total gastado</p>
-      </div>
-      <div className="px-4">
-        <p className="text-xl font-bold text-gray-900 dark:text-white">
+      <div className="px-3">
+        <p className="text-base font-semibold text-gray-800 dark:text-gray-200">
           {formatMoneda(resumen.total_servicios)}
         </p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Servicios y mano de obra</p>
       </div>
-      <div className="px-4">
-        <p className="text-xl font-bold text-gray-900 dark:text-white">
+      <div className="px-3">
+        <p className="text-base font-semibold text-gray-800 dark:text-gray-200">
           {formatMoneda(resumen.total_refacciones)}
         </p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Refacciones</p>
+      </div>
+      <div className="px-3">
+        <p className="text-base font-semibold text-gray-800 dark:text-gray-200">
+          {formatMoneda(resumen.total_iva)}
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">IVA incluido</p>
       </div>
     </div>
   </div>
