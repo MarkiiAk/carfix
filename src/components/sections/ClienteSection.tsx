@@ -211,14 +211,14 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
 
         {/* Banner cliente seleccionado */}
         {seleccionado && !disabled && (
-          <div className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-sag-50 dark:bg-sag-900/20 border border-sag-200 dark:border-sag-800">
-            <span className="text-sm text-sag-700 dark:text-sag-400 font-medium">
+          <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-2.5 rounded-lg bg-sag-50 dark:bg-sag-900/20 border border-sag-200 dark:border-sag-800">
+            <span className="text-sm text-sag-700 dark:text-sag-400 font-medium min-w-0 truncate">
               ✓ Datos pre-cargados de {seleccionado.nombre}
             </span>
             <button
               type="button"
               onClick={ignorarSugerencia}
-              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
             >
               Limpiar
             </button>
@@ -242,17 +242,17 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
                     : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-sag-300'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                       {v.marca} {v.modelo}{v.anio ? ` ${v.anio}` : ''}
                     </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5 truncate">
                       {v.placas}{v.color ? ` · ${v.color}` : ''}
                     </p>
                   </div>
                   {vehiculoSel?.id === v.id && (
-                    <span className="text-sag-600 dark:text-sag-400 text-sm font-medium">✓</span>
+                    <span className="text-sag-600 dark:text-sag-400 text-sm font-medium flex-shrink-0">✓</span>
                   )}
                 </div>
               </button>

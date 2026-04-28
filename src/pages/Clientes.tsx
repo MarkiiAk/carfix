@@ -137,19 +137,19 @@ export const Clientes = () => {
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Cliente
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Vehiculos
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Ultima visita
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Total visitas
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Accion
                   </th>
                 </tr>
@@ -201,29 +201,34 @@ const ClienteRow = ({ cliente, onVerPerfil }: ClienteRowProps) => {
   return (
     <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
       {/* Cliente */}
-      <td className="px-6 py-4">
+      <td className="px-4 sm:px-6 py-4">
         <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">{cliente.nombre}</p>
           {cliente.telefono && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{cliente.telefono}</p>
           )}
+          {/* Visitas — visible solo en mobile donde las columnas están ocultas */}
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 sm:hidden">
+            {cliente.total_visitas} {cliente.total_visitas === 1 ? 'visita' : 'visitas'}
+            {cliente.ultima_visita && ` · ${formatFecha(cliente.ultima_visita)}`}
+          </p>
         </div>
       </td>
 
       {/* Vehiculos */}
-      <td className="px-6 py-4">
+      <td className="hidden sm:table-cell px-6 py-4">
         {vehiculosLabel()}
       </td>
 
       {/* Ultima visita */}
-      <td className="px-6 py-4 whitespace-nowrap">
+      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
         <span className="text-sm text-gray-700 dark:text-gray-300">
           {formatFecha(cliente.ultima_visita)}
         </span>
       </td>
 
       {/* Total visitas */}
-      <td className="px-6 py-4 whitespace-nowrap">
+      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
         <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
           cliente.total_visitas > 0
             ? 'bg-sag-100 dark:bg-sag-900/30 text-sag-700 dark:text-sag-400'
@@ -234,7 +239,7 @@ const ClienteRow = ({ cliente, onVerPerfil }: ClienteRowProps) => {
       </td>
 
       {/* Accion */}
-      <td className="px-6 py-4 whitespace-nowrap">
+      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
         <button
           onClick={onVerPerfil}
           className="text-sm font-medium text-sag-600 dark:text-sag-400 hover:text-sag-700 dark:hover:text-sag-300 transition-colors"

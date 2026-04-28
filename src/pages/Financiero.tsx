@@ -115,25 +115,25 @@ const GraficaDia = ({ datos }: GraficaDiaProps) => {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={datos} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={180}>
+      <BarChart data={datos} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
         <XAxis
           dataKey="dia"
           tickFormatter={formatDiaCorto}
-          tick={{ fill: '#9CA3AF', fontSize: 11 }}
+          tick={{ fill: '#9CA3AF', fontSize: 10 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
           tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-          tick={{ fill: '#9CA3AF', fontSize: 11 }}
+          tick={{ fill: '#9CA3AF', fontSize: 10 }}
           axisLine={false}
           tickLine={false}
-          width={40}
+          width={36}
         />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(203,245,24,0.08)' }} />
-        <Bar dataKey="total" fill="#CBF518" radius={[3, 3, 0, 0]} maxBarSize={40} />
+        <Bar dataKey="total" fill="#CBF518" radius={[3, 3, 0, 0]} maxBarSize={36} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -327,13 +327,13 @@ const SelectorPeriodo = ({ tipo, offset, label, onTipoChange, onOffsetChange }: 
 
   return (
     <div className="flex flex-col items-center gap-3">
-      {/* Pills de tipo */}
-      <div className="flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+      {/* Pills de tipo — scroll horizontal en mobile si no caben */}
+      <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-x-auto max-w-full">
         {opciones.map((o) => (
           <button
             key={o.key}
             onClick={() => onTipoChange(o.key)}
-            className={`${pillBase} ${tipo === o.key ? pillActive : pillInactive}`}
+            className={`${pillBase} whitespace-nowrap flex-shrink-0 ${tipo === o.key ? pillActive : pillInactive}`}
           >
             {o.label}
           </button>
@@ -341,7 +341,7 @@ const SelectorPeriodo = ({ tipo, offset, label, onTipoChange, onOffsetChange }: 
       </div>
 
       {/* Navegación anterior/siguiente */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={() => onOffsetChange(1)}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -352,7 +352,7 @@ const SelectorPeriodo = ({ tipo, offset, label, onTipoChange, onOffsetChange }: 
           </svg>
         </button>
 
-        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[160px] text-center">
+        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[120px] sm:min-w-[160px] text-center">
           {label}
         </span>
 

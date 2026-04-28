@@ -132,19 +132,19 @@ export const ClientePerfil = () => {
           </div>
 
           {/* Acciones */}
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex flex-wrap gap-2 flex-shrink-0">
             <button
               onClick={() => navigate(`/nueva-orden?cliente_id=${cliente.id}`)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-sag-500 text-gray-900 hover:bg-sag-400 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-sag-500 text-gray-900 hover:bg-sag-400 transition-colors"
             >
-              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Nueva orden
             </button>
             <button
               disabled
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60"
             >
               Editar datos
             </button>
@@ -219,24 +219,24 @@ const ResumenFinancieroBloque = ({ resumen }: { resumen: ResumenFinancieroClient
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Total gastado</p>
     </div>
     {/* Fila inferior: desglose que suma al total */}
-    <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700 text-center">
-      <div className="px-3">
-        <p className="text-base font-semibold text-gray-800 dark:text-gray-200">
+    <div className="grid grid-cols-3 text-center">
+      <div className="px-2 sm:px-3 border-r border-gray-100 dark:border-gray-700">
+        <p className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">
           {formatMoneda(resumen.total_servicios)}
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Servicios y mano de obra</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 leading-tight">Servicios y mano de obra</p>
       </div>
-      <div className="px-3">
-        <p className="text-base font-semibold text-gray-800 dark:text-gray-200">
+      <div className="px-2 sm:px-3 border-r border-gray-100 dark:border-gray-700">
+        <p className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">
           {formatMoneda(resumen.total_refacciones)}
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Refacciones</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 leading-tight">Refacciones</p>
       </div>
-      <div className="px-3">
-        <p className="text-base font-semibold text-gray-800 dark:text-gray-200">
+      <div className="px-2 sm:px-3">
+        <p className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200">
           {formatMoneda(resumen.total_iva)}
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">IVA incluido</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 leading-tight">IVA incluido</p>
       </div>
     </div>
   </div>
@@ -383,7 +383,7 @@ const TimelineItem = ({ orden, onVer }: TimelineItemProps) => {
 
         <button
           onClick={onVer}
-          className="text-xs text-sag-600 dark:text-sag-400 opacity-0 group-hover:opacity-100 transition-opacity hover:underline font-medium"
+          className="text-xs text-sag-600 dark:text-sag-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:underline font-medium"
           title={`Ver orden ${orden.numero_orden}`}
         >
           Ver
