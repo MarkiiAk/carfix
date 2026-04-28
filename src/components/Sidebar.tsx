@@ -230,7 +230,7 @@ export const AppShell = ({ children, moduleName }: AppShellProps) => {
     window.location.pathname.includes('/staging/');
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex overflow-x-hidden">
       {/* Banner staging — solo visible en ambiente de pruebas */}
       {isStaging && (
         <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 bg-amber-500 text-black text-xs font-semibold py-2 px-4">
@@ -253,7 +253,7 @@ export const AppShell = ({ children, moduleName }: AppShellProps) => {
       <Sidebar alertasPendientes={alertasPendientes} />
 
       {/* Contenido principal — margen izquierdo para dejar espacio al sidebar en desktop */}
-      <div className={`flex-1 flex flex-col md:ml-[220px] ${isStaging ? 'pt-8' : ''}`}>
+      <div className={`flex-1 min-w-0 flex flex-col md:ml-[220px] ${isStaging ? 'pt-8' : ''}`}>
         {/* Top bar simplificado */}
         <header
           className={`sticky z-20 flex items-center justify-between px-4 sm:px-6 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${isStaging ? 'top-8' : 'top-0'}`}
