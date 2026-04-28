@@ -2,8 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { Login, Dashboard, NuevaOrden, DetalleOrden, Alertas } from './pages';
+import { AppShell } from './components/Sidebar';
 import { AlertasGuard } from './components/AlertasGuard';
+import { Login, Dashboard, NuevaOrden, DetalleOrden, Alertas } from './pages';
+import { Clientes } from './pages/Clientes';
+import { ClientePerfil } from './pages/ClientePerfil';
+import { Financiero } from './pages/Financiero';
 
 function App() {
   return (
@@ -11,15 +15,17 @@ function App() {
       <ToastProvider>
         <AuthProvider>
           <Routes>
-            {/* Ruta pública de login */}
+            {/* Ruta pública */}
             <Route path="/login" element={<Login />} />
 
-            {/* Rutas protegidas */}
+            {/* Rutas protegidas — todas dentro de AppShell */}
             <Route
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <AppShell moduleName="Ordenes">
+                    <Dashboard />
+                  </AppShell>
                 </ProtectedRoute>
               }
             />
@@ -28,7 +34,9 @@ function App() {
               path="/nueva-orden"
               element={
                 <ProtectedRoute>
-                  <NuevaOrden />
+                  <AppShell moduleName="Nueva Orden">
+                    <NuevaOrden />
+                  </AppShell>
                 </ProtectedRoute>
               }
             />
@@ -37,7 +45,9 @@ function App() {
               path="/orden/:id"
               element={
                 <ProtectedRoute>
-                  <DetalleOrden />
+                  <AppShell moduleName="Detalle de Orden">
+                    <DetalleOrden />
+                  </AppShell>
                 </ProtectedRoute>
               }
             />
@@ -47,16 +57,49 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AlertasGuard>
-                    <Alertas />
+                    <AppShell moduleName="Alertas WhatsApp">
+                      <Alertas />
+                    </AppShell>
                   </AlertasGuard>
                 </ProtectedRoute>
               }
             />
 
-            {/* Ruta por defecto - redirige al dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/clientes"
+              element={
+                <ProtectedRoute>
+                  <AppShell moduleName="Clientes y Vehiculos">
+                    <Clientes />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Ruta 404 - redirige al dashboard */}
+            <Route
+              path="/cliente/:id"
+              element={
+                <ProtectedRoute>
+                  <AppShell moduleName="Perfil de Cliente">
+                    <ClientePerfil />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/financiero"
+              element={
+                <ProtectedRoute>
+                  <AppShell moduleName="Ingresos">
+                    <Financiero />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Defaults */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </AuthProvider>

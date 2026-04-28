@@ -206,6 +206,7 @@ try {
 
             WHERE a.estado_whatsapp = 'borrador'
               AND a.estado = 'pendiente'
+              AND c.activo = 1
               AND c.telefono IS NOT NULL
               AND c.telefono != ''
               AND NOT EXISTS (
