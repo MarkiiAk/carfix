@@ -275,15 +275,12 @@ class TwilioConversationalBotRefactored
             } elseif (preg_match('/\b(no|2|gracias|nah)\b/', $respuestaLower)) {
                 return $this->procesarRespuestaNoSimplificado($alertaId, $messageSid);
             } else {
-                // Respuesta no reconocida
+                // Respuesta no reconocida: aplicar lógica de reintentos inválidos
                 $this->logger->logConversationFlow($alertaId, 'procesar_respuesta_inicial', 'respuesta_no_reconocida', [
                     'respuesta' => $respuesta
                 ]);
-                
-                return [
-                    'success' => true,
-                    'message' => 'Respuesta no reconocida, pero registrada'
-                ];
+
+                return $this->manejarRespuestaInvalida($alertaId, $messageSid, $respuesta);
             }
             
         } catch (Exception $e) {
@@ -578,7 +575,7 @@ class TwilioConversationalBotRefactored
             ]);
 
             if (!preg_match('/^\s*(\d+)\s*$/', trim($body), $matches)) {
-                return $this->enviarMensajeAyuda($alertaId);
+                return $this->manejarRespuestaInvalida($alertaId, $messageSid, $body);
             }
             $numero = (int)$matches[1];
 
@@ -591,7 +588,7 @@ class TwilioConversationalBotRefactored
             $maxOpcion = count($slots) + 1; // último número = "Otro horario"
 
             if ($numero < 1 || $numero > $maxOpcion) {
-                return $this->enviarMensajeAyuda($alertaId);
+                return $this->manejarRespuestaInvalida($alertaId, $messageSid, $body);
             }
 
             if ($numero === $maxOpcion) {
@@ -607,7 +604,7 @@ class TwilioConversationalBotRefactored
             }
 
             if (!$slotSeleccionado) {
-                return $this->enviarMensajeAyuda($alertaId);
+                return $this->manejarRespuestaInvalida($alertaId, $messageSid, $body);
             }
 
             return $this->procesarSeleccionSlot($alertaId, $slotSeleccionado['slot_id'], $messageSid);
@@ -719,27 +716,126 @@ class TwilioConversationalBotRefactored
     }
 
     /**
-     * Enviar mensaje de ayuda cuando la respuesta del cliente no es válida
+     * Manejar respuesta inválida del cliente (texto libre fuera de opciones).
+     *
+     * - 1er intento en el paso actual: envía mensaje de advertencia amable.
+     * - 2do intento en el paso actual: escala al admin y cierra el flujo automático.
+     * El contador se almacena en alertas_servicio.intentos_invalidos y se
+     * resetea automáticamente cada vez que el estado de la alerta avanza.
+     *
+     * @param int    $alertaId
+     * @param string $messageSid    SID del mensaje inválido que envió el cliente
+     * @param string $textoCliente  Texto literal que mandó el cliente (para el admin)
      */
-    private function enviarMensajeAyuda(int $alertaId): array
+    private function manejarRespuestaInvalida(int $alertaId, string $messageSid, string $textoCliente = ''): array
     {
         try {
             $alerta = $this->alertRepo->getAlertaById($alertaId);
             $telefonoLimpio = $this->phoneValidator->cleanPhoneNumber($alerta['cliente_telefono']);
-            $mensaje = $this->config->getConfig('mensaje_ayuda_respuesta')
-                ?? 'Por favor responde solo con el número de la opción que prefieres (ejemplo: 1, 2, 3). ¡Así podremos ayudarte! 😊';
-            $resultado = $this->messageSender->sendTextMessage($telefonoLimpio, $mensaje);
+
+            $intentos = $this->alertRepo->incrementarIntentosInvalidos($alertaId);
+
+            $this->logger->logConversationFlow($alertaId, 'manejar_respuesta_invalida', 'intento_registrado', [
+                'intentos' => $intentos,
+                'texto_cliente' => $textoCliente,
+            ]);
+
+            if ($intentos < 2) {
+                // --- Primer intento: advertencia amable ---
+                $mensajeWarning = $this->config->getConfig('mensaje_respuesta_invalida_warning')
+                    ?? "¡Casi! 😊 Por favor elige una de las opciones respondiendo con el número correspondiente.\n\nSi tienes alguna duda o necesitas atención personalizada, envía tu mensaje de nuevo y con gusto se lo haremos llegar al equipo de SAG Garage 🙌";
+
+                $res = $this->messageSender->sendTextMessage($telefonoLimpio, $mensajeWarning);
+                if ($res['success']) {
+                    $this->logger->logMessage(
+                        $alertaId, $res['message_sid'], 'outbound',
+                        $this->config->getWhatsappFrom(), "whatsapp:+52{$telefonoLimpio}",
+                        $mensajeWarning, 'text', 'warning_respuesta_invalida',
+                        $res['twilio_response'] ?? null
+                    );
+                }
+                return ['success' => true, 'accion' => 'warning_enviado', 'intentos' => $intentos];
+            }
+
+            // --- Segundo intento: escalar al admin ---
+            $this->alertRepo->resetearIntentosInvalidos($alertaId);
+
+            // Mensaje al cliente
+            $mensajeEscalada = $this->config->getConfig('mensaje_atencion_personalizada_cliente')
+                ?? "Lo siento, no pude entender tu mensaje 😊 Enseguida le aviso a alguien del equipo de SAG Garage para que te atiendan personalmente. ¡Gracias por tu paciencia! 🙌";
+
+            $resCliente = $this->messageSender->sendTextMessage($telefonoLimpio, $mensajeEscalada);
+            if ($resCliente['success']) {
+                $this->logger->logMessage(
+                    $alertaId, $resCliente['message_sid'], 'outbound',
+                    $this->config->getWhatsappFrom(), "whatsapp:+52{$telefonoLimpio}",
+                    $mensajeEscalada, 'text', 'escalada_atencion_personalizada',
+                    $resCliente['twilio_response'] ?? null
+                );
+            }
+
+            $this->alertRepo->updateEstadoWhatsApp($alertaId, 'requiere_contacto');
+            $this->alertRepo->markRequiereAtencion($alertaId, 'alta');
+
+            // Notificar al admin
+            $this->notificarAdminAtencionPersonalizada($alertaId, $alerta, $textoCliente);
+
+            return [
+                'success'     => true,
+                'accion'      => 'escalada_admin',
+                'message_sid' => $resCliente['message_sid'] ?? null,
+            ];
+
+        } catch (Exception $e) {
+            $this->logger->logError("Error en manejarRespuestaInvalida", $e, ['alerta_id' => $alertaId]);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Notificar al admin de SAG que un cliente envió un mensaje fuera del flujo y requiere atención.
+     * Usa template sag_respuesta_invalida_seguimiento (HXff262c7f59e1257ab4b4e8e666375255):
+     * {{1}}=nombre, {{2}}=teléfono, {{3}}=servicio, {{4}}=mensaje del cliente
+     */
+    private function notificarAdminAtencionPersonalizada(int $alertaId, array $alerta, string $mensajeCliente): void
+    {
+        try {
+            $adminPhone  = $this->config->getConfig('sag_admin_phone');
+            $templateSid = $this->config->getConfig('template_atencion_personalizada_sid');
+            if (empty($adminPhone) || empty($templateSid)) {
+                $this->logger->logConversationFlow($alertaId, 'notificar_admin_atencion', 'config_faltante');
+                return;
+            }
+
+            $tipoServicio = is_array($alerta['servicios_que_dispararon'])
+                ? implode(', ', $alerta['servicios_que_dispararon'])
+                : ($alerta['servicios_que_dispararon'] ?? 'Servicio general');
+
+            $telefonoCliente = $this->phoneValidator->cleanPhoneNumber($alerta['cliente_telefono'])
+                ?? $alerta['cliente_telefono'];
+
+            $resultado = $this->messageSender->sendTemplateMessage(
+                $adminPhone,
+                $templateSid,
+                [
+                    '1' => $alerta['cliente_nombre'],
+                    '2' => $telefonoCliente,
+                    '3' => $tipoServicio,
+                    '4' => $mensajeCliente ?: '(sin texto)',
+                ]
+            );
+
             if ($resultado['success']) {
                 $this->logger->logMessage(
                     $alertaId, $resultado['message_sid'], 'outbound',
-                    $this->config->getWhatsappFrom(), "whatsapp:+52{$telefonoLimpio}",
-                    $mensaje, 'text', 'ayuda_respuesta', $resultado['twilio_response'] ?? null
+                    $this->config->getWhatsappFrom(), "whatsapp:{$adminPhone}",
+                    "Notificación admin atención personalizada: {$alerta['cliente_nombre']}",
+                    'template', 'notificacion_admin_atencion_personalizada',
+                    $resultado['twilio_response'] ?? null
                 );
             }
-            return ['success' => true, 'accion' => 'ayuda_enviada'];
         } catch (Exception $e) {
-            $this->logger->logError("Error enviando mensaje de ayuda", $e, ['alerta_id' => $alertaId]);
-            return ['success' => false, 'error' => $e->getMessage()];
+            $this->logger->logError("Error notificando admin atención personalizada", $e, ['alerta_id' => $alertaId]);
         }
     }
 

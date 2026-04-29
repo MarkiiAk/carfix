@@ -152,8 +152,9 @@ class AlertRepository
                 throw new Exception("Base de datos no disponible");
             }
             
-            $sql = "UPDATE alertas_servicio 
-                    SET estado_whatsapp = ?, 
+            $sql = "UPDATE alertas_servicio
+                    SET estado_whatsapp = ?,
+                        intentos_invalidos = 0,
                         fecha_envio_whatsapp = CASE WHEN ? IS NOT NULL THEN NOW() ELSE fecha_envio_whatsapp END,
                         twilio_conversation_sid = COALESCE(?, twilio_conversation_sid),
                         ultima_actividad = NOW()
@@ -854,11 +855,51 @@ class AlertRepository
     }
 
     /**
+     * Incrementar el contador de respuestas inválidas en el paso actual.
+     * Devuelve el nuevo valor del contador.
+     */
+    public function incrementarIntentosInvalidos(int $alertaId): int
+    {
+        if (!$this->db) return 0;
+        try {
+            $stmt = $this->db->prepare(
+                "UPDATE alertas_servicio SET intentos_invalidos = intentos_invalidos + 1, ultima_actividad = NOW() WHERE id = ?"
+            );
+            $stmt->execute([$alertaId]);
+
+            $stmt2 = $this->db->prepare("SELECT intentos_invalidos FROM alertas_servicio WHERE id = ?");
+            $stmt2->execute([$alertaId]);
+            return (int)($stmt2->fetchColumn() ?? 0);
+        } catch (Exception $e) {
+            $this->logger->logError("Error incrementando intentos_invalidos", $e, ['alerta_id' => $alertaId]);
+            return 0;
+        }
+    }
+
+    /**
+     * Resetear el contador de respuestas inválidas a 0.
+     * Se llama cuando el bot escala al admin o cuando la conversación avanza de paso.
+     */
+    public function resetearIntentosInvalidos(int $alertaId): bool
+    {
+        if (!$this->db) return false;
+        try {
+            $stmt = $this->db->prepare(
+                "UPDATE alertas_servicio SET intentos_invalidos = 0 WHERE id = ?"
+            );
+            return $stmt->execute([$alertaId]);
+        } catch (Exception $e) {
+            $this->logger->logError("Error reseteando intentos_invalidos", $e, ['alerta_id' => $alertaId]);
+            return false;
+        }
+    }
+
+    /**
      * Obtener estadísticas de alertas
-     * 
+     *
      * @return array Estadísticas detalladas
      */
-    public function getEstadisticasAlertas(): array 
+    public function getEstadisticasAlertas(): array
     {
         try {
             if (!$this->db) {

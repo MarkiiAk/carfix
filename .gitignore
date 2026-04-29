@@ -50,6 +50,12 @@ backend-php/config/.env*
 /*.md
 !README.md
 
+# Prospecting — información interna de ventas, no pertenece al repo del producto
+/prospecting/
+
+# Error logs del backend
+backend-php/error_log
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
