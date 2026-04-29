@@ -291,11 +291,11 @@ export const NuevaOrden = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
+          {/* Información del Cliente — teléfono primero */}
+          <ClienteSection />
+
           {/* Información del Vehículo */}
           <VehiculoSection />
-
-          {/* Información del Cliente */}
-          <ClienteSection />
 
           {/* Inspección Visual del Vehículo */}
           <InspeccionSection />

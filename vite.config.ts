@@ -4,7 +4,9 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  base: mode === 'development' ? '/' : '/gestion/',
+  // En desarrollo el base path es '/'. En producción se lee VITE_BASE_PATH
+  // (permite /staging/ en staging y /gestion/ en producción sin tocar este archivo).
+  base: mode === 'development' ? '/' : (process.env.VITE_BASE_PATH ?? '/gestion/'),
   server: {
     port: 3000,
     open: true,

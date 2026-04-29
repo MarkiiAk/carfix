@@ -13,6 +13,7 @@ export interface ClienteInfo {
   telefono: string;
   email: string;
   domicilio: string;
+  cliente_id?: number | null;
 }
 
 export interface VehiculoInfo {
@@ -25,6 +26,7 @@ export interface VehiculoInfo {
   kilometrajeEntrada: string;
   kilometrajeSalida: string;
   nivelGasolina: number; // 0-100 (porcentaje)
+  vehiculo_id?: number | null;
 }
 
 export interface InspeccionVehiculo {
@@ -214,4 +216,108 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
+}
+
+// Tipos para el módulo de Clientes y Vehículos (Mes 1 Roadmap Q2 2026)
+
+export interface ClienteListItem {
+  id: number;
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  total_visitas: number;
+  ultima_visita: string | null;
+  total_vehiculos: number;
+}
+
+export interface OrdenResumen {
+  id: number;
+  numero_orden: string;
+  fecha_ingreso: string;
+  servicio_principal: string;
+  total: number;
+  estado: string;
+  kilometraje_entrada: string | null;
+}
+
+export interface VehiculoConHistorial {
+  id: number;
+  marca: string;
+  modelo: string;
+  anio: string | null;
+  placas: string;
+  niv: string | null;
+  ordenes: OrdenResumen[];
+}
+
+export interface ResumenFinancieroCliente {
+  total_gastado: number;
+  total_servicios: number;
+  total_refacciones: number;
+  total_iva: number;
+}
+
+export interface ClientePerfil {
+  cliente: {
+    id: number;
+    nombre: string;
+    telefono: string | null;
+    email: string | null;
+    total_visitas: number;
+    ultima_visita: string | null;
+  };
+  resumen_financiero: ResumenFinancieroCliente;
+  vehiculos: VehiculoConHistorial[];
+}
+
+// Tipos para el módulo de Ingresos (M2-005, Q2 2026)
+
+export interface ResumenPeriodo {
+  total_facturado: number;
+  ingresos_servicios: number;
+  ingresos_mano_obra: number;
+  ingresos_refacciones: number;
+  total_iva: number;
+  num_ordenes: number;
+}
+
+export interface MargenRefacciones {
+  vendido: number;
+  costo: number;
+  margen: number;
+  margen_pct: number;
+}
+
+export interface TopCliente {
+  id: number;
+  nombre: string;
+  telefono: string | null;
+  num_visitas: number;
+  total_gastado: number;
+}
+
+export interface TopServicio {
+  descripcion: string;
+  veces: number;
+  total_generado: number;
+}
+
+export interface IngresosDia {
+  dia: string;
+  total: number;
+}
+
+export interface ResumenFinancieroResponse {
+  success: boolean;
+  periodo: {
+    tipo: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+    label: string;
+  };
+  resumen: ResumenPeriodo;
+  refacciones: MargenRefacciones;
+  top_servicios: TopServicio[];
+  top_clientes: TopCliente[];
+  por_dia: IngresosDia[];
 }

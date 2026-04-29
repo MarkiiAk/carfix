@@ -156,44 +156,79 @@ try {
     // BUSCAR ALERTAS PENDIENTES DE ENVÍO
     // ===============================================
     
+    // Verificar cuántos mensajes se han enviado hoy (límite de 100/día)
+    logWhatsApp("Verificando límite diario de mensajes...");
+    $sqlContador = "SELECT COUNT(*) as enviados_hoy
+                    FROM conversaciones_whatsapp
+                    WHERE direction = 'outbound'
+                    AND DATE(created_at) = CURDATE()";
+    $stmtContador = $db->prepare($sqlContador);
+    $stmtContador->execute();
+    $rowContador = $stmtContador->fetch(PDO::FETCH_ASSOC);
+    $enviados_hoy = (int)($rowContador['enviados_hoy'] ?? 0);
+
+    $limite_diario = 100;
+    $disponibles_hoy = $limite_diario - $enviados_hoy;
+
+    logWhatsApp("Mensajes enviados hoy: {$enviados_hoy} / {$limite_diario}");
+
+    if ($disponibles_hoy <= 0) {
+        logWhatsApp("Límite diario de {$limite_diario} mensajes alcanzado. Sin envíos hoy.");
+        logWhatsApp("=== FIN ENVÍO WHATSAPP (LÍMITE DIARIO) ===");
+        exit(0);
+    }
+
+    logWhatsApp("Disponibles para enviar hoy: {$disponibles_hoy}");
+
+    // Buscar alertas pendientes aplicando filtro anti-spam de 30 días
     logWhatsApp("Buscando alertas pendientes de envío WhatsApp...");
-    
-    $sql = "SELECT 
+
+    $sql = "SELECT
                 a.id,
                 a.cliente_id,
                 a.vehiculo_id,
                 a.servicios_que_dispararon,
                 a.dias_desde_servicio,
                 a.fecha_generada,
-                
+
                 -- Info cliente
                 c.nombre as cliente_nombre,
                 c.telefono as cliente_telefono,
                 c.email as cliente_email,
-                
+
                 -- Info vehículo
                 CONCAT(v.marca, ' ', v.modelo, ' ', v.anio) as vehiculo_info,
                 v.placas as vehiculo_placas
-                
+
             FROM alertas_servicio a
             INNER JOIN clientes c ON a.cliente_id = c.id
             INNER JOIN vehiculos v ON a.vehiculo_id = v.id
-            
+
             WHERE a.estado_whatsapp = 'borrador'
               AND a.estado = 'pendiente'
-              AND c.telefono IS NOT NULL 
+              AND c.activo = 1
+              AND c.telefono IS NOT NULL
               AND c.telefono != ''
-              
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM conversaciones_whatsapp cw
+                  INNER JOIN alertas_servicio a2 ON cw.alerta_id = a2.id
+                  WHERE a2.cliente_id = a.cliente_id
+                  AND cw.direction = 'outbound'
+                  AND cw.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+              )
+
             ORDER BY a.fecha_generada ASC
-            LIMIT 50"; // Procesar máximo 50 por ejecución
-    
+            LIMIT :limite";
+
     $stmt = $db->prepare($sql);
+    $stmt->bindValue(':limite', $disponibles_hoy, PDO::PARAM_INT);
     $stmt->execute();
     $alertasPendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
     $totalAlertas = count($alertasPendientes);
-    logWhatsApp("Alertas encontradas para envío: {$totalAlertas}");
-    
+    logWhatsApp("Alertas encontradas para envío (anti-spam 30 días aplicado): {$totalAlertas}");
+
     if ($totalAlertas === 0) {
         logWhatsApp("No hay alertas pendientes de envío WhatsApp");
         logWhatsApp("=== FIN ENVÍO WHATSAPP (SIN ENVÍOS) ===");
@@ -212,6 +247,11 @@ try {
     logWhatsApp("Iniciando procesamiento de envíos...");
     
     foreach ($alertasPendientes as $alerta) {
+        if ($enviosExitosos >= $disponibles_hoy) {
+            logWhatsApp("Límite diario de {$limite_diario} mensajes alcanzado. Deteniendo envíos.");
+            break;
+        }
+
         try {
             logWhatsApp("--- Procesando Alerta ID: {$alerta['id']} ---");
             logWhatsApp("Cliente: {$alerta['cliente_nombre']} ({$alerta['cliente_telefono']})");
