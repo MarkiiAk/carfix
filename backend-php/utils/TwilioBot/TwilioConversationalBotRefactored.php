@@ -187,16 +187,23 @@ class TwilioConversationalBotRefactored
                 $this->alertRepo->updateEstadoWhatsApp($alertaId, 'enviado', $resultado['message_sid']);
                 
                 // Registrar mensaje usando el logger refactorizado
+                $serviciosStr = is_array($alerta['servicios_que_dispararon'])
+                    ? implode(', ', $alerta['servicios_que_dispararon'])
+                    : $alerta['servicios_que_dispararon'];
+                $variablesRecordatorio = [
+                    '1' => $alerta['cliente_nombre'],
+                    '2' => '6 meses',
+                    '3' => $serviciosStr,
+                ];
+                $textoRecordatorio = $this->reconstruirTextoTemplate('recordatorio_inicial', $variablesRecordatorio)
+                    ?? "Plantilla recordatorio: {$alerta['cliente_nombre']}, 6 meses, {$serviciosStr}";
                 $this->logger->logMessage(
                     $alertaId,
                     $resultado['message_sid'],
                     'outbound',
                     $this->config->getWhatsappFrom(),
                     "whatsapp:+52{$telefonoLimpio}",
-                    "Plantilla recordatorio: {$alerta['cliente_nombre']}, 6 meses, " . 
-                    (is_array($alerta['servicios_que_dispararon']) ? 
-                     implode(', ', $alerta['servicios_que_dispararon']) : 
-                     $alerta['servicios_que_dispararon']),
+                    $textoRecordatorio,
                     'template',
                     'recordatorio_inicial',
                     $resultado['twilio_response'] ?? null
@@ -354,13 +361,16 @@ class TwilioConversationalBotRefactored
                 $this->alertRepo->updateEstadoWhatsApp($alertaId, 'esperando_fecha', $resultado['message_sid']);
                 
                 // Registrar mensaje
+                $variablesHorarios = $this->formatearVariablesHorarios($alerta['cliente_nombre'], $horarios);
+                $textoHorarios = $this->reconstruirTextoTemplate('plantilla_horarios', $variablesHorarios)
+                    ?? "Plantilla horarios: {$alerta['cliente_nombre']}";
                 $this->logger->logMessage(
                     $alertaId,
                     $resultado['message_sid'],
                     'outbound',
                     $this->config->getWhatsappFrom(),
                     "whatsapp:+52{$telefonoLimpio}",
-                    "Plantilla horarios: {$alerta['cliente_nombre']}",
+                    $textoHorarios,
                     'template',
                     'plantilla_horarios',
                     $resultado['twilio_response'] ?? null
@@ -826,10 +836,18 @@ class TwilioConversationalBotRefactored
             );
 
             if ($resultado['success']) {
+                $variablesAtencion = [
+                    '1' => $alerta['cliente_nombre'],
+                    '2' => $telefonoCliente,
+                    '3' => $tipoServicio,
+                    '4' => $mensajeCliente ?: '(sin texto)',
+                ];
+                $textoAtencion = $this->reconstruirTextoTemplate('notificacion_admin_atencion_personalizada', $variablesAtencion)
+                    ?? "Notificación admin atención personalizada: {$alerta['cliente_nombre']}";
                 $this->logger->logMessage(
                     $alertaId, $resultado['message_sid'], 'outbound',
                     $this->config->getWhatsappFrom(), "whatsapp:{$adminPhone}",
-                    "Notificación admin atención personalizada: {$alerta['cliente_nombre']}",
+                    $textoAtencion,
                     'template', 'notificacion_admin_atencion_personalizada',
                     $resultado['twilio_response'] ?? null
                 );
@@ -908,10 +926,18 @@ class TwilioConversationalBotRefactored
             );
 
             if ($resultado['success']) {
+                $variablesOtroHorario = [
+                    '1' => $alerta['cliente_nombre'],
+                    '2' => $telefonoCliente,
+                    '3' => $alerta['vehiculo_info'] ?? 'Sin vehículo',
+                    '4' => $tipoServicio,
+                ];
+                $textoOtroHorario = $this->reconstruirTextoTemplate('notificacion_admin_otro_horario', $variablesOtroHorario)
+                    ?? "Notificación admin otro horario: {$alerta['cliente_nombre']}";
                 $this->logger->logMessage(
                     $alertaId, $resultado['message_sid'], 'outbound',
                     $this->config->getWhatsappFrom(), "whatsapp:{$adminPhone}",
-                    "Notificación admin otro horario: {$alerta['cliente_nombre']}",
+                    $textoOtroHorario,
                     'template', 'notificacion_admin_otro_horario',
                     $resultado['twilio_response'] ?? null
                 );
@@ -948,10 +974,20 @@ class TwilioConversationalBotRefactored
             );
 
             if ($resultado['success']) {
+                $variablesPreAgenda = [
+                    '1' => $alerta['cliente_nombre'],
+                    '2' => $slot['fecha_display'],
+                    '3' => $slot['hora_display'],
+                    '4' => $alerta['vehiculo_info'] ?? 'Sin vehículo',
+                    '5' => $tipoServicio,
+                    '6' => $alerta['cliente_telefono'],
+                ];
+                $textoPreAgenda = $this->reconstruirTextoTemplate('notificacion_admin_pre_agenda', $variablesPreAgenda)
+                    ?? "Notificación admin pre-agenda: {$alerta['cliente_nombre']}";
                 $this->logger->logMessage(
                     $alertaId, $resultado['message_sid'], 'outbound',
                     $this->config->getWhatsappFrom(), "whatsapp:{$adminPhone}",
-                    "Notificación admin pre-agenda: {$alerta['cliente_nombre']}",
+                    $textoPreAgenda,
                     'template', 'notificacion_admin_pre_agenda', $resultado['twilio_response'] ?? null
                 );
             }
@@ -1060,6 +1096,76 @@ class TwilioConversationalBotRefactored
             $this->logger->logError("Error en procesarConfirmacionSAG", $e, ['alerta_id' => $alertaId]);
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    // ============================================================================
+    // UTILIDAD INTERNA — Reconstrucción de texto de templates para logging
+    // ============================================================================
+
+    /**
+     * Reconstruir el texto real de un template interpolando sus variables.
+     *
+     * El cuerpo de cada plantilla aprobada se define aquí como constante local,
+     * ya que los cuerpos viven en Twilio/Meta y no se almacenan en la BD.
+     * Si el tipo no se reconoce, devuelve null y el caller usa el fallback
+     * descriptivo que ya tenía (no se rompe nada).
+     *
+     * @param string $tipoTemplate  Identificador lógico del template (ver casos abajo)
+     * @param array  $variables     Array asociativo con las variables del template
+     * @return string|null          Texto interpolado, o null si el tipo es desconocido
+     */
+    private function reconstruirTextoTemplate(string $tipoTemplate, array $variables): ?string
+    {
+        switch ($tipoTemplate) {
+
+            case 'recordatorio_inicial':
+                // sag_garage_recordatorio — {{1}}=nombre, {{2}}=tiempo, {{3}}=servicio
+                $cuerpo = "Hola {{1}}, notamos que hace {{2}} nos visitaste para un {{3}}. "
+                        . "Ya es momento de realizarlo nuevamente. ¿Te gustaría agendar?";
+                break;
+
+            case 'plantilla_horarios':
+                // sag_garage_agendar (HX183daf481204160ef29a837ce1b22ecb)
+                // {{1}}=nombre, {{2}}-{{9}}=slots individuales, {{10}}="9. Otro horario"
+                $cuerpo = "¡Tenemos opciones para ti, {{1}}!\n\n"
+                        . "Nos encantaría ayudarte a agendar el próximo servicio de tu vehículo.\n\n"
+                        . "Estos son los horarios disponibles:\n"
+                        . "{{2}}\n{{3}}\n{{4}}\n{{5}}\n{{6}}\n{{7}}\n{{8}}\n{{9}}\n{{10}}\n\n"
+                        . "Contesta con el NÚMERO de opción que mejor te funcione.";
+                break;
+
+            case 'notificacion_admin_pre_agenda':
+                // sag_confirma_cita — {{1}}=nombre, {{2}}=fecha, {{3}}=hora,
+                //                     {{4}}=vehículo, {{5}}=servicio, {{6}}=teléfono
+                $cuerpo = "Nueva cita pre-agendada:\n\n"
+                        . "Cliente: {{1}}\nFecha: {{2}}\nHora: {{3}}\n"
+                        . "Vehículo: {{4}}\nServicio: {{5}}\nTeléfono: {{6}}";
+                break;
+
+            case 'notificacion_admin_otro_horario':
+                // template_otro_horario_sid — {{1}}=nombre, {{2}}=teléfono,
+                //                             {{3}}=vehículo, {{4}}=servicio
+                $cuerpo = "Cliente solicita otro horario:\n\n"
+                        . "Nombre: {{1}}\nTeléfono: {{2}}\nVehículo: {{3}}\nServicio: {{4}}";
+                break;
+
+            case 'notificacion_admin_atencion_personalizada':
+                // template_atencion_personalizada_sid (HXff262c7f59e1257ab4b4e8e666375255)
+                // {{1}}=nombre, {{2}}=teléfono, {{3}}=servicio, {{4}}=mensaje del cliente
+                $cuerpo = "Cliente requiere atención personalizada:\n\n"
+                        . "Nombre: {{1}}\nTeléfono: {{2}}\nServicio: {{3}}\nMensaje: {{4}}";
+                break;
+
+            default:
+                return null;
+        }
+
+        // Interpolar las variables {{N}} con sus valores
+        foreach ($variables as $key => $value) {
+            $cuerpo = str_replace("{{{{{$key}}}}}", (string)$value, $cuerpo);
+        }
+
+        return $cuerpo;
     }
 
     /**
