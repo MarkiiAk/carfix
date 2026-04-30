@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon, ArrowLeft } from 'lucide-react';
+import { Sun, Moon, ArrowLeft, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { useAlertas } from '../hooks/useAlertas';
-import { EstadisticasAlertas } from '../components/alertas';
+import { EstadisticasAlertas, VisorConversacion } from '../components/alertas';
 import { Button } from '../components/ui';
 import type { Alerta } from '../services/alertasAutoService';
 import { NotificacionesDropdown } from '../components/NotificacionesDropdown';
@@ -35,6 +35,9 @@ export const Alertas: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  // Estado del visor de conversaciones
+  const [conversacionAbierta, setConversacionAbierta] = useState<{ alertaId: number; nombreCliente: string } | null>(null);
 
   // Aplicar el tema al documento
   useEffect(() => {
@@ -499,7 +502,7 @@ export const Alertas: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
                           {alerta.estado === 'pendiente' && (
                             <Button
                               variant="outline"
@@ -509,6 +512,13 @@ export const Alertas: React.FC = () => {
                               Marcar leída
                             </Button>
                           )}
+                          <button
+                            onClick={() => setConversacionAbierta({ alertaId: alerta.id, nombreCliente: alerta.cliente_nombre })}
+                            title="Ver conversación WhatsApp"
+                            className="p-1.5 rounded-lg text-[#075E54] hover:bg-[#075E54]/10 dark:text-[#25D366] dark:hover:bg-[#25D366]/10 transition-colors"
+                          >
+                            <MessageSquare size={17} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -566,6 +576,15 @@ export const Alertas: React.FC = () => {
           )}
         </div>
       </main>
+
+      {/* Modal visor de conversación WhatsApp */}
+      {conversacionAbierta && (
+        <VisorConversacion
+          alertaId={conversacionAbierta.alertaId}
+          nombreCliente={conversacionAbierta.nombreCliente}
+          onClose={() => setConversacionAbierta(null)}
+        />
+      )}
     </div>
   );
 };

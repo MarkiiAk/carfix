@@ -175,6 +175,12 @@ try {
         $result = $controller->marcarComoLeida($matches[1], $userData);
         echo json_encode($result);
     }
+    elseif (preg_match('#^alertas/([0-9]+)/conversacion$#', $path, $matches) && $request_method === 'GET') {
+        $userData = requireAuth();
+        $controller = new AlertasController($db);
+        $result = $controller->obtenerConversacion($matches[1], $userData);
+        echo json_encode($result);
+    }
     elseif ($path === 'alertas/generar' && $request_method === 'GET') {
         $userData = requireAuth();
         $controller = new AlertasController($db);
