@@ -270,6 +270,25 @@ export interface ClientePerfil {
   vehiculos: VehiculoConHistorial[];
 }
 
+// Tipos para el visor de conversaciones WhatsApp (M2-002)
+
+export type DireccionMensaje = 'inbound' | 'outbound';
+
+export interface MensajeConversacion {
+  id: number;
+  direction: DireccionMensaje;
+  mensaje: string | null;
+  estado: string | null;
+  conversation_step: string;
+  created_at: string;
+}
+
+export interface ConversacionResponse {
+  success: boolean;
+  mensajes: MensajeConversacion[];
+  error?: string;
+}
+
 // Tipos para el módulo de Ingresos (M2-005, Q2 2026)
 
 export interface ResumenPeriodo {
