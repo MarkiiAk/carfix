@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, X, Package } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faXmark, faBoxOpen } from '@fortawesome/free-solid-svg-icons';
 import { Card, Input, Button } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 
@@ -60,7 +61,7 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
               className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
             >
               <div className="flex items-center gap-3 flex-1">
-                <Package className="text-sag-600" size={20} />
+                <FontAwesomeIcon icon={faBoxOpen} className="text-sag-600" style={{ width: 20, height: 20 }} />
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-gray-100">
                     {refaccion.nombre}
@@ -77,7 +78,7 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
               <Button
                 variant="danger"
                 onClick={() => deleteRefaccion(refaccion.id)}
-                icon={<X size={16} />}
+                icon={<FontAwesomeIcon icon={faXmark} style={{ width: 16, height: 16 }} />}
                 className="!p-2"
                 disabled={disabled}
               >
@@ -102,7 +103,7 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
                      transition-all duration-200
                      disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-900"
         >
-          <Plus size={20} />
+          <FontAwesomeIcon icon={faPlus} style={{ width: 20, height: 20 }} />
           <span>Agregar Refacción</span>
         </button>
       )}
@@ -187,7 +188,7 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
             <Button
               variant="success"
               onClick={handleAddRefaccion}
-              icon={<Plus size={20} />}
+              icon={<FontAwesomeIcon icon={faPlus} style={{ width: 20, height: 20 }} />}
               disabled={
                 disabled ||
                 !nombre ||

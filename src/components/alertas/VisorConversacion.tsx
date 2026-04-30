@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MessageCircle, Loader2 } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXmark, faCommentDots, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import api from '../../services/api';
 import type { MensajeConversacion } from '../../types';
 
@@ -102,7 +103,7 @@ export const VisorConversacion: React.FC<Props> = ({ alertaId, nombreCliente, on
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 bg-[#075E54] text-white flex-shrink-0">
           <div className="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center flex-shrink-0">
-            <MessageCircle size={18} className="text-white" />
+            <FontAwesomeIcon icon={faCommentDots} style={{ width: 18, height: 18 }} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm leading-tight truncate">{nombreCliente}</p>
@@ -113,7 +114,7 @@ export const VisorConversacion: React.FC<Props> = ({ alertaId, nombreCliente, on
             className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
             aria-label="Cerrar conversación"
           >
-            <X size={18} />
+            <FontAwesomeIcon icon={faXmark} style={{ width: 18, height: 18 }} />
           </button>
         </div>
 
@@ -124,21 +125,21 @@ export const VisorConversacion: React.FC<Props> = ({ alertaId, nombreCliente, on
         >
           {cargando && (
             <div className="flex flex-col items-center justify-center h-32 gap-2">
-              <Loader2 size={28} className="animate-spin text-[#075E54]" />
+              <FontAwesomeIcon icon={faSpinner} style={{ width: 28, height: 28 }} className="animate-spin text-[#075E54]" />
               <p className="text-sm text-gray-600">Cargando conversación...</p>
             </div>
           )}
 
           {!cargando && error && (
             <div className="flex flex-col items-center justify-center h-32 gap-2 text-center px-4">
-              <MessageCircle size={28} className="text-gray-400" />
+              <FontAwesomeIcon icon={faCommentDots} style={{ width: 28, height: 28 }} className="text-gray-400" />
               <p className="text-sm text-gray-600">{error}</p>
             </div>
           )}
 
           {!cargando && !error && mensajes.length === 0 && (
             <div className="flex flex-col items-center justify-center h-32 gap-2 text-center px-4">
-              <MessageCircle size={28} className="text-gray-400" />
+              <FontAwesomeIcon icon={faCommentDots} style={{ width: 28, height: 28 }} className="text-gray-400" />
               <p className="text-sm text-gray-600">Sin conversación registrada</p>
               <p className="text-xs text-gray-400">Aún no se han enviado mensajes para esta alerta</p>
             </div>

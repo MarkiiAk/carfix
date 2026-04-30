@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Clock, 
-  MessageCircle, 
-  Calendar, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle, 
-  Send,
-  Phone,
-  User,
-  RefreshCw,
-  Activity
-} from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faClock,
+  faCommentDots,
+  faCircleCheck,
+  faCircleXmark,
+  faCircleExclamation,
+  faPaperPlane,
+  faPhone,
+  faUser,
+  faRotate,
+  faChartLine
+} from '@fortawesome/free-solid-svg-icons';
+import { faCalendar } from '@fortawesome/free-regular-svg-icons';
 import './AlertasWhatsApp.css';
 
 interface Alerta {
@@ -81,19 +82,19 @@ const AlertasWhatsAppPanel: React.FC = () => {
     switch (estado) {
       case 'enviado':
       case 'esperando_respuesta':
-        return <Send className="h-4 w-4" />;
+        return <FontAwesomeIcon icon={faPaperPlane} className="h-4 w-4" />;
       case 'esperando_fecha':
-        return <Calendar className="h-4 w-4" />;
+        return <FontAwesomeIcon icon={faCalendar} className="h-4 w-4" />;
       case 'pre_agendado':
-        return <Clock className="h-4 w-4" />;
+        return <FontAwesomeIcon icon={faClock} className="h-4 w-4" />;
       case 'confirmado':
-        return <CheckCircle className="h-4 w-4" />;
+        return <FontAwesomeIcon icon={faCircleCheck} className="h-4 w-4" />;
       case 'rechazado':
-        return <XCircle className="h-4 w-4" />;
+        return <FontAwesomeIcon icon={faCircleXmark} className="h-4 w-4" />;
       case 'requiere_contacto':
-        return <AlertCircle className="h-4 w-4" />;
+        return <FontAwesomeIcon icon={faCircleExclamation} className="h-4 w-4" />;
       default:
-        return <MessageCircle className="h-4 w-4" />;
+        return <FontAwesomeIcon icon={faCommentDots} className="h-4 w-4" />;
     }
   };
 
@@ -136,7 +137,7 @@ const AlertasWhatsAppPanel: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
+        <FontAwesomeIcon icon={faRotate} className="h-8 w-8 animate-spin text-blue-500" />
         <span className="ml-2">Cargando alertas...</span>
       </div>
     );
@@ -191,7 +192,7 @@ const AlertasWhatsAppPanel: React.FC = () => {
             }}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <FontAwesomeIcon icon={faRotate} className="h-4 w-4 mr-2" />
             Actualizar
           </button>
         </div>
@@ -200,7 +201,7 @@ const AlertasWhatsAppPanel: React.FC = () => {
         <div className="estadisticas-grid mb-6">
           <div className="estadistica-card">
             <div className="flex items-center justify-center mb-2">
-              <Activity className="h-6 w-6 text-blue-500" />
+              <FontAwesomeIcon icon={faChartLine} className="h-6 w-6 text-blue-500" />
             </div>
             <div className="text-2xl font-bold text-gray-900">{estadisticasResumen.total}</div>
             <div className="text-sm text-gray-600">Total Alertas</div>
@@ -208,7 +209,7 @@ const AlertasWhatsAppPanel: React.FC = () => {
           
           <div className="estadistica-card">
             <div className="flex items-center justify-center mb-2">
-              <Send className="h-6 w-6 text-blue-500" />
+              <FontAwesomeIcon icon={faPaperPlane} className="h-6 w-6 text-blue-500" />
             </div>
             <div className="text-2xl font-bold text-blue-600">{estadisticasResumen.enviados}</div>
             <div className="text-sm text-gray-600">Mensajes Enviados</div>
@@ -216,7 +217,7 @@ const AlertasWhatsAppPanel: React.FC = () => {
           
           <div className="estadistica-card">
             <div className="flex items-center justify-center mb-2">
-              <MessageCircle className="h-6 w-6 text-green-500" />
+              <FontAwesomeIcon icon={faCommentDots} className="h-6 w-6 text-green-500" />
             </div>
             <div className="text-2xl font-bold text-green-600">{estadisticasResumen.activos}</div>
             <div className="text-sm text-gray-600">Conversaciones Activas</div>
@@ -224,7 +225,7 @@ const AlertasWhatsAppPanel: React.FC = () => {
           
           <div className="estadistica-card">
             <div className="flex items-center justify-center mb-2">
-              <CheckCircle className="h-6 w-6 text-green-500" />
+              <FontAwesomeIcon icon={faCircleCheck} className="h-6 w-6 text-green-500" />
             </div>
             <div className="text-2xl font-bold text-green-600">{estadisticasResumen.completados}</div>
             <div className="text-sm text-gray-600">Citas Confirmadas</div>
@@ -232,7 +233,7 @@ const AlertasWhatsAppPanel: React.FC = () => {
           
           <div className="estadistica-card">
             <div className="flex items-center justify-center mb-2">
-              <XCircle className="h-6 w-6 text-red-500" />
+              <FontAwesomeIcon icon={faCircleXmark} className="h-6 w-6 text-red-500" />
             </div>
             <div className="text-2xl font-bold text-red-600">{estadisticasResumen.perdidos}</div>
             <div className="text-sm text-gray-600">No Contactados</div>
@@ -287,7 +288,7 @@ const AlertasWhatsAppPanel: React.FC = () => {
       <div className="space-y-4">
         {alertasFiltradas.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <FontAwesomeIcon icon={faCommentDots} className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">No hay alertas que coincidan con el filtro seleccionado.</p>
           </div>
         ) : (
@@ -298,11 +299,11 @@ const AlertasWhatsAppPanel: React.FC = () => {
                   {/* Información del cliente */}
                   <div className="flex items-center space-x-4 mb-3">
                     <div className="flex items-center">
-                      <User className="h-4 w-4 text-gray-500 mr-2" />
+                      <FontAwesomeIcon icon={faUser} className="h-4 w-4 text-gray-500 mr-2" />
                       <span className="font-medium text-gray-900">{alerta.cliente_nombre}</span>
                     </div>
                     <div className="flex items-center">
-                      <Phone className="h-4 w-4 text-gray-500 mr-2" />
+                      <FontAwesomeIcon icon={faPhone} className="h-4 w-4 text-gray-500 mr-2" />
                       <span className="text-gray-600">{alerta.cliente_telefono}</span>
                     </div>
                     <div className="flex items-center">
@@ -362,7 +363,7 @@ const AlertasWhatsAppPanel: React.FC = () => {
                   {alerta.requiere_atencion && (
                     <div className="mt-2">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        <AlertCircle className="w-3 h-3 mr-1" />
+                        <FontAwesomeIcon icon={faCircleExclamation} className="w-3 h-3 mr-1" />
                         Requiere Atención
                       </span>
                     </div>

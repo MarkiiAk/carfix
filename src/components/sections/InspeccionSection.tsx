@@ -1,5 +1,6 @@
 import React from 'react';
-import { ClipboardCheck, X, AlertTriangle } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faClipboardCheck, faXmark, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { Card, Input, Button } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 import { DanoVehiculo } from '../../types';
@@ -191,7 +192,7 @@ export const InspeccionSection: React.FC<InspeccionSectionProps> = ({ disabled =
         {/* Exteriores */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-            <ClipboardCheck size={20} className="text-sag-600" />
+            <FontAwesomeIcon icon={faClipboardCheck} style={{ width: 20, height: 20 }} className="text-sag-600" />
             Accesorios Exteriores
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -256,7 +257,7 @@ export const InspeccionSection: React.FC<InspeccionSectionProps> = ({ disabled =
         {/* Interiores */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-            <ClipboardCheck size={20} className="text-sag-600" />
+            <FontAwesomeIcon icon={faClipboardCheck} style={{ width: 20, height: 20 }} className="text-sag-600" />
             Accesorios Interiores
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -321,7 +322,7 @@ export const InspeccionSection: React.FC<InspeccionSectionProps> = ({ disabled =
         {/* Daños adicionales */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-            <AlertTriangle size={20} className="text-amber-600" />
+            <FontAwesomeIcon icon={faTriangleExclamation} style={{ width: 20, height: 20 }} className="text-amber-600" />
             Daños o Detalles Adicionales
           </h3>
           
@@ -333,7 +334,7 @@ export const InspeccionSection: React.FC<InspeccionSectionProps> = ({ disabled =
                   key={dano.id}
                   className="flex items-start gap-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
                 >
-                  <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                  <FontAwesomeIcon icon={faTriangleExclamation} style={{ width: 20, height: 20 }} className="text-amber-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-semibold text-gray-900 dark:text-gray-100">
@@ -355,7 +356,7 @@ export const InspeccionSection: React.FC<InspeccionSectionProps> = ({ disabled =
                     className="flex-shrink-0 p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Eliminar daño"
                   >
-                    <X size={18} />
+                    <FontAwesomeIcon icon={faXmark} style={{ width: 18, height: 18 }} />
                   </button>
                 </div>
               ))}

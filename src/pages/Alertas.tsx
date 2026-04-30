@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon, ArrowLeft, MessageSquare } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSun, faMoon, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { useAlertas } from '../hooks/useAlertas';
@@ -203,7 +205,7 @@ export const Alertas: React.FC = () => {
                   className="!p-2 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
                   title="Regresar al Dashboard"
                 >
-                  <ArrowLeft size={20} />
+                  <FontAwesomeIcon icon={faArrowLeft} style={{ width: 20, height: 20 }} />
                 </Button>
 
                 <div className="hidden sm:flex items-center gap-2 text-sm">
@@ -217,19 +219,19 @@ export const Alertas: React.FC = () => {
                     <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.rol}</p>
                   </div>
                 </div>
-                
-              <NotificacionesDropdown 
+
+              <NotificacionesDropdown
                 alertas={alertasPendientes}
                 loading={cargando}
                 onRefresh={() => cargarAlertas()}
               />
-                
+
                 <Button
                   onClick={toggleTheme}
                   className="!p-2 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
                   title={`Cambiar a modo ${themeMode === 'light' ? 'oscuro' : 'claro'}`}
                 >
-                  {themeMode === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                  {themeMode === 'light' ? <FontAwesomeIcon icon={faMoon} style={{ width: 20, height: 20 }} /> : <FontAwesomeIcon icon={faSun} style={{ width: 20, height: 20 }} />}
                 </Button>
 
                 <Button
@@ -284,7 +286,7 @@ export const Alertas: React.FC = () => {
                 className="!p-2 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
                 title="Regresar al Dashboard"
               >
-                <ArrowLeft size={20} />
+                <FontAwesomeIcon icon={faArrowLeft} style={{ width: 20, height: 20 }} />
               </Button>
 
               <div className="hidden sm:flex items-center gap-2 text-sm">
@@ -298,19 +300,19 @@ export const Alertas: React.FC = () => {
                   <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.rol}</p>
                 </div>
               </div>
-              
-            <NotificacionesDropdown 
+
+            <NotificacionesDropdown
               alertas={alertasPendientes}
               loading={cargando}
               onRefresh={() => cargarAlertas()}
             />
-              
+
               <Button
                 onClick={toggleTheme}
                 className="!p-2 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
                 title={`Cambiar a modo ${themeMode === 'light' ? 'oscuro' : 'claro'}`}
               >
-                {themeMode === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                {themeMode === 'light' ? <FontAwesomeIcon icon={faMoon} style={{ width: 20, height: 20 }} /> : <FontAwesomeIcon icon={faSun} style={{ width: 20, height: 20 }} />}
               </Button>
 
               <Button
@@ -517,7 +519,7 @@ export const Alertas: React.FC = () => {
                             title="Ver conversación WhatsApp"
                             className="p-1.5 rounded-lg text-[#075E54] hover:bg-[#075E54]/10 dark:text-[#25D366] dark:hover:bg-[#25D366]/10 transition-colors"
                           >
-                            <MessageSquare size={17} />
+                            <FontAwesomeIcon icon={faWhatsapp} style={{ width: 17, height: 17 }} />
                           </button>
                         </div>
                       </td>

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Car, Gauge } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCar, faGauge } from '@fortawesome/free-solid-svg-icons';
 import { Card, FormField, FuelGauge } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 
@@ -29,7 +30,7 @@ export const VehiculoSection: React.FC<VehiculoSectionProps> = ({ disabled = fal
         {/* Datos básicos del vehículo */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-            <Car size={20} className="text-sag-600" />
+            <FontAwesomeIcon icon={faCar} style={{ width: 20, height: 20 }} className="text-sag-600" />
             Datos del Vehículo
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -117,7 +118,7 @@ export const VehiculoSection: React.FC<VehiculoSectionProps> = ({ disabled = fal
         {/* Kilometraje y fechas */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-            <Gauge size={20} className="text-sag-600" />
+            <FontAwesomeIcon icon={faGauge} style={{ width: 20, height: 20 }} className="text-sag-600" />
             Kilometraje y Fechas
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -234,7 +235,7 @@ export const VehiculoSection: React.FC<VehiculoSectionProps> = ({ disabled = fal
         {/* Nivel de gasolina */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-            <Gauge size={20} className="text-sag-600" />
+            <FontAwesomeIcon icon={faGauge} style={{ width: 20, height: 20 }} className="text-sag-600" />
             Estado de Gasolina
           </h3>
           <div className="max-w-md">

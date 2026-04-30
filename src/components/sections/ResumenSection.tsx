@@ -1,5 +1,6 @@
 import React from 'react';
-import { DollarSign, TrendingUp, Wallet } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDollarSign, faArrowTrendUp, faWallet } from '@fortawesome/free-solid-svg-icons';
 import { Card, Input } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 
@@ -79,7 +80,7 @@ export const ResumenSection: React.FC = () => {
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
-                <DollarSign className="text-blue-600 dark:text-blue-400" size={20} />
+                <FontAwesomeIcon icon={faDollarSign} className="text-blue-600 dark:text-blue-400" style={{ width: 20, height: 20 }} />
               </div>
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 Servicios
@@ -93,7 +94,7 @@ export const ResumenSection: React.FC = () => {
           <div className="p-4 bg-sag-50 dark:bg-sag-900/20 rounded-lg border border-sag-200 dark:border-sag-800">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-sag-100 dark:bg-sag-900/40 rounded-lg">
-                <TrendingUp className="text-sag-600 dark:text-sag-400" size={20} />
+                <FontAwesomeIcon icon={faArrowTrendUp} className="text-sag-600 dark:text-sag-400" style={{ width: 20, height: 20 }} />
               </div>
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 Refacciones
@@ -107,7 +108,7 @@ export const ResumenSection: React.FC = () => {
           <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-purple-100 dark:bg-purple-900/40 rounded-lg">
-                <Wallet className="text-purple-600 dark:text-purple-400" size={20} />
+                <FontAwesomeIcon icon={faWallet} className="text-purple-600 dark:text-purple-400" style={{ width: 20, height: 20 }} />
               </div>
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 Mano de Obra

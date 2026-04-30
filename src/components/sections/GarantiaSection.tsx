@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Shield, ChevronDown, ChevronUp, AlertCircle, FileText } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faShield, faChevronDown, faChevronUp, faCircleExclamation, faFileLines } from '@fortawesome/free-solid-svg-icons';
 import { Card } from '../ui';
 import { POLIZA_GARANTIA } from '../../constants/garantia';
 
@@ -17,7 +18,7 @@ export const GarantiaSection: React.FC = () => {
         <div className="p-6 rounded-xl border-2 bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800">
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-full bg-primary-100 dark:bg-primary-900/40">
-              <FileText className="text-sag-600 dark:text-sag-400" size={28} />
+              <FontAwesomeIcon icon={faFileLines} className="text-sag-600 dark:text-sag-400" style={{ width: 28, height: 28 }} />
             </div>
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
@@ -40,9 +41,9 @@ export const GarantiaSection: React.FC = () => {
             {expanded ? 'Ocultar' : 'Ver'} Términos Completos de la Garantía
           </span>
           {expanded ? (
-            <ChevronUp className="text-sag-600 dark:text-sag-400" size={24} />
+            <FontAwesomeIcon icon={faChevronUp} className="text-sag-600 dark:text-sag-400" style={{ width: 24, height: 24 }} />
           ) : (
-            <ChevronDown className="text-sag-600 dark:text-sag-400" size={24} />
+            <FontAwesomeIcon icon={faChevronDown} className="text-sag-600 dark:text-sag-400" style={{ width: 24, height: 24 }} />
           )}
         </button>
 
@@ -52,7 +53,7 @@ export const GarantiaSection: React.FC = () => {
             {/* Cobertura */}
             <div className="space-y-2">
               <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <Shield size={18} className="text-sag-600 dark:text-sag-400" />
+                <FontAwesomeIcon icon={faShield} style={{ width: 18, height: 18 }} className="text-sag-600 dark:text-sag-400" />
                 1. Cobertura de la Garantía
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400 pl-6">
@@ -73,7 +74,7 @@ export const GarantiaSection: React.FC = () => {
             {/* Exclusiones */}
             <div className="space-y-2">
               <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <AlertCircle size={18} className="text-amber-600 dark:text-amber-400" />
+                <FontAwesomeIcon icon={faCircleExclamation} style={{ width: 18, height: 18 }} className="text-amber-600 dark:text-amber-400" />
                 3. Exclusiones
               </h4>
               <ul className="text-sm text-gray-600 dark:text-gray-400 pl-6 space-y-1">
@@ -186,7 +187,7 @@ export const GarantiaSection: React.FC = () => {
         {/* Nota informativa */}
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <div className="flex gap-3">
-            <AlertCircle className="text-blue-600 dark:text-blue-400 flex-shrink-0" size={20} />
+            <FontAwesomeIcon icon={faCircleExclamation} className="text-blue-600 dark:text-blue-400 flex-shrink-0" style={{ width: 20, height: 20 }} />
             <div className="text-sm text-blue-800 dark:text-blue-200">
               <p className="font-semibold mb-1">Nota:</p>
               <p>

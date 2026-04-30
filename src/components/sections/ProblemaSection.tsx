@@ -1,5 +1,6 @@
 import React from 'react';
-import { FileText, Stethoscope } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faFileLines, faStethoscope } from '@fortawesome/free-solid-svg-icons';
 import { Card } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 
@@ -28,7 +29,7 @@ export const ProblemaSection: React.FC<ProblemaSectionProps> = ({ disabled = fal
         {/* Problema reportado */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-            <FileText size={18} className="text-sag-600" />
+            <FontAwesomeIcon icon={faFileLines} style={{ width: 18, height: 18 }} className="text-sag-600" />
             Problema Reportado por el Cliente
           </label>
           <textarea
@@ -47,7 +48,7 @@ export const ProblemaSection: React.FC<ProblemaSectionProps> = ({ disabled = fal
         {/* Diagnóstico técnico */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-            <Stethoscope size={18} className="text-sag-600" />
+            <FontAwesomeIcon icon={faStethoscope} style={{ width: 18, height: 18 }} className="text-sag-600" />
             Diagnóstico Técnico
           </label>
           <textarea

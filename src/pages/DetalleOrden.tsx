@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Sun, Moon, FileText, Download, Save, ArrowLeft, X } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSun, faMoon, faFileLines, faDownload, faFloppyDisk, faArrowLeft, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { pdf } from '@react-pdf/renderer';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
@@ -200,12 +201,12 @@ export const DetalleOrden = () => {
               <Button
                 variant="secondary"
                 onClick={() => navigate('/dashboard')}
-                icon={<ArrowLeft size={20} />}
+                icon={<FontAwesomeIcon icon={faArrowLeft} style={{ width: 20, height: 20 }} />}
                 className="!p-3"
                 title="Volver al Dashboard"
               />
               <div className="w-12 h-12 bg-gradient-to-br from-sag-500 to-sag-600 rounded-xl flex items-center justify-center shadow-lg shadow-sag-500/30">
-                <FileText className="text-white" size={24} />
+                <FontAwesomeIcon icon={faFileLines} className="text-white" style={{ width: 24, height: 24 }} />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -225,7 +226,7 @@ export const DetalleOrden = () => {
               <Button
                 variant="secondary"
                 onClick={toggleTheme}
-                icon={themeMode === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                icon={themeMode === 'light' ? <FontAwesomeIcon icon={faMoon} style={{ width: 20, height: 20 }} /> : <FontAwesomeIcon icon={faSun} style={{ width: 20, height: 20 }} />}
                 className="!p-3"
                 title={`Cambiar a modo ${themeMode === 'light' ? 'oscuro' : 'claro'}`}
               />
@@ -235,7 +236,7 @@ export const DetalleOrden = () => {
                 <Button
                   variant="primary"
                   onClick={handleSaveChanges}
-                  icon={<Save size={20} />}
+                  icon={<FontAwesomeIcon icon={faFloppyDisk} style={{ width: 20, height: 20 }} />}
                   disabled={showLoader}
                   className="hidden md:flex"
                 >
@@ -248,7 +249,7 @@ export const DetalleOrden = () => {
                 <Button
                   variant="danger"
                   onClick={() => setShowCloseModal(true)}
-                  icon={<X size={20} />}
+                  icon={<FontAwesomeIcon icon={faXmark} style={{ width: 20, height: 20 }} />}
                   disabled={showLoader}
                   className="hidden md:flex"
                 >
@@ -260,7 +261,7 @@ export const DetalleOrden = () => {
               <Button
                 variant="success"
                 onClick={handleGeneratePDF}
-                icon={<Download size={20} />}
+                icon={<FontAwesomeIcon icon={faDownload} style={{ width: 20, height: 20 }} />}
                 className="hidden md:flex"
               >
                 Generar PDF
@@ -275,7 +276,7 @@ export const DetalleOrden = () => {
                 <Button
                   variant="primary"
                   onClick={handleSaveChanges}
-                  icon={<Save size={18} />}
+                  icon={<FontAwesomeIcon icon={faFloppyDisk} style={{ width: 18, height: 18 }} />}
                   disabled={showLoader}
                   className="flex-1 !text-sm"
                 >
@@ -284,7 +285,7 @@ export const DetalleOrden = () => {
                 <Button
                   variant="danger"
                   onClick={() => setShowCloseModal(true)}
-                  icon={<X size={18} />}
+                  icon={<FontAwesomeIcon icon={faXmark} style={{ width: 18, height: 18 }} />}
                   disabled={showLoader}
                   className="flex-1 !text-sm"
                 >
@@ -295,7 +296,7 @@ export const DetalleOrden = () => {
             <Button
               variant="success"
               onClick={handleGeneratePDF}
-              icon={<Download size={18} />}
+              icon={<FontAwesomeIcon icon={faDownload} style={{ width: 18, height: 18 }} />}
               className="flex-1 !text-sm"
             >
               PDF

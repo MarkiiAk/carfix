@@ -1,5 +1,6 @@
 import React from 'react';
-import { Fuel } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faGasPump } from '@fortawesome/free-solid-svg-icons';
 
 interface FuelGaugeProps {
   level: number; // 0-100
@@ -55,11 +56,11 @@ export const FuelGauge: React.FC<FuelGaugeProps> = ({ level, onChange, label = '
               className="transition-all duration-500"
             />
             
-            {/* Ícono de gasolina en el centro */}
-            <g transform="translate(90, 75)">
-              <Fuel size={24} className="text-gray-500 dark:text-gray-400" />
-            </g>
           </svg>
+          {/* Ícono de gasolina en el centro — posicionado sobre el SVG */}
+          <div className="absolute" style={{ top: '55%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+            <FontAwesomeIcon icon={faGasPump} className="text-gray-500 dark:text-gray-400" style={{ width: 24, height: 24 }} />
+          </div>
           
           {/* Display digital del porcentaje */}
           <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-2">

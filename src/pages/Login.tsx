@@ -1,6 +1,7 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSun, faMoon } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { Button } from '../components/ui/Button';
@@ -52,9 +53,9 @@ export const Login = () => {
         title={`Cambiar a modo ${themeMode === 'light' ? 'oscuro' : 'claro'}`}
       >
         {themeMode === 'light' ? (
-          <Moon size={20} className="text-gray-600 dark:text-gray-300" />
+          <FontAwesomeIcon icon={faMoon} className="text-gray-600 dark:text-gray-300" style={{ width: 20, height: 20 }} />
         ) : (
-          <Sun size={20} className="text-gray-600 dark:text-gray-300" />
+          <FontAwesomeIcon icon={faSun} className="text-gray-600 dark:text-gray-300" style={{ width: 20, height: 20 }} />
         )}
       </button>
 
