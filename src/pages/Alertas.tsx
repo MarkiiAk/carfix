@@ -374,6 +374,8 @@ export const Alertas: React.FC = () => {
                               Marcar leída
                             </Button>
                           )}
+                          {/* Visor conversación — oculto temporalmente, feature completo en rama */}
+                          {false && (
                           <button
                             onClick={() => setConversacionAbierta({ alertaId: alerta.id, nombreCliente: alerta.cliente_nombre })}
                             title="Ver conversación WhatsApp"
@@ -381,6 +383,7 @@ export const Alertas: React.FC = () => {
                           >
                             <FontAwesomeIcon icon={faWhatsapp} style={{ width: 17, height: 17 }} />
                           </button>
+                          )}
                         </div>
                       </td>
                     </tr>
