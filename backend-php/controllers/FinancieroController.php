@@ -640,20 +640,38 @@ class FinancieroController {
 
             $totalAdmin = array_sum(array_column($gastos, 'monto'));
 
-            // Ingresos del mes: órdenes cerradas/entregadas/completadas con fecha_ingreso en el mes
+            // Ingresos del mes: desglose detallado para calcular ingresos netos
+            // (excluye IVA y costo de refacciones — solo queda margen real del negocio)
             $sqlIngresos = "
-                SELECT COALESCE(SUM(total), 0) AS ingresos_mes
-                FROM ordenes_servicio
-                WHERE estado IN ('cerrada', 'entregada', 'completada')
-                  AND MONTH(fecha_ingreso) = :mes
-                  AND YEAR(fecha_ingreso)  = :anio
+                SELECT
+                  COALESCE(SUM(o.total), 0)                        AS total_facturado,
+                  COALESCE(SUM(o.iva), 0)                           AS total_iva,
+                  COALESCE(SUM(o.subtotal_servicios), 0)            AS ingresos_servicios,
+                  COALESCE(SUM(o.subtotal_mano_obra), 0)            AS ingresos_mano_obra,
+                  COALESCE(SUM(o.subtotal_refacciones), 0)          AS ingresos_refacciones,
+                  COALESCE(SUM(o.subtotal_refacciones / 1.30), 0)   AS costo_refacciones
+                FROM ordenes_servicio o
+                WHERE o.estado IN ('cerrada', 'entregada', 'completada')
+                  AND MONTH(o.fecha_ingreso) = :mes
+                  AND YEAR(o.fecha_ingreso)  = :anio
             ";
             $stmtIngresos = $this->db->prepare($sqlIngresos);
             $stmtIngresos->bindParam(':mes',  $mes,  PDO::PARAM_INT);
             $stmtIngresos->bindParam(':anio', $anio, PDO::PARAM_INT);
             $stmtIngresos->execute();
             $rowIngresos = $stmtIngresos->fetch(PDO::FETCH_ASSOC);
-            $ingresosMes = (float) ($rowIngresos['ingresos_mes'] ?? 0);
+
+            $totalFacturado    = (float) ($rowIngresos['total_facturado']    ?? 0);
+            $totalIva          = (float) ($rowIngresos['total_iva']          ?? 0);
+            $ingresosServicios = (float) ($rowIngresos['ingresos_servicios'] ?? 0);
+            $ingresosManoObra  = (float) ($rowIngresos['ingresos_mano_obra'] ?? 0);
+            $ingresoRefacc     = (float) ($rowIngresos['ingresos_refacciones'] ?? 0);
+            $costoRefacc       = (float) ($rowIngresos['costo_refacciones']  ?? 0);
+            $margenRefacc      = round($ingresoRefacc - $costoRefacc, 2);
+
+            // Ingresos netos = servicios + mano de obra + margen de refacciones
+            // (no incluye IVA porque va al SAT, ni costo de material porque no es ganancia)
+            $ingresosNetos = round($ingresosServicios + $ingresosManoObra + $margenRefacc, 2);
 
             // Gastos internos de órdenes del mes (costo_interno_total > 0)
             $sqlGastosOrdenes = "
@@ -670,18 +688,25 @@ class FinancieroController {
             $rowGO = $stmtGO->fetch(PDO::FETCH_ASSOC);
             $gastosOrdenesMes = (float) ($rowGO['gastos_ordenes_mes'] ?? 0);
 
-            $balance = $ingresosMes - $totalAdmin - $gastosOrdenesMes;
+            $utilidadNeta = round($ingresosNetos - $totalAdmin - $gastosOrdenesMes, 2);
 
             http_response_code(200);
             echo json_encode([
-                'success'            => true,
-                'mes'                => $mes,
-                'anio'               => $anio,
-                'gastos'             => $gastos,
-                'total_admin'        => round($totalAdmin, 2),
-                'ingresos_mes'       => round($ingresosMes, 2),
-                'gastos_ordenes_mes' => round($gastosOrdenesMes, 2),
-                'balance'            => round($balance, 2),
+                'success'              => true,
+                'mes'                  => $mes,
+                'anio'                 => $anio,
+                'gastos'               => $gastos,
+                'total_facturado'      => round($totalFacturado, 2),
+                'total_iva'            => round($totalIva, 2),
+                'ingresos_servicios'   => round($ingresosServicios, 2),
+                'ingresos_mano_obra'   => round($ingresosManoObra, 2),
+                'ingresos_refacciones' => round($ingresoRefacc, 2),
+                'costo_refacciones'    => round($costoRefacc, 2),
+                'margen_refacciones'   => $margenRefacc,
+                'ingresos_netos'       => $ingresosNetos,
+                'total_admin'          => round($totalAdmin, 2),
+                'gastos_ordenes_mes'   => round($gastosOrdenesMes, 2),
+                'utilidad_neta'        => $utilidadNeta,
             ]);
 
         } catch (Exception $e) {

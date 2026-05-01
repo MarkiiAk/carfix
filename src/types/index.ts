@@ -367,8 +367,15 @@ export interface GastosAdminResponse {
   mes: number;
   anio: number;
   gastos: GastoAdmin[];
+  total_facturado: number;
+  total_iva: number;
+  ingresos_servicios: number;
+  ingresos_mano_obra: number;
+  ingresos_refacciones: number;
+  costo_refacciones: number;
+  margen_refacciones: number;
+  ingresos_netos: number;
   total_admin: number;
-  ingresos_mes: number;
   gastos_ordenes_mes: number;
-  balance: number;
+  utilidad_neta: number;
 }
