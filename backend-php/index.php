@@ -225,6 +225,25 @@ try {
         $controller->resumen();
     }
 
+    // Gastos internos por orden
+    elseif ($path === 'financiero/gastos-orden' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $ordenId  = isset($_GET['orden_id']) ? (int) $_GET['orden_id'] : 0;
+        $controller = new FinancieroController();
+        $controller->gastosOrden($ordenId, $userData);
+    }
+    elseif ($path === 'financiero/gastos-orden' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->crearGastoOrden($body, $userData);
+    }
+    elseif (preg_match('#^financiero/gastos-orden/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $userData = requireAuth();
+        $controller = new FinancieroController();
+        $controller->eliminarGastoOrden((int) $matches[1], $userData);
+    }
+
     // Ruta de salud
     elseif ($path === 'health' && $request_method === 'GET') {
         echo json_encode([

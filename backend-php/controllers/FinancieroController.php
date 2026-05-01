@@ -75,6 +75,259 @@ class FinancieroController {
     }
 
     // -----------------------------------------------------------------------
+    // GET /api/financiero/gastos-orden?orden_id=X
+    // -----------------------------------------------------------------------
+    public function gastosOrden(int $ordenId, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if ($ordenId <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'orden_id inválido']);
+                return;
+            }
+
+            $sql = "
+                SELECT
+                    g.id,
+                    g.concepto,
+                    g.monto,
+                    g.tipo,
+                    u.nombre AS registrado_por_nombre,
+                    g.created_at
+                FROM gastos_orden g
+                INNER JOIN usuarios u ON u.id = g.registrado_por
+                WHERE g.orden_id = :orden_id
+                ORDER BY g.created_at ASC
+            ";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':orden_id', $ordenId, PDO::PARAM_INT);
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $gastos = array_map(function ($r) {
+                return [
+                    'id'                   => (int)   $r['id'],
+                    'concepto'             => $r['concepto'],
+                    'monto'                => (float) $r['monto'],
+                    'tipo'                 => $r['tipo'],
+                    'registrado_por_nombre'=> $r['registrado_por_nombre'],
+                    'created_at'           => $r['created_at'],
+                ];
+            }, $rows);
+
+            $totalGastos = array_sum(array_column($gastos, 'monto'));
+
+            http_response_code(200);
+            echo json_encode([
+                'success' => true,
+                'gastos'  => $gastos,
+                'total'   => round($totalGastos, 2),
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::gastosOrden] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener gastos internos']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/financiero/gastos-orden
+    // Body: { orden_id, concepto, monto, tipo }
+    // -----------------------------------------------------------------------
+    public function crearGastoOrden(array $body, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            $ordenId  = isset($body['orden_id'])  ? (int)   $body['orden_id']  : 0;
+            $concepto = isset($body['concepto'])  ? trim((string) $body['concepto']) : '';
+            $monto    = isset($body['monto'])      ? (float) $body['monto']     : 0;
+            $tipo     = isset($body['tipo'])       ? trim((string) $body['tipo'])    : '';
+
+            // Validaciones
+            if ($ordenId <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'orden_id inválido']);
+                return;
+            }
+            if ($concepto === '') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El concepto no puede estar vacío']);
+                return;
+            }
+            if ($monto <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El monto debe ser mayor a 0']);
+                return;
+            }
+            $tiposValidos = ['envio', 'consumible', 'propina', 'otro'];
+            if (!in_array($tipo, $tiposValidos, true)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'tipo inválido']);
+                return;
+            }
+
+            // Verificar que la orden existe
+            $stmtCheck = $this->db->prepare('SELECT id FROM ordenes_servicio WHERE id = :id LIMIT 1');
+            $stmtCheck->bindParam(':id', $ordenId, PDO::PARAM_INT);
+            $stmtCheck->execute();
+            if (!$stmtCheck->fetch()) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Orden no encontrada']);
+                return;
+            }
+
+            $registradoPor = (int) ($userData['id'] ?? 0);
+
+            $this->db->beginTransaction();
+
+            // INSERT gasto
+            $sqlInsert = "
+                INSERT INTO gastos_orden (orden_id, concepto, monto, tipo, registrado_por)
+                VALUES (:orden_id, :concepto, :monto, :tipo, :registrado_por)
+            ";
+            $stmtInsert = $this->db->prepare($sqlInsert);
+            $stmtInsert->bindParam(':orden_id',       $ordenId,      PDO::PARAM_INT);
+            $stmtInsert->bindParam(':concepto',        $concepto,     PDO::PARAM_STR);
+            $stmtInsert->bindParam(':monto',           $monto);
+            $stmtInsert->bindParam(':tipo',            $tipo,         PDO::PARAM_STR);
+            $stmtInsert->bindParam(':registrado_por',  $registradoPor, PDO::PARAM_INT);
+            $stmtInsert->execute();
+
+            $nuevoId = (int) $this->db->lastInsertId();
+
+            // Recalcular costo_interno_total
+            $sqlUpdate = "
+                UPDATE ordenes_servicio
+                SET costo_interno_total = (
+                    SELECT COALESCE(SUM(monto), 0)
+                    FROM gastos_orden
+                    WHERE orden_id = :orden_id
+                )
+                WHERE id = :id
+            ";
+            $stmtUpdate = $this->db->prepare($sqlUpdate);
+            $stmtUpdate->bindParam(':orden_id', $ordenId, PDO::PARAM_INT);
+            $stmtUpdate->bindParam(':id',       $ordenId, PDO::PARAM_INT);
+            $stmtUpdate->execute();
+
+            $this->db->commit();
+
+            // Obtener el nombre del usuario para devolver en la respuesta
+            $stmtUser = $this->db->prepare('SELECT nombre FROM usuarios WHERE id = :id LIMIT 1');
+            $stmtUser->bindParam(':id', $registradoPor, PDO::PARAM_INT);
+            $stmtUser->execute();
+            $usuario = $stmtUser->fetch(PDO::FETCH_ASSOC);
+            $nombreUsuario = $usuario ? $usuario['nombre'] : '';
+
+            http_response_code(201);
+            echo json_encode([
+                'success' => true,
+                'gasto'   => [
+                    'id'                    => $nuevoId,
+                    'concepto'              => $concepto,
+                    'monto'                 => $monto,
+                    'tipo'                  => $tipo,
+                    'registrado_por_nombre' => $nombreUsuario,
+                    'created_at'            => date('Y-m-d H:i:s'),
+                ],
+            ]);
+
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log('[FinancieroController::crearGastoOrden] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al registrar el gasto']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // DELETE /api/financiero/gastos-orden/:id
+    // Solo admin puede eliminar.
+    // -----------------------------------------------------------------------
+    public function eliminarGastoOrden(int $id, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Solo el administrador puede eliminar costos internos']);
+                return;
+            }
+
+            if ($id <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'ID inválido']);
+                return;
+            }
+
+            // Obtener orden_id antes de borrar (para recalcular total)
+            $stmtGet = $this->db->prepare('SELECT orden_id FROM gastos_orden WHERE id = :id LIMIT 1');
+            $stmtGet->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtGet->execute();
+            $gasto = $stmtGet->fetch(PDO::FETCH_ASSOC);
+
+            if (!$gasto) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Gasto no encontrado']);
+                return;
+            }
+
+            $ordenId = (int) $gasto['orden_id'];
+
+            $this->db->beginTransaction();
+
+            // DELETE gasto
+            $stmtDel = $this->db->prepare('DELETE FROM gastos_orden WHERE id = :id');
+            $stmtDel->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtDel->execute();
+
+            // Recalcular costo_interno_total del padre
+            $sqlUpdate = "
+                UPDATE ordenes_servicio
+                SET costo_interno_total = (
+                    SELECT COALESCE(SUM(monto), 0)
+                    FROM gastos_orden
+                    WHERE orden_id = :orden_id
+                )
+                WHERE id = :id
+            ";
+            $stmtUpdate = $this->db->prepare($sqlUpdate);
+            $stmtUpdate->bindParam(':orden_id', $ordenId, PDO::PARAM_INT);
+            $stmtUpdate->bindParam(':id',       $ordenId, PDO::PARAM_INT);
+            $stmtUpdate->execute();
+
+            $this->db->commit();
+
+            http_response_code(200);
+            echo json_encode(['success' => true]);
+
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log('[FinancieroController::eliminarGastoOrden] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al eliminar el gasto']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Cálculo de fechas según tipo + offset
     // -----------------------------------------------------------------------
     private function calcularPeriodo(string $tipo, int $offset): array {

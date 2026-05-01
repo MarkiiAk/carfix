@@ -19,14 +19,18 @@ import {
   GarantiaSection,
   PuntosSeguridadSection,
 } from '../components/sections';
+import { GastosInternosOrden } from '../components/sections/GastosInternosOrden';
 import { Button } from '../components/ui';
 import { PDFDocument } from '../components/PDFDocument';
+import { useAuth } from '../contexts/AuthContext';
 import type { Orden } from '../types';
 
 export const DetalleOrden = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { presupuesto, themeMode, toggleTheme, loadFromOrden, resetPresupuesto, markAsSaved } = usePresupuestoStore();
+  const { user } = useAuth();
+  const puedeVerGastos = user?.rol === 'admin' || user?.rol === 'recepcionista';
   const [showLoader, setShowLoader] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [orden, setOrden] = useState<Orden | null>(null);
@@ -335,6 +339,11 @@ export const DetalleOrden = () => {
             <RefaccionesSection disabled={estadoNormalizado === 'cerrada'} />
             <ManoObraSection disabled={estadoNormalizado === 'cerrada'} />
           </div>
+
+          {/* Costos internos — solo visible para admin y recepcionista, nunca en PDF */}
+          {puedeVerGastos && orden && (
+            <GastosInternosOrden ordenId={Number(orden.id)} />
+          )}
 
           {/* Resumen Financiero */}
           <ResumenSection />

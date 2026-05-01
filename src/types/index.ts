@@ -289,6 +289,16 @@ export interface ConversacionResponse {
   error?: string;
 }
 
+// Tipos para el módulo de Gastos Internos por Orden
+
+export interface GastoOrden {
+  id: number;
+  concepto: string;
+  monto: number;
+  tipo: 'envio' | 'consumible' | 'propina' | 'otro';
+  registrado_por_nombre: string;
+  created_at: string;
+}
 // Tipos para el módulo de Ingresos (M2-005, Q2 2026)
 
 export interface ResumenPeriodo {
