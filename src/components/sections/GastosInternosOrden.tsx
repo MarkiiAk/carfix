@@ -27,6 +27,7 @@ export const GastosInternosOrden = ({ ordenId }: Props) => {
   const [loadingLista, setLoadingLista] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [eliminandoId, setEliminandoId] = useState<number | null>(null);
+  const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Formulario
@@ -83,10 +84,8 @@ export const GastosInternosOrden = ({ ordenId }: Props) => {
     const gasto = gastos.find((g) => g.id === id);
     if (!gasto) return;
 
-    const ok = window.confirm(`¿Eliminar "${gasto.concepto}" (${formatMXN(gasto.monto)})?`);
-    if (!ok) return;
-
     setEliminandoId(id);
+    setConfirmandoId(null);
     try {
       await gastosOrdenAPI.eliminar(id);
       setGastos((prev) => prev.filter((g) => g.id !== id));
@@ -157,19 +156,33 @@ export const GastosInternosOrden = ({ ordenId }: Props) => {
                     <td className="py-2 pr-4 text-right text-gray-800 dark:text-gray-100 tabular-nums">
                       {formatMXN(g.monto)}
                     </td>
-                    <td className="py-2">
-                      <button
-                        onClick={() => handleEliminar(g.id)}
-                        disabled={eliminandoId === g.id}
-                        title="Eliminar"
-                        className="text-red-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40 transition-colors"
-                      >
-                        {eliminandoId === g.id ? (
-                          <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} />
-                        ) : (
+                    <td className="py-2 text-right">
+                      {eliminandoId === g.id ? (
+                        <FontAwesomeIcon icon={faSpinner} className="animate-spin text-gray-400" style={{ width: 14, height: 14 }} />
+                      ) : confirmandoId === g.id ? (
+                        <span className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => handleEliminar(g.id)}
+                            className="text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded px-2 py-0.5 transition-colors"
+                          >
+                            Eliminar
+                          </button>
+                          <button
+                            onClick={() => setConfirmandoId(null)}
+                            className="text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white rounded px-2 py-0.5 transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmandoId(g.id)}
+                          title="Eliminar"
+                          className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                        >
                           <FontAwesomeIcon icon={faTrash} style={{ width: 14, height: 14 }} />
-                        )}
-                      </button>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
