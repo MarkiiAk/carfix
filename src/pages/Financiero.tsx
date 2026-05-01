@@ -882,23 +882,17 @@ export const Financiero = () => {
               </div>
             )}
 
-            {Number(gastosAdmin.margen_refacciones) !== 0 && (
-              <div className="flex items-baseline justify-between pl-3">
-                <span className="text-xs text-green-600 dark:text-green-500">
-                  ↳ Margen refacciones (30%)
-                </span>
-                <span className="text-xs font-medium text-green-600 dark:text-green-500 tabular-nums">
-                  +{formatMoneda(Number(gastosAdmin.margen_refacciones))}
-                </span>
-              </div>
-            )}
-
             <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-700 pt-2">
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Ingresos netos</span>
               <span className="text-sm font-bold text-gray-800 dark:text-white tabular-nums">
                 {formatMoneda(Number(gastosAdmin.ingresos_netos))}
               </span>
             </div>
+            {Number(gastosAdmin.margen_refacciones) !== 0 && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 pl-1">
+                Incluye {formatMoneda(Number(gastosAdmin.margen_refacciones))} de margen en refacciones (30%)
+              </p>
+            )}
           </div>
 
           {/* Divisor */}
