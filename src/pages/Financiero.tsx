@@ -882,6 +882,17 @@ export const Financiero = () => {
               </div>
             )}
 
+            {Number(gastosAdmin.margen_refacciones) !== 0 && (
+              <div className="flex items-baseline justify-between pl-3">
+                <span className="text-xs text-green-600 dark:text-green-500">
+                  ↳ Margen refacciones (30%)
+                </span>
+                <span className="text-xs font-medium text-green-600 dark:text-green-500 tabular-nums">
+                  +{formatMoneda(Number(gastosAdmin.margen_refacciones))}
+                </span>
+              </div>
+            )}
+
             <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-700 pt-2">
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Ingresos netos</span>
               <span className="text-sm font-bold text-gray-800 dark:text-white tabular-nums">
@@ -896,15 +907,8 @@ export const Financiero = () => {
           {/* Grupo 2: del ingreso neto a la utilidad */}
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
-              <span className="text-sm text-green-700 dark:text-green-400">Ingresos netos</span>
-              <span className="text-sm font-medium text-green-700 dark:text-green-400 tabular-nums">
-                {formatMoneda(Number(gastosAdmin.ingresos_netos))}
-              </span>
-            </div>
-
-            <div className="flex items-baseline justify-between">
               <span className="text-sm text-red-500 dark:text-red-400">
-                {Number(gastosAdmin.total_admin) > 0 ? '&minus; ' : ''}Gastos del taller
+                {Number(gastosAdmin.total_admin) > 0 ? '− ' : ''}Gastos del taller
               </span>
               <span className="text-sm font-medium text-red-500 dark:text-red-400 tabular-nums">
                 {Number(gastosAdmin.total_admin) > 0 ? '−' : ''}{formatMoneda(Number(gastosAdmin.total_admin))}
@@ -913,7 +917,7 @@ export const Financiero = () => {
 
             <div className="flex items-baseline justify-between">
               <span className="text-sm text-orange-500 dark:text-orange-400">
-                {Number(gastosAdmin.gastos_ordenes_mes) > 0 ? '&minus; ' : ''}Costos de ordenes
+                {Number(gastosAdmin.gastos_ordenes_mes) > 0 ? '− ' : ''}Costos de ordenes
               </span>
               <span className="text-sm font-medium text-orange-500 dark:text-orange-400 tabular-nums">
                 {Number(gastosAdmin.gastos_ordenes_mes) > 0 ? '−' : ''}{formatMoneda(Number(gastosAdmin.gastos_ordenes_mes))}
