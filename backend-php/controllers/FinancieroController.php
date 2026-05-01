@@ -186,7 +186,7 @@ class FinancieroController {
                 return;
             }
 
-            $registradoPor = (int) ($userData['id'] ?? 0);
+            $registradoPor = (int) ($userData['userId'] ?? $userData['id'] ?? 0);
 
             $this->db->beginTransaction();
 
