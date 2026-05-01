@@ -7,7 +7,7 @@
 -- Server version: 11.4.10-MariaDB-cll-lve-log
 -- PHP Version: 8.4.19
 -- 
--- ACTUALIZADO: 2026-04-09 con estructura completa incluyendo sistema Twilio/WhatsApp
+-- ACTUALIZADO: 2026-04-30 — sincronizado con staging real (columnas clientes+alertas, índices puntos_seguridad, gastos_orden)
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -82,8 +82,10 @@ CREATE TABLE `alertas_servicio` (
   `fecha_generada` timestamp NULL DEFAULT current_timestamp(),
   `fecha_marcada_leida` timestamp NULL DEFAULT NULL,
   `usuario_marco_leida` int(11) DEFAULT NULL,
-  `dias_desde_servicio` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tabla principal de alertas con integración WhatsApp - Actualizada 30/03/2026';
+  `dias_desde_servicio` int(11) NOT NULL,
+  `slots_ofrecidos_json` text DEFAULT NULL COMMENT 'JSON con slots ofrecidos al cliente para mapear su respuesta numérica a un slot real',
+  `intentos_invalidos` tinyint(3) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Respuestas fuera de opciones en el paso actual; se resetea al avanzar estado'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tabla principal de alertas con integración WhatsApp - Actualizada 30/04/2026';
 
 -- --------------------------------------------------------
 
@@ -142,7 +144,12 @@ CREATE TABLE `clientes` (
   `rfc` varchar(20) DEFAULT NULL,
   `notas` text DEFAULT NULL,
   `fecha_registro` timestamp NULL DEFAULT current_timestamp(),
-  `ultima_visita` timestamp NULL DEFAULT NULL
+  `ultima_visita` timestamp NULL DEFAULT NULL,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `fusionado_en` int(11) DEFAULT NULL,
+  `fusionado_at` timestamp NULL DEFAULT NULL,
+  `notas_merge` varchar(500) DEFAULT NULL,
+  `telefono_normalizado` varchar(15) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -640,6 +647,16 @@ ALTER TABLE `orden_puntos_seguridad`
   ADD KEY `idx_estado` (`estado_id`);
 
 --
+-- Indexes for table `puntos_seguridad_catalogo`
+--
+ALTER TABLE `puntos_seguridad_catalogo`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_categoria` (`categoria`),
+  ADD KEY `idx_activo` (`activo`),
+  ADD KEY `idx_critico` (`es_critico`);
+ALTER TABLE `puntos_seguridad_catalogo` ADD FULLTEXT KEY `idx_busqueda` (`nombre`,`descripcion`);
+
+--
 -- Indexes for table `refacciones_orden`
 --
 ALTER TABLE `refacciones_orden`
@@ -896,8 +913,27 @@ ALTER TABLE `vehiculos`
   ADD CONSTRAINT `vehiculos_ibfk_1` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE CASCADE;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- MIGRACIONES POSTERIORES AL DUMP ORIGINAL
+-- MIGRACIONES POSTERIORES AL DUMP ORIGINAL (2026-04-09)
+-- Aplicar en orden cronológico sobre una BD limpia creada con el schema base.
 -- ─────────────────────────────────────────────────────────────────────────────
+
+-- 2026-04-21: Slots horarios en alertas (archivo: 20260421_add_slots_ofrecidos_json.sql)
+-- YA INCLUIDO arriba en CREATE TABLE alertas_servicio: slots_ofrecidos_json, intentos_invalidos
+
+-- 2026-04-21: Corrección llaves twilio_config (archivo: 20260421_fix_twilio_config_keys.sql)
+-- Solo datos (UPDATE/INSERT) — sin cambio de estructura.
+
+-- 2026-04-25: Fix template agendar SID (archivo: 20260425_fix_template_agendar_sid.sql)
+-- Solo datos — sin cambio de estructura.
+
+-- 2026-04-27: Columnas trazabilidad merge clientes (archivo: 20260427_merge_clientes_trazabilidad.sql)
+-- YA INCLUIDO arriba en CREATE TABLE clientes: activo, fusionado_en, fusionado_at, notas_merge, telefono_normalizado
+
+-- 2026-04-27: Operaciones merge de clientes específicos (archivos 20260427_merge_*.sql)
+-- Solo datos — sin cambio de estructura.
+
+-- 2026-04-29: Contador intentos_invalidos en alertas (archivo: 20260429_add_intentos_invalidos.sql)
+-- YA INCLUIDO arriba en CREATE TABLE alertas_servicio: intentos_invalidos
 
 -- 2026-04-30: Módulo financiero — gastos internos por orden
 -- Archivo: database/20260430_gastos_orden.sql

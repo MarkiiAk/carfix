@@ -223,7 +223,7 @@ class FinancieroController {
             $this->db->commit();
 
             // Obtener el nombre del usuario para devolver en la respuesta
-            $stmtUser = $this->db->prepare('SELECT nombre FROM usuarios WHERE id = :id LIMIT 1');
+            $stmtUser = $this->db->prepare('SELECT COALESCE(nombre_completo, username) AS nombre FROM usuarios WHERE id = :id LIMIT 1');
             $stmtUser->bindParam(':id', $registradoPor, PDO::PARAM_INT);
             $stmtUser->execute();
             $usuario = $stmtUser->fetch(PDO::FETCH_ASSOC);
