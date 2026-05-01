@@ -17,8 +17,8 @@ const TIPO_LABELS: Record<GastoOrden['tipo'], string> = {
 
 const TIPO_OPTIONS: GastoOrden['tipo'][] = ['envio', 'consumible', 'propina', 'otro'];
 
-function formatMXN(value: number): string {
-  return value.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+function formatMXN(value: number | string): string {
+  return Number(value).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 }
 
 export const GastosInternosOrden = ({ ordenId }: Props) => {
@@ -40,8 +40,8 @@ export const GastosInternosOrden = ({ ordenId }: Props) => {
     setErrorMsg(null);
     try {
       const data = await gastosOrdenAPI.listar(ordenId);
-      setGastos(data.gastos);
-      setTotal(data.total);
+      setGastos(data.gastos.map((g: GastoOrden) => ({ ...g, monto: Number(g.monto) })));
+      setTotal(Number(data.total));
     } catch {
       setErrorMsg('No se pudieron cargar los costos internos.');
     } finally {
@@ -68,8 +68,9 @@ export const GastosInternosOrden = ({ ordenId }: Props) => {
     setGuardando(true);
     try {
       const data = await gastosOrdenAPI.crear(ordenId, concepto.trim(), montoNum, tipo);
-      setGastos((prev) => [...prev, data.gasto]);
-      setTotal((prev) => prev + data.gasto.monto);
+      const gastoNorm = { ...data.gasto, monto: Number(data.gasto.monto) };
+      setGastos((prev) => [...prev, gastoNorm]);
+      setTotal((prev) => prev + gastoNorm.monto);
       setConcepto('');
       setMonto('');
       setTipo('otro');
