@@ -87,8 +87,7 @@ export const GastosInternosOrden = ({ ordenId }: Props) => {
     setConfirmandoId(null);
     try {
       await gastosOrdenAPI.eliminar(id);
-      setGastos((prev) => prev.filter((g) => g.id !== id));
-      setTotal((prev) => parseFloat((prev - gasto.monto).toFixed(2)));
+      await cargar();
     } catch {
       setErrorMsg('Error al eliminar el costo. Intenta de nuevo.');
     } finally {

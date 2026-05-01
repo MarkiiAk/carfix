@@ -673,13 +673,15 @@ class FinancieroController {
             // (no incluye IVA porque va al SAT, ni costo de material porque no es ganancia)
             $ingresosNetos = round($ingresosServicios + $ingresosManoObra + $margenRefacc, 2);
 
-            // Gastos internos de órdenes del mes (costo_interno_total > 0)
+            // Gastos internos de órdenes del mes — solo órdenes cerradas/entregadas
+            // para no contaminar el balance con gastos de órdenes que aún no generaron ingreso
             $sqlGastosOrdenes = "
                 SELECT COALESCE(SUM(costo_interno_total), 0) AS gastos_ordenes_mes
                 FROM ordenes_servicio
                 WHERE MONTH(COALESCE(fecha_completada, fecha_entregada, fecha_ingreso)) = :mes
                   AND YEAR(COALESCE(fecha_completada, fecha_entregada, fecha_ingreso))  = :anio
-                  AND costo_interno_total  > 0
+                  AND costo_interno_total > 0
+                  AND estado IN ('cerrada', 'entregada')
             ";
             $stmtGO = $this->db->prepare($sqlGastosOrdenes);
             $stmtGO->bindParam(':mes',  $mes,  PDO::PARAM_INT);
