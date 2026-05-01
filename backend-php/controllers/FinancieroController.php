@@ -235,7 +235,7 @@ class FinancieroController {
                 'gasto'   => [
                     'id'                    => $nuevoId,
                     'concepto'              => $concepto,
-                    'monto'                 => $monto,
+                    'monto'                 => (float) $monto,
                     'tipo'                  => $tipo,
                     'registrado_por_nombre' => $nombreUsuario,
                     'created_at'            => date('Y-m-d H:i:s'),
