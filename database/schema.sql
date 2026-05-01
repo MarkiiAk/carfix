@@ -895,6 +895,30 @@ ALTER TABLE `servicios_orden`
 ALTER TABLE `vehiculos`
   ADD CONSTRAINT `vehiculos_ibfk_1` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE CASCADE;
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- MIGRACIONES POSTERIORES AL DUMP ORIGINAL
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- 2026-04-30: Módulo financiero — gastos internos por orden
+-- Archivo: database/20260430_gastos_orden.sql
+
+ALTER TABLE `ordenes_servicio`
+  ADD COLUMN `costo_interno_total` DECIMAL(10,2) NOT NULL DEFAULT 0.00;
+
+CREATE TABLE `gastos_orden` (
+  `id`              INT AUTO_INCREMENT PRIMARY KEY,
+  `orden_id`        INT NOT NULL,
+  `concepto`        VARCHAR(300) NOT NULL,
+  `monto`           DECIMAL(10,2) NOT NULL,
+  `tipo`            ENUM('envio','consumible','propina','otro') NOT NULL DEFAULT 'otro',
+  `registrado_por`  INT NOT NULL,
+  `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_gastos_orden_orden`   FOREIGN KEY (`orden_id`)      REFERENCES `ordenes_servicio`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_gastos_orden_usuario` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios`(`id`),
+  INDEX `idx_gastos_orden_orden_id`   (`orden_id`),
+  INDEX `idx_gastos_orden_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
