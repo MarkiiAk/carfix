@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil, ResumenFinancieroResponse, GastoOrden } from '../types';
+import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil, ResumenFinancieroResponse, GastoOrden, GastoAdmin, GastosAdminResponse } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -245,6 +245,23 @@ export const gastosOrdenAPI = {
     const response = await api.delete(`/financiero/gastos-orden/${id}`);
     return response.data;
   },
+};
+
+export const gastosAdminAPI = {
+  listar: (mes: number, anio: number): Promise<GastosAdminResponse> =>
+    api.get(`/financiero/gastos-admin?mes=${mes}&anio=${anio}`).then(r => r.data),
+
+  crear: (
+    mes: number,
+    anio: number,
+    concepto: string,
+    monto: number,
+    categoria: GastoAdmin['categoria']
+  ): Promise<{ success: boolean; gasto: GastoAdmin }> =>
+    api.post('/financiero/gastos-admin', { mes, anio, concepto, monto, categoria }).then(r => r.data),
+
+  eliminar: (id: number): Promise<{ success: boolean }> =>
+    api.delete(`/financiero/gastos-admin/${id}`).then(r => r.data),
 };
 
 export default api;

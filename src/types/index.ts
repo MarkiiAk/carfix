@@ -350,3 +350,25 @@ export interface ResumenFinancieroResponse {
   top_clientes: TopCliente[];
   por_dia: IngresosDia[];
 }
+
+export interface GastoAdmin {
+  id: number;
+  mes: number;
+  anio: number;
+  concepto: string;
+  monto: number;
+  categoria: 'renta' | 'salario' | 'servicio' | 'insumo' | 'otro';
+  registrado_por_nombre: string;
+  created_at: string;
+}
+
+export interface GastosAdminResponse {
+  success: boolean;
+  mes: number;
+  anio: number;
+  gastos: GastoAdmin[];
+  total_admin: number;
+  ingresos_mes: number;
+  gastos_ordenes_mes: number;
+  balance: number;
+}

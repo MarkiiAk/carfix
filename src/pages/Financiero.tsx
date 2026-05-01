@@ -9,7 +9,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { financieroAPI } from '../services/api';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faTrash, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { financieroAPI, gastosAdminAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import type {
   ResumenFinancieroResponse,
@@ -17,6 +19,8 @@ import type {
   TopServicio,
   TopCliente,
   IngresosDia,
+  GastoAdmin,
+  GastosAdminResponse,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -389,6 +393,27 @@ const EstadoVacio = ({ label }: { label: string }) => (
 );
 
 // ---------------------------------------------------------------------------
+// Gastos administrativos — constantes
+// ---------------------------------------------------------------------------
+
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+const CATEGORIA_LABELS: Record<GastoAdmin['categoria'], string> = {
+  renta:    'Renta',
+  salario:  'Salario',
+  servicio: 'Servicio',
+  insumo:   'Insumo',
+  otro:     'Otro',
+};
+
+const CATEGORIA_OPTIONS: GastoAdmin['categoria'][] = ['renta', 'salario', 'servicio', 'insumo', 'otro'];
+
+const ANIOS_DISPONIBLES = [2024, 2025, 2026, 2027];
+
+// ---------------------------------------------------------------------------
 // Página principal
 // ---------------------------------------------------------------------------
 
@@ -401,6 +426,21 @@ export const Financiero = () => {
   const [datos, setDatos]   = useState<ResumenFinancieroResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
+
+  // Estado para gastos administrativos
+  const [mesSel, setMesSel]   = useState(() => new Date().getMonth() + 1);
+  const [anioSel, setAnioSel] = useState(() => new Date().getFullYear());
+  const [gastosAdmin, setGastosAdmin]           = useState<GastosAdminResponse | null>(null);
+  const [loadingAdmin, setLoadingAdmin]         = useState(true);
+  const [confirmandoAdminId, setConfirmandoAdminId] = useState<number | null>(null);
+  const [eliminandoAdminId, setEliminandoAdminId]   = useState<number | null>(null);
+  const [guardandoAdmin, setGuardandoAdmin]     = useState(false);
+
+  // Formulario nuevo gasto admin
+  const [adminConcepto, setAdminConcepto]     = useState('');
+  const [adminMonto, setAdminMonto]           = useState('');
+  const [adminCategoria, setAdminCategoria]   = useState<GastoAdmin['categoria']>('otro');
+  const [adminError, setAdminError]           = useState<string | null>(null);
 
   // Redirigir si no es admin
   useEffect(() => {
@@ -425,6 +465,29 @@ export const Financiero = () => {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  const cargarAdmin = useCallback(async () => {
+    setLoadingAdmin(true);
+    try {
+      const res = await gastosAdminAPI.listar(mesSel, anioSel);
+      setGastosAdmin({
+        ...res,
+        total_admin:        Number(res.total_admin),
+        ingresos_mes:       Number(res.ingresos_mes),
+        gastos_ordenes_mes: Number(res.gastos_ordenes_mes),
+        balance:            Number(res.balance),
+        gastos: res.gastos.map(g => ({ ...g, monto: Number(g.monto) })),
+      });
+    } catch {
+      // silencioso — no romper la página de ingresos
+    } finally {
+      setLoadingAdmin(false);
+    }
+  }, [mesSel, anioSel]);
+
+  useEffect(() => {
+    cargarAdmin();
+  }, [cargarAdmin]);
 
   const handleTipoChange = (nuevoTipo: TipoPeriodo) => {
     setTipo(nuevoTipo);
@@ -565,27 +628,270 @@ export const Financiero = () => {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Placeholder gastos operativos                                        */}
+      {/* Bloque A — Gastos del taller (administrativos por mes)               */}
       {/* ------------------------------------------------------------------ */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-6 py-5">
-        <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-          </svg>
+      <section className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-2xl shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-amber-200 dark:border-amber-700/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              Gastos operativos — Proximamente
-            </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1 leading-relaxed">
-              Registra renta, nomina e insumos para ver tu ganancia real. Por ahora solo se muestran los ingresos.
-            </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-              Por ahora, la ganancia neta de refacciones es el unico dato de margen real disponible.
+            <p className="font-semibold text-gray-800 dark:text-gray-100">Gastos del taller</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Renta, salarios y gastos fijos &middot; Por mes calendario
             </p>
           </div>
+          {/* Selector mes/año */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <select
+              value={mesSel}
+              onChange={e => { setMesSel(Number(e.target.value)); setConfirmandoAdminId(null); }}
+              className="text-sm border border-amber-300 dark:border-amber-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            >
+              {MESES.map((m, i) => (
+                <option key={i + 1} value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <select
+              value={anioSel}
+              onChange={e => { setAnioSel(Number(e.target.value)); setConfirmandoAdminId(null); }}
+              className="text-sm border border-amber-300 dark:border-amber-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            >
+              {ANIOS_DISPONIBLES.map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+
+        <div className="px-6 py-4 space-y-4">
+          {/* Error formulario */}
+          {adminError && (
+            <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/40 rounded-lg px-3 py-2">
+              {adminError}
+            </p>
+          )}
+
+          {/* Lista de gastos */}
+          {loadingAdmin ? (
+            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 py-4">
+              <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 16, height: 16 }} />
+              <span className="text-sm">Cargando gastos...</span>
+            </div>
+          ) : !gastosAdmin || gastosAdmin.gastos.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 py-2">
+              Sin gastos registrados para este mes.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-amber-200 dark:border-amber-700/40">
+                    <th className="pb-2 pr-4 font-medium w-28">Categoria</th>
+                    <th className="pb-2 pr-4 font-medium">Concepto</th>
+                    <th className="pb-2 pr-4 font-medium text-right">Monto</th>
+                    <th className="pb-2 font-medium w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gastosAdmin.gastos.map(g => (
+                    <tr
+                      key={g.id}
+                      className="border-b border-amber-100 dark:border-amber-800/30 last:border-0"
+                    >
+                      <td className="py-2 pr-4 text-gray-600 dark:text-gray-300">
+                        {CATEGORIA_LABELS[g.categoria]}
+                      </td>
+                      <td className="py-2 pr-4 text-gray-800 dark:text-gray-100">
+                        {g.concepto}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-gray-800 dark:text-gray-100 tabular-nums">
+                        {Number(g.monto).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+                      </td>
+                      <td className="py-2 text-right">
+                        {eliminandoAdminId === g.id ? (
+                          <FontAwesomeIcon icon={faSpinner} className="animate-spin text-gray-400" style={{ width: 14, height: 14 }} />
+                        ) : confirmandoAdminId === g.id ? (
+                          <span className="inline-flex items-center gap-1">
+                            <button
+                              onClick={async () => {
+                                setEliminandoAdminId(g.id);
+                                setConfirmandoAdminId(null);
+                                try {
+                                  await gastosAdminAPI.eliminar(g.id);
+                                  await cargarAdmin();
+                                } catch {
+                                  setAdminError('Error al eliminar el gasto. Intenta de nuevo.');
+                                } finally {
+                                  setEliminandoAdminId(null);
+                                }
+                              }}
+                              className="text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded px-2 py-0.5 transition-colors"
+                            >
+                              Eliminar
+                            </button>
+                            <button
+                              onClick={() => setConfirmandoAdminId(null)}
+                              className="text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white rounded px-2 py-0.5 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmandoAdminId(g.id)}
+                            title="Eliminar"
+                            className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                          >
+                            <FontAwesomeIcon icon={faTrash} style={{ width: 14, height: 14 }} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Total gastos admin */}
+              <div className="flex justify-end pt-3 border-t border-amber-200 dark:border-amber-700/40 mt-1">
+                <span className="text-sm text-gray-500 dark:text-gray-400 mr-4">
+                  Total gastos del taller:
+                </span>
+                <span className="font-bold text-gray-900 dark:text-white tabular-nums">
+                  {Number(gastosAdmin.total_admin).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Formulario agregar gasto admin */}
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-amber-200 dark:border-amber-700/40">
+            <select
+              value={adminCategoria}
+              onChange={e => setAdminCategoria(e.target.value as GastoAdmin['categoria'])}
+              disabled={guardandoAdmin}
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
+            >
+              {CATEGORIA_OPTIONS.map(c => (
+                <option key={c} value={c}>{CATEGORIA_LABELS[c]}</option>
+              ))}
+            </select>
+
+            <input
+              type="text"
+              placeholder="Concepto"
+              value={adminConcepto}
+              onChange={e => setAdminConcepto(e.target.value)}
+              disabled={guardandoAdmin}
+              maxLength={300}
+              className="flex-1 min-w-40 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
+            />
+
+            <input
+              type="number"
+              placeholder="Monto"
+              value={adminMonto}
+              onChange={e => setAdminMonto(e.target.value)}
+              disabled={guardandoAdmin}
+              min="0.01"
+              step="0.01"
+              className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
+            />
+
+            <button
+              onClick={async () => {
+                const montoNum = parseFloat(adminMonto);
+                if (!adminConcepto.trim()) {
+                  setAdminError('El concepto no puede estar vacio.');
+                  return;
+                }
+                if (isNaN(montoNum) || montoNum <= 0) {
+                  setAdminError('El monto debe ser mayor a $0.');
+                  return;
+                }
+                setAdminError(null);
+                setGuardandoAdmin(true);
+                try {
+                  await gastosAdminAPI.crear(mesSel, anioSel, adminConcepto.trim(), montoNum, adminCategoria);
+                  setAdminConcepto('');
+                  setAdminMonto('');
+                  setAdminCategoria('otro');
+                  await cargarAdmin();
+                } catch {
+                  setAdminError('Error al guardar el gasto. Intenta de nuevo.');
+                } finally {
+                  setGuardandoAdmin(false);
+                }
+              }}
+              disabled={guardandoAdmin}
+              className="flex items-center gap-1.5 text-sm font-medium bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white rounded-lg px-4 py-2 transition-colors"
+            >
+              {guardandoAdmin ? (
+                <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} />
+              ) : (
+                <FontAwesomeIcon icon={faPlus} style={{ width: 14, height: 14 }} />
+              )}
+              Agregar
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Bloque B — Balance del mes                                           */}
+      {/* ------------------------------------------------------------------ */}
+      {gastosAdmin !== null && !loadingAdmin && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
+            Balance &mdash; {MESES[mesSel - 1]} {anioSel}
+          </h2>
+
+          <div className="space-y-3">
+            {/* Ingresos */}
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-300">Ingresos del mes</span>
+              <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums">
+                {Number(gastosAdmin.ingresos_mes).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+              </span>
+            </div>
+
+            {/* Gastos del taller */}
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-300">Gastos del taller</span>
+              <span className="font-semibold text-red-500 dark:text-red-400 tabular-nums">
+                {Number(gastosAdmin.total_admin) > 0 ? '- ' : ''}
+                {Number(gastosAdmin.total_admin).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+              </span>
+            </div>
+
+            {/* Costos internos de ordenes */}
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-300">Costos internos de ordenes</span>
+              <span className="font-semibold text-orange-500 dark:text-orange-400 tabular-nums">
+                {Number(gastosAdmin.gastos_ordenes_mes) > 0 ? '- ' : ''}
+                {Number(gastosAdmin.gastos_ordenes_mes).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+              </span>
+            </div>
+
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-base font-bold text-gray-800 dark:text-gray-100">Utilidad neta</span>
+                <span
+                  className={`text-2xl font-bold tabular-nums ${
+                    Number(gastosAdmin.balance) >= 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}
+                >
+                  {Number(gastosAdmin.balance).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 leading-relaxed">
+            Los costos internos de ordenes son los registrados en cada orden de trabajo (envios, consumibles, etc.)
+          </p>
+        </div>
+      )}
 
     </div>
   );

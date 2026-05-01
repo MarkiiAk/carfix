@@ -578,4 +578,260 @@ class FinancieroController {
             ];
         }, $rows);
     }
+
+    // -----------------------------------------------------------------------
+    // GET /api/financiero/gastos-admin?mes=X&anio=Y
+    // Solo admin. Retorna lista de gastos + balance del mes.
+    // -----------------------------------------------------------------------
+    public function gastosAdmin(int $mes, int $anio, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            if ($mes < 1 || $mes > 12) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'mes debe estar entre 1 y 12']);
+                return;
+            }
+
+            if ($anio < 2020 || $anio > 2030) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'anio fuera de rango permitido']);
+                return;
+            }
+
+            // Lista de gastos administrativos del mes
+            $sqlGastos = "
+                SELECT g.id, g.mes, g.anio, g.concepto, g.monto, g.categoria,
+                       COALESCE(u.nombre_completo, u.username) AS registrado_por_nombre,
+                       g.created_at
+                FROM gastos_administrativos g
+                INNER JOIN usuarios u ON u.id = g.registrado_por
+                WHERE g.mes = :mes AND g.anio = :anio
+                ORDER BY g.created_at ASC
+            ";
+            $stmtGastos = $this->db->prepare($sqlGastos);
+            $stmtGastos->bindParam(':mes',  $mes,  PDO::PARAM_INT);
+            $stmtGastos->bindParam(':anio', $anio, PDO::PARAM_INT);
+            $stmtGastos->execute();
+            $rows = $stmtGastos->fetchAll(PDO::FETCH_ASSOC);
+
+            $gastos = array_map(function ($r) {
+                return [
+                    'id'                    => (int)   $r['id'],
+                    'mes'                   => (int)   $r['mes'],
+                    'anio'                  => (int)   $r['anio'],
+                    'concepto'              => $r['concepto'],
+                    'monto'                 => (float) $r['monto'],
+                    'categoria'             => $r['categoria'],
+                    'registrado_por_nombre' => $r['registrado_por_nombre'],
+                    'created_at'            => $r['created_at'],
+                ];
+            }, $rows);
+
+            $totalAdmin = array_sum(array_column($gastos, 'monto'));
+
+            // Ingresos del mes: órdenes cerradas/entregadas/completadas con fecha_ingreso en el mes
+            $sqlIngresos = "
+                SELECT COALESCE(SUM(total), 0) AS ingresos_mes
+                FROM ordenes_servicio
+                WHERE estado IN ('cerrada', 'entregada', 'completada')
+                  AND MONTH(fecha_ingreso) = :mes
+                  AND YEAR(fecha_ingreso)  = :anio
+            ";
+            $stmtIngresos = $this->db->prepare($sqlIngresos);
+            $stmtIngresos->bindParam(':mes',  $mes,  PDO::PARAM_INT);
+            $stmtIngresos->bindParam(':anio', $anio, PDO::PARAM_INT);
+            $stmtIngresos->execute();
+            $rowIngresos = $stmtIngresos->fetch(PDO::FETCH_ASSOC);
+            $ingresosMes = (float) ($rowIngresos['ingresos_mes'] ?? 0);
+
+            // Gastos internos de órdenes del mes (costo_interno_total > 0)
+            $sqlGastosOrdenes = "
+                SELECT COALESCE(SUM(costo_interno_total), 0) AS gastos_ordenes_mes
+                FROM ordenes_servicio
+                WHERE MONTH(fecha_ingreso) = :mes
+                  AND YEAR(fecha_ingreso)  = :anio
+                  AND costo_interno_total  > 0
+            ";
+            $stmtGO = $this->db->prepare($sqlGastosOrdenes);
+            $stmtGO->bindParam(':mes',  $mes,  PDO::PARAM_INT);
+            $stmtGO->bindParam(':anio', $anio, PDO::PARAM_INT);
+            $stmtGO->execute();
+            $rowGO = $stmtGO->fetch(PDO::FETCH_ASSOC);
+            $gastosOrdenesMes = (float) ($rowGO['gastos_ordenes_mes'] ?? 0);
+
+            $balance = $ingresosMes - $totalAdmin - $gastosOrdenesMes;
+
+            http_response_code(200);
+            echo json_encode([
+                'success'            => true,
+                'mes'                => $mes,
+                'anio'               => $anio,
+                'gastos'             => $gastos,
+                'total_admin'        => round($totalAdmin, 2),
+                'ingresos_mes'       => round($ingresosMes, 2),
+                'gastos_ordenes_mes' => round($gastosOrdenesMes, 2),
+                'balance'            => round($balance, 2),
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::gastosAdmin] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener gastos administrativos']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/financiero/gastos-admin
+    // Body: { mes, anio, concepto, monto, categoria }
+    // Solo admin.
+    // -----------------------------------------------------------------------
+    public function crearGastoAdmin(array $body, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $mes       = isset($body['mes'])       ? (int)   $body['mes']                   : 0;
+            $anio      = isset($body['anio'])      ? (int)   $body['anio']                  : 0;
+            $concepto  = isset($body['concepto'])  ? trim((string) $body['concepto'])        : '';
+            $monto     = isset($body['monto'])     ? (float) $body['monto']                 : 0;
+            $categoria = isset($body['categoria']) ? trim((string) $body['categoria'])       : '';
+
+            if ($mes < 1 || $mes > 12) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'mes debe estar entre 1 y 12']);
+                return;
+            }
+            if ($anio < 2020 || $anio > 2030) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'anio fuera de rango permitido']);
+                return;
+            }
+            if ($concepto === '') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El concepto no puede estar vacío']);
+                return;
+            }
+            if ($monto <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El monto debe ser mayor a 0']);
+                return;
+            }
+            $categoriasValidas = ['renta', 'salario', 'servicio', 'insumo', 'otro'];
+            if (!in_array($categoria, $categoriasValidas, true)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'categoria inválida']);
+                return;
+            }
+
+            $registradoPor = (int) ($userData['userId'] ?? $userData['id'] ?? 0);
+
+            $sqlInsert = "
+                INSERT INTO gastos_administrativos (mes, anio, concepto, monto, categoria, registrado_por)
+                VALUES (:mes, :anio, :concepto, :monto, :categoria, :registrado_por)
+            ";
+            $stmtInsert = $this->db->prepare($sqlInsert);
+            $stmtInsert->bindParam(':mes',           $mes,          PDO::PARAM_INT);
+            $stmtInsert->bindParam(':anio',          $anio,         PDO::PARAM_INT);
+            $stmtInsert->bindParam(':concepto',      $concepto,     PDO::PARAM_STR);
+            $stmtInsert->bindParam(':monto',         $monto);
+            $stmtInsert->bindParam(':categoria',     $categoria,    PDO::PARAM_STR);
+            $stmtInsert->bindParam(':registrado_por',$registradoPor,PDO::PARAM_INT);
+            $stmtInsert->execute();
+
+            $nuevoId = (int) $this->db->lastInsertId();
+
+            $stmtUser = $this->db->prepare('SELECT COALESCE(nombre_completo, username) AS nombre FROM usuarios WHERE id = :id LIMIT 1');
+            $stmtUser->bindParam(':id', $registradoPor, PDO::PARAM_INT);
+            $stmtUser->execute();
+            $usuario = $stmtUser->fetch(PDO::FETCH_ASSOC);
+            $nombreUsuario = $usuario ? $usuario['nombre'] : '';
+
+            http_response_code(201);
+            echo json_encode([
+                'success' => true,
+                'gasto'   => [
+                    'id'                    => $nuevoId,
+                    'mes'                   => $mes,
+                    'anio'                  => $anio,
+                    'concepto'              => $concepto,
+                    'monto'                 => (float) $monto,
+                    'categoria'             => $categoria,
+                    'registrado_por_nombre' => $nombreUsuario,
+                    'created_at'            => date('Y-m-d H:i:s'),
+                ],
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::crearGastoAdmin] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al registrar el gasto administrativo']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // DELETE /api/financiero/gastos-admin/:id
+    // Solo admin.
+    // -----------------------------------------------------------------------
+    public function eliminarGastoAdmin(int $id, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Solo el administrador puede eliminar gastos administrativos']);
+                return;
+            }
+
+            if ($id <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'ID inválido']);
+                return;
+            }
+
+            $stmtCheck = $this->db->prepare('SELECT id FROM gastos_administrativos WHERE id = :id LIMIT 1');
+            $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtCheck->execute();
+            if (!$stmtCheck->fetch()) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Gasto no encontrado']);
+                return;
+            }
+
+            $stmtDel = $this->db->prepare('DELETE FROM gastos_administrativos WHERE id = :id');
+            $stmtDel->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtDel->execute();
+
+            http_response_code(200);
+            echo json_encode(['success' => true]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::eliminarGastoAdmin] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al eliminar el gasto administrativo']);
+        }
+    }
 }

@@ -244,6 +244,26 @@ try {
         $controller->eliminarGastoOrden((int) $matches[1], $userData);
     }
 
+    // Gastos administrativos del taller (renta, salarios, etc.)
+    elseif ($path === 'financiero/gastos-admin' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $mes  = isset($_GET['mes'])  ? (int) $_GET['mes']  : (int) date('n');
+        $anio = isset($_GET['anio']) ? (int) $_GET['anio'] : (int) date('Y');
+        $controller = new FinancieroController();
+        $controller->gastosAdmin($mes, $anio, $userData);
+    }
+    elseif ($path === 'financiero/gastos-admin' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->crearGastoAdmin($body, $userData);
+    }
+    elseif (preg_match('#^financiero/gastos-admin/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $userData = requireAuth();
+        $controller = new FinancieroController();
+        $controller->eliminarGastoAdmin((int) $matches[1], $userData);
+    }
+
     // Ruta de salud
     elseif ($path === 'health' && $request_method === 'GET') {
         echo json_encode([
