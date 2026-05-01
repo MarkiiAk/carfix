@@ -279,7 +279,37 @@ class OrdenesController {
             if (isset($data['puntosSeguridad']) && !empty($data['puntosSeguridad'])) {
                 $this->insertPuntosSeguridad($orden_id, $data['puntosSeguridad']);
             }
-            
+
+            // 11. Recalcular totales desde filas reales (no confiar en lo que envió el frontend)
+            $stmtSvc = $this->db->prepare("
+                SELECT
+                    COALESCE(SUM(CASE WHEN tipo = 'servicio'   THEN subtotal ELSE 0 END), 0) AS sum_servicios,
+                    COALESCE(SUM(CASE WHEN tipo = 'mano_obra'  THEN subtotal ELSE 0 END), 0) AS sum_mano_obra
+                FROM servicios_orden WHERE orden_id = ?
+            ");
+            $stmtSvc->execute([$orden_id]);
+            $rowSvc = $stmtSvc->fetch(PDO::FETCH_ASSOC);
+
+            $stmtRef = $this->db->prepare("SELECT COALESCE(SUM(subtotal), 0) AS sum_refacciones FROM refacciones_orden WHERE orden_id = ?");
+            $stmtRef->execute([$orden_id]);
+            $rowRef = $stmtRef->fetch(PDO::FETCH_ASSOC);
+
+            $sumServicios   = (float) $rowSvc['sum_servicios'];
+            $sumManoObra    = (float) $rowSvc['sum_mano_obra'];
+            $sumRefacciones = (float) $rowRef['sum_refacciones'];
+            $subtotalCalc   = $sumServicios + $sumManoObra + $sumRefacciones;
+            $incluirIVA     = isset($resumenData['incluirIVA']) && $resumenData['incluirIVA'] ? true : false;
+            $ivaCalc        = $incluirIVA ? round($subtotalCalc * 0.16, 2) : 0.0;
+            $totalCalc      = round($subtotalCalc + $ivaCalc, 2);
+
+            $stmtFix = $this->db->prepare("
+                UPDATE ordenes_servicio
+                SET subtotal_servicios = ?, subtotal_mano_obra = ?, subtotal_refacciones = ?,
+                    iva = ?, total = ?
+                WHERE id = ?
+            ");
+            $stmtFix->execute([$sumServicios, $sumManoObra, $sumRefacciones, $ivaCalc, $totalCalc, $orden_id]);
+
             // Commit transacción
             $this->db->commit();
             
@@ -664,7 +694,51 @@ class OrdenesController {
                     error_log('Puntos de seguridad actualizados: ' . count($data['puntosSeguridad']));
                 }
             }
-            
+
+            // Recalcular totales desde filas reales si se actualizaron partidas
+            // (cubre el caso de que el frontend enviara totales incorrectos)
+            if ($shouldUpdateServicios || isset($data['refacciones'])) {
+                $stmtSvcU = $this->db->prepare("
+                    SELECT
+                        COALESCE(SUM(CASE WHEN tipo = 'servicio'   THEN subtotal ELSE 0 END), 0) AS sum_servicios,
+                        COALESCE(SUM(CASE WHEN tipo = 'mano_obra'  THEN subtotal ELSE 0 END), 0) AS sum_mano_obra
+                    FROM servicios_orden WHERE orden_id = ?
+                ");
+                $stmtSvcU->execute([$id]);
+                $rowSvcU = $stmtSvcU->fetch(PDO::FETCH_ASSOC);
+
+                $stmtRefU = $this->db->prepare("SELECT COALESCE(SUM(subtotal), 0) AS sum_refacciones FROM refacciones_orden WHERE orden_id = ?");
+                $stmtRefU->execute([$id]);
+                $rowRefU = $stmtRefU->fetch(PDO::FETCH_ASSOC);
+
+                $sumServiciosU   = (float) $rowSvcU['sum_servicios'];
+                $sumManoObraU    = (float) $rowSvcU['sum_mano_obra'];
+                $sumRefaccionesU = (float) $rowRefU['sum_refacciones'];
+                $subtotalCalcU   = $sumServiciosU + $sumManoObraU + $sumRefaccionesU;
+
+                // Leer flag incluir_iva actual de la BD (puede haber venido en resumen o no)
+                $stmtIvaFlag = $this->db->prepare("SELECT incluir_iva FROM ordenes_servicio WHERE id = ?");
+                $stmtIvaFlag->execute([$id]);
+                $rowIvaFlag = $stmtIvaFlag->fetch(PDO::FETCH_ASSOC);
+                $incluirIVAU = (bool) ($rowIvaFlag['incluir_iva'] ?? false);
+                // Si el request trae el flag actualizado, usarlo
+                if (isset($data['resumen']['incluirIVA'])) {
+                    $incluirIVAU = (bool) $data['resumen']['incluirIVA'];
+                }
+
+                $ivaCalcU   = $incluirIVAU ? round($subtotalCalcU * 0.16, 2) : 0.0;
+                $totalCalcU = round($subtotalCalcU + $ivaCalcU, 2);
+
+                $stmtFixU = $this->db->prepare("
+                    UPDATE ordenes_servicio
+                    SET subtotal_servicios = ?, subtotal_mano_obra = ?, subtotal_refacciones = ?,
+                        iva = ?, total = ?
+                    WHERE id = ?
+                ");
+                $stmtFixU->execute([$sumServiciosU, $sumManoObraU, $sumRefaccionesU, $ivaCalcU, $totalCalcU, $id]);
+                error_log("Totales recalculados desde filas reales: subtotal={$subtotalCalcU} iva={$ivaCalcU} total={$totalCalcU}");
+            }
+
             $this->db->commit();
             
             // Retornar orden actualizada

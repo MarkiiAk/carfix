@@ -67,13 +67,11 @@ export const GastosInternosOrden = ({ ordenId }: Props) => {
     setErrorMsg(null);
     setGuardando(true);
     try {
-      const data = await gastosOrdenAPI.crear(ordenId, concepto.trim(), montoNum, tipo);
-      const gastoNorm = { ...data.gasto, monto: Number(data.gasto.monto) };
-      setGastos((prev) => [...prev, gastoNorm]);
-      setTotal((prev) => prev + gastoNorm.monto);
+      await gastosOrdenAPI.crear(ordenId, concepto.trim(), montoNum, tipo);
       setConcepto('');
       setMonto('');
       setTipo('otro');
+      await cargar(); // recarga desde servidor — total siempre exacto
     } catch {
       setErrorMsg('Error al guardar el costo. Intenta de nuevo.');
     } finally {

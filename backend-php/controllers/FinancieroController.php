@@ -452,7 +452,7 @@ class FinancieroController {
             'ingresos_servicios'  => round((float) $row['ingresos_servicios'], 2),
             'ingresos_mano_obra'  => round((float) $row['ingresos_mano_obra'], 2),
             'ingresos_refacciones'=> round((float) $row['ingresos_refacciones'], 2),
-            'total_iva'           => (float) $row['total_iva'],
+            'total_iva'           => round((float) $row['total_iva'], 2),
             'num_ordenes'         => (int)   $row['num_ordenes'],
         ];
     }
@@ -523,12 +523,12 @@ class FinancieroController {
     private function queryPorDia(string $fechaInicio, string $fechaFin): array {
         $sql = "
             SELECT
-                DATE(o.fecha_ingreso)        AS dia,
-                COALESCE(SUM(o.total), 0)   AS total
+                DATE(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)) AS dia,
+                COALESCE(SUM(o.total), 0)                                              AS total
             FROM ordenes_servicio o
             WHERE o.estado IN ('cerrada', 'entregada', 'completada')
               AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
-            GROUP BY DATE(o.fecha_ingreso)
+            GROUP BY DATE(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso))
             ORDER BY dia ASC
         ";
         $stmt = $this->db->prepare($sql);
@@ -652,8 +652,8 @@ class FinancieroController {
                   COALESCE(SUM(o.subtotal_refacciones / 1.30), 0)   AS costo_refacciones
                 FROM ordenes_servicio o
                 WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-                  AND MONTH(o.fecha_ingreso) = :mes
-                  AND YEAR(o.fecha_ingreso)  = :anio
+                  AND MONTH(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)) = :mes
+                  AND YEAR(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso))  = :anio
             ";
             $stmtIngresos = $this->db->prepare($sqlIngresos);
             $stmtIngresos->bindParam(':mes',  $mes,  PDO::PARAM_INT);
@@ -677,8 +677,8 @@ class FinancieroController {
             $sqlGastosOrdenes = "
                 SELECT COALESCE(SUM(costo_interno_total), 0) AS gastos_ordenes_mes
                 FROM ordenes_servicio
-                WHERE MONTH(fecha_ingreso) = :mes
-                  AND YEAR(fecha_ingreso)  = :anio
+                WHERE MONTH(COALESCE(fecha_completada, fecha_entregada, fecha_ingreso)) = :mes
+                  AND YEAR(COALESCE(fecha_completada, fecha_entregada, fecha_ingreso))  = :anio
                   AND costo_interno_total  > 0
             ";
             $stmtGO = $this->db->prepare($sqlGastosOrdenes);

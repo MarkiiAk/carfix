@@ -932,6 +932,10 @@ export const Financiero = () => {
                 {formatMoneda(Number(gastosAdmin.utilidad_neta))}
               </span>
             </div>
+
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">
+              Utilidad estimada antes de ISR. No incluye otros impuestos ni deducciones fiscales.
+            </p>
           </div>
 
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 leading-relaxed">
