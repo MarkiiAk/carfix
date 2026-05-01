@@ -97,7 +97,7 @@ class FinancieroController {
                     g.concepto,
                     g.monto,
                     g.tipo,
-                    u.nombre AS registrado_por_nombre,
+                    COALESCE(u.nombre_completo, u.username) AS registrado_por_nombre,
                     g.created_at
                 FROM gastos_orden g
                 INNER JOIN usuarios u ON u.id = g.registrado_por
