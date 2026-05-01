@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil, ResumenFinancieroResponse } from '../types';
+import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil, ResumenFinancieroResponse, GastoOrden } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -216,6 +216,33 @@ export const clientesAPI = {
 export const financieroAPI = {
   resumen: async (tipo: 'semana' | 'quincena' | 'mes', offset = 0): Promise<ResumenFinancieroResponse> => {
     const response = await api.get<ResumenFinancieroResponse>('/financiero', { params: { tipo, offset } });
+    return response.data;
+  },
+};
+
+export const gastosOrdenAPI = {
+  listar: async (ordenId: number): Promise<{ success: boolean; gastos: GastoOrden[]; total: number }> => {
+    const response = await api.get(`/financiero/gastos-orden`, { params: { orden_id: ordenId } });
+    return response.data;
+  },
+
+  crear: async (
+    ordenId: number,
+    concepto: string,
+    monto: number,
+    tipo: GastoOrden['tipo']
+  ): Promise<{ success: boolean; gasto: GastoOrden }> => {
+    const response = await api.post(`/financiero/gastos-orden`, {
+      orden_id: ordenId,
+      concepto,
+      monto,
+      tipo,
+    });
+    return response.data;
+  },
+
+  eliminar: async (id: number): Promise<{ success: boolean }> => {
+    const response = await api.delete(`/financiero/gastos-orden/${id}`);
     return response.data;
   },
 };
