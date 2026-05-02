@@ -911,7 +911,7 @@ export const Financiero = () => {
 
             <div className="flex items-baseline justify-between">
               <span className="text-sm text-orange-500 dark:text-orange-400">
-                {Number(gastosAdmin.gastos_ordenes_mes) > 0 ? '− ' : ''}Costos de ordenes
+                {Number(gastosAdmin.gastos_ordenes_mes) > 0 ? '− ' : ''}Costos de órdenes
               </span>
               <span className="text-sm font-medium text-orange-500 dark:text-orange-400 tabular-nums">
                 {Number(gastosAdmin.gastos_ordenes_mes) > 0 ? '−' : ''}{formatMoneda(Number(gastosAdmin.gastos_ordenes_mes))}
@@ -932,7 +932,7 @@ export const Financiero = () => {
             </div>
 
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">
-              Utilidad estimada antes de ISR. No incluye otros impuestos ni deducciones fiscales.
+              Utilidad estimada. No incluye otros impuestos ni deducciones fiscales.
             </p>
           </div>
 
