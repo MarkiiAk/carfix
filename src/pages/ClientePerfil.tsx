@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { clientesAPI } from '../services/api';
 import type { ClientePerfil as ClientePerfilData, VehiculoConHistorial, OrdenResumen, ResumenFinancieroCliente } from '../types';
@@ -28,12 +28,24 @@ const getEstadoDot = (estado: string) => {
   return <span className={`${base} bg-yellow-400`} title="Abierta" />;
 };
 
+interface EditForm {
+  nombre: string;
+  telefono: string;
+  email: string;
+}
+
 export const ClientePerfil = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [data, setData] = useState<ClientePerfilData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm>({ nombre: '', telefono: '', email: '' });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const nombreRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!id) {
@@ -62,6 +74,57 @@ export const ClientePerfil = () => {
 
     load();
   }, [id]);
+
+  const openEdit = () => {
+    if (!data) return;
+    setEditForm({
+      nombre: data.cliente.nombre,
+      telefono: data.cliente.telefono ?? '',
+      email: data.cliente.email ?? '',
+    });
+    setEditError(null);
+    setEditOpen(true);
+    setTimeout(() => nombreRef.current?.focus(), 50);
+  };
+
+  const handleEditSave = async () => {
+    if (!data || !id) return;
+    if (!editForm.nombre.trim()) {
+      setEditError('El nombre es requerido.');
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const result = await clientesAPI.updateCliente(Number(id), {
+        nombre: editForm.nombre.trim(),
+        telefono: editForm.telefono.trim() || undefined,
+        email: editForm.email.trim() || undefined,
+      });
+      if (result.success) {
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                cliente: {
+                  ...prev.cliente,
+                  nombre: result.cliente.nombre,
+                  telefono: result.cliente.telefono,
+                  email: result.cliente.email,
+                },
+              }
+            : prev
+        );
+        setEditOpen(false);
+      } else {
+        setEditError('No se pudo guardar. Intenta de nuevo.');
+      }
+    } catch {
+      setEditError('Error al conectar con el servidor.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -143,8 +206,8 @@ export const ClientePerfil = () => {
               Nueva orden
             </button>
             <button
-              disabled
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60"
+              onClick={openEdit}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Editar datos
             </button>
@@ -201,6 +264,77 @@ export const ClientePerfil = () => {
               onVerOrden={(ordenId) => navigate(`/orden/${ordenId}`)}
             />
           ))}
+        </div>
+      )}
+
+      {/* Modal editar datos del cliente */}
+      {editOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-5">
+              Editar datos del cliente
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nombre <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={nombreRef}
+                  type="text"
+                  value={editForm.nombre}
+                  onChange={(e) => setEditForm((f) => ({ ...f, nombre: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sag-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Telefono
+                </label>
+                <input
+                  type="text"
+                  value={editForm.telefono}
+                  onChange={(e) => setEditForm((f) => ({ ...f, telefono: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sag-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sag-500"
+                />
+              </div>
+
+              {editError && (
+                <p className="text-sm text-red-600 dark:text-red-400">{editError}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setEditOpen(false)}
+                disabled={editSaving}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={editSaving}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-sag-500 text-gray-900 hover:bg-sag-400 transition-colors disabled:opacity-50"
+              >
+                {editSaving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

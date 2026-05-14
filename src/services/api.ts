@@ -204,10 +204,26 @@ export const clientesAPI = {
     return response.data;
   },
 
+  buscar: async (q: string) => {
+    const response = await api.get<{ success: boolean; matches: any[] }>(
+      '/clientes/buscar',
+      { params: { q } }
+    );
+    return response.data;
+  },
+
   buscarPorTelefono: async (tel: string) => {
     const response = await api.get<{ success: boolean; matches: any[] }>(
       '/clientes/buscar-por-telefono',
       { params: { tel } }
+    );
+    return response.data;
+  },
+
+  updateCliente: async (id: number, data: { nombre: string; telefono?: string; email?: string }) => {
+    const response = await api.put<{ success: boolean; cliente: { id: number; nombre: string; telefono: string | null; email: string | null } }>(
+      `/clientes/${id}`,
+      data
     );
     return response.data;
   },

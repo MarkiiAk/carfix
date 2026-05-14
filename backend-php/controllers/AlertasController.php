@@ -57,11 +57,11 @@ class AlertasController {
                     c.telefono as cliente_telefono,
                     c.email as cliente_email,
                     
-                    -- Información del vehículo  
-                    v.marca,
-                    v.modelo,
-                    v.anio,
-                    v.placas,
+                    -- Información del vehículo
+                    v.marca AS vehiculo_marca,
+                    v.modelo AS vehiculo_modelo,
+                    v.anio AS vehiculo_anio,
+                    v.placas AS vehiculo_placas,
                     
                     -- Días exactos desde el último servicio (calculado en tiempo real)
                     DATEDIFF(NOW(), a.fecha_ultimo_servicio) as dias_exactos_desde_servicio,

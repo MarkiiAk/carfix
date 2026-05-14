@@ -82,7 +82,9 @@ CREATE TABLE `alertas_servicio` (
   `fecha_generada` timestamp NULL DEFAULT current_timestamp(),
   `fecha_marcada_leida` timestamp NULL DEFAULT NULL,
   `usuario_marco_leida` int(11) DEFAULT NULL,
-  `dias_desde_servicio` int(11) NOT NULL
+  `dias_desde_servicio` int(11) NOT NULL,
+  `slots_ofrecidos_json` text DEFAULT NULL COMMENT 'JSON con slots ofrecidos al cliente para mapear su respuesta numérica a un slot real',
+  `intentos_invalidos` int(11) DEFAULT 0 COMMENT 'Contador de respuestas inválidas en el paso actual, se resetea al cambiar de estado'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tabla principal de alertas con integración WhatsApp - Actualizada 30/03/2026';
 
 -- --------------------------------------------------------
