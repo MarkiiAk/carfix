@@ -264,7 +264,7 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['role'] ?? '') !== 'admin') {
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Solo el administrador puede eliminar costos internos']);
                 return;
@@ -591,7 +591,7 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['role'] ?? '') !== 'admin') {
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
@@ -731,7 +731,7 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['role'] ?? '') !== 'admin') {
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
@@ -827,7 +827,7 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['role'] ?? '') !== 'admin') {
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Solo el administrador puede eliminar gastos administrativos']);
                 return;
