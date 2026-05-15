@@ -1556,7 +1556,7 @@ class FinancieroController {
             $saldoAnterior = (float) $stmtAnterior->fetchColumn();
 
             $stmtMov = $this->db->prepare(
-                'SELECT id, fecha, tipo, concepto, monto, notas
+                'SELECT id, fecha, tipo, concepto, monto, notas, gasto_admin_id
                  FROM caja_chica
                  WHERE fecha BETWEEN :fecha_inicio AND :fecha_fin
                  ORDER BY fecha ASC, id ASC'
@@ -1578,12 +1578,13 @@ class FinancieroController {
                     $egresosSemana += $monto;
                 }
                 $movimientos[] = [
-                    'id'      => (int) $r['id'],
-                    'fecha'   => $r['fecha'],
-                    'tipo'    => $r['tipo'],
-                    'concepto'=> $r['concepto'],
-                    'monto'   => round($monto, 2),
-                    'notas'   => $r['notas'],
+                    'id'             => (int) $r['id'],
+                    'fecha'          => $r['fecha'],
+                    'tipo'           => $r['tipo'],
+                    'concepto'       => $r['concepto'],
+                    'monto'          => round($monto, 2),
+                    'notas'          => $r['notas'],
+                    'gasto_admin_id' => $r['gasto_admin_id'] !== null ? (int) $r['gasto_admin_id'] : null,
                 ];
             }
 
@@ -1645,6 +1646,8 @@ class FinancieroController {
                 return;
             }
 
+            $this->db->beginTransaction();
+
             $stmt = $this->db->prepare(
                 'INSERT INTO caja_chica (fecha, tipo, concepto, monto, notas)
                  VALUES (:fecha, :tipo, :concepto, :monto, :notas)'
@@ -1658,20 +1661,56 @@ class FinancieroController {
 
             $nuevoId = (int) $this->db->lastInsertId();
 
+            // Si es egreso, crear entrada en gastos_administrativos para el P&L
+            $gastoAdminId = null;
+            if ($tipo === 'egreso') {
+                $mes  = (int) date('n', strtotime($fecha));
+                $anio = (int) date('Y', strtotime($fecha));
+                $registradoPor = (int) ($userData['userId'] ?? $userData['id'] ?? 0);
+                $conceptoAdmin = 'Caja chica: ' . $concepto;
+
+                $stmtAdmin = $this->db->prepare(
+                    'INSERT INTO gastos_administrativos (mes, anio, concepto, monto, categoria, registrado_por)
+                     VALUES (:mes, :anio, :concepto, :monto, :categoria, :registrado_por)'
+                );
+                $stmtAdmin->bindValue(':mes',           $mes,          PDO::PARAM_INT);
+                $stmtAdmin->bindValue(':anio',          $anio,         PDO::PARAM_INT);
+                $stmtAdmin->bindValue(':concepto',      $conceptoAdmin, PDO::PARAM_STR);
+                $stmtAdmin->bindValue(':monto',         $monto);
+                $stmtAdmin->bindValue(':categoria',     'otro',        PDO::PARAM_STR);
+                $stmtAdmin->bindValue(':registrado_por',$registradoPor, PDO::PARAM_INT);
+                $stmtAdmin->execute();
+
+                $gastoAdminId = (int) $this->db->lastInsertId();
+
+                $stmtLink = $this->db->prepare(
+                    'UPDATE caja_chica SET gasto_admin_id = :gasto_admin_id WHERE id = :id'
+                );
+                $stmtLink->bindValue(':gasto_admin_id', $gastoAdminId, PDO::PARAM_INT);
+                $stmtLink->bindValue(':id',             $nuevoId,      PDO::PARAM_INT);
+                $stmtLink->execute();
+            }
+
+            $this->db->commit();
+
             http_response_code(201);
             echo json_encode([
                 'success'     => true,
                 'movimiento'  => [
-                    'id'       => $nuevoId,
-                    'fecha'    => $fecha,
-                    'tipo'     => $tipo,
-                    'concepto' => $concepto,
-                    'monto'    => round($monto, 2),
-                    'notas'    => $notas,
+                    'id'             => $nuevoId,
+                    'fecha'          => $fecha,
+                    'tipo'           => $tipo,
+                    'concepto'       => $concepto,
+                    'monto'          => round($monto, 2),
+                    'notas'          => $notas,
+                    'gasto_admin_id' => $gastoAdminId,
                 ],
             ]);
 
         } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log('[FinancieroController::crearMovimientoCajaChica] ERROR: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Error al crear movimiento de caja chica']);
@@ -1688,23 +1727,39 @@ class FinancieroController {
                 return;
             }
 
-            $stmtCheck = $this->db->prepare('SELECT id FROM caja_chica WHERE id = :id LIMIT 1');
+            $stmtCheck = $this->db->prepare('SELECT id, gasto_admin_id FROM caja_chica WHERE id = :id LIMIT 1');
             $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
             $stmtCheck->execute();
-            if (!$stmtCheck->fetch()) {
+            $movimiento = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$movimiento) {
                 http_response_code(404);
                 echo json_encode(['success' => false, 'error' => 'Movimiento no encontrado']);
                 return;
+            }
+
+            $this->db->beginTransaction();
+
+            // Si el egreso tenía un gasto admin vinculado, eliminarlo del P&L
+            if ($movimiento['gasto_admin_id'] !== null) {
+                $gastoAdminId = (int) $movimiento['gasto_admin_id'];
+                $stmtDelAdmin = $this->db->prepare('DELETE FROM gastos_administrativos WHERE id = :id');
+                $stmtDelAdmin->bindValue(':id', $gastoAdminId, PDO::PARAM_INT);
+                $stmtDelAdmin->execute();
             }
 
             $stmtDel = $this->db->prepare('DELETE FROM caja_chica WHERE id = :id');
             $stmtDel->bindParam(':id', $id, PDO::PARAM_INT);
             $stmtDel->execute();
 
+            $this->db->commit();
+
             http_response_code(200);
             echo json_encode(['success' => true]);
 
         } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log('[FinancieroController::eliminarMovimientoCajaChica] ERROR: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Error al eliminar movimiento de caja chica']);

@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reporte Financiero — {{periodo_label}}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    /* ─────────────────────────────────────────────────────────
+       TOKENS DE DISEÑO
+    ───────────────────────────────────────────────────────── */
+    :root {
+      --verde-oscuro:   #0f2318;   /* fondo header / portada */
+      --verde-mid:      #1a3a28;   /* elementos secundarios oscuros */
+      --acento:         #CBF518;   /* verde lima SAG — acento principal */
+      --acento-dim:     #a8cc10;   /* acento hover / variante oscura */
+      --blanco:         #ffffff;
+      --fondo:          #f5f6f2;   /* fondo general del reporte */
+      --superficie:     #ffffff;   /* cards */
+      --borde:          #e3e8e0;   /* bordes sutiles */
+      --borde-fuerte:   #c8d0c4;
+      --texto:          #111a13;   /* texto principal */
+      --texto-2:        #4a5e50;   /* texto secundario */
+      --texto-3:        #8a9e90;   /* texto terciario / labels */
+      --rojo:           #dc2626;
+      --rojo-dim:       #fef2f2;
+      --rojo-borde:     #fca5a5;
+      --naranja:        #ea580c;
+      --naranja-dim:    #fff7ed;
+      --naranja-borde:  #fed7aa;
+      --verde-positivo: #16a34a;
+      --verde-pos-dim:  #f0fdf4;
+      --verde-pos-borde:#bbf7d0;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--fondo);
+      color: var(--texto);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       UTILIDADES
+    ───────────────────────────────────────────────────────── */
+    .tabular { font-variant-numeric: tabular-nums; }
+    .sr-only  { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+    /* ─────────────────────────────────────────────────────────
+       BOTÓN IMPRIMIR — oculto en print
+    ───────────────────────────────────────────────────────── */
+    .btn-imprimir {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 999;
+      background: var(--acento);
+      color: var(--verde-oscuro);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 12px 22px;
+      border-radius: 100px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      transition: background 0.15s;
+    }
+    .btn-imprimir:hover { background: var(--acento-dim); }
+    .btn-imprimir svg   { width: 15px; height: 15px; flex-shrink: 0; }
+
+    /* ─────────────────────────────────────────────────────────
+       WRAPPER PRINCIPAL — ancho A4
+    ───────────────────────────────────────────────────────── */
+    .reporte {
+      max-width: 794px; /* 210mm ≈ 794px */
+      margin: 24px auto;
+      background: var(--superficie);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 40px rgba(0,0,0,0.10);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       CABECERA OSCURA
+    ───────────────────────────────────────────────────────── */
+    .cabecera {
+      background: var(--verde-oscuro);
+      padding: 32px 40px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Decoración geométrica fondo */
+    .cabecera::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 260px; height: 260px;
+      border-radius: 50%;
+      border: 40px solid rgba(203,245,24,0.06);
+      pointer-events: none;
+    }
+    .cabecera::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; right: 80px;
+      width: 160px; height: 160px;
+      border-radius: 50%;
+      border: 30px solid rgba(203,245,24,0.04);
+      pointer-events: none;
+    }
+
+    .cab-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .marca {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .marca-punto {
+      width: 9px; height: 9px;
+      background: var(--acento);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .marca-nombre {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--blanco);
+      letter-spacing: -0.2px;
+    }
+
+    .cab-badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--acento);
+      background: rgba(203,245,24,0.12);
+      border: 1px solid rgba(203,245,24,0.2);
+      border-radius: 100px;
+      padding: 4px 12px;
+    }
+
+    .cab-titulo-bloque { position: relative; z-index: 1; }
+
+    .cab-tipo {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--acento);
+      margin-bottom: 6px;
+    }
+
+    .cab-titulo {
+      font-size: 36px;
+      font-weight: 900;
+      color: var(--blanco);
+      letter-spacing: -1.5px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .cab-periodo {
+      font-size: 13px;
+      color: rgba(255,255,255,0.45);
+      font-weight: 400;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       KPIs GRANDES — 4 bloques en la cabecera
+    ───────────────────────────────────────────────────────── */
+    .kpis-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      margin-top: 24px;
+    }
+
+    .kpi-bloque {
+      padding: 18px 0 18px 20px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    .kpi-bloque:last-child { border-right: none; }
+    .kpi-bloque:first-child { padding-left: 0; }
+
+    .kpi-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 5px;
+    }
+
+    .kpi-valor {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--blanco);
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+
+    .kpi-valor.acento { color: var(--acento); }
+
+    .kpi-sub {
+      font-size: 10px;
+      color: rgba(255,255,255,0.3);
+      margin-top: 4px;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       CUERPO DEL REPORTE
+    ───────────────────────────────────────────────────────── */
+    .cuerpo {
+      padding: 28px 40px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       SECCIÓN TITULAR
+    ───────────────────────────────────────────────────────── */
+    .sec-titulo {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--texto-3);
+      margin-bottom: 10px;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       ESTADO DE RESULTADOS
+    ───────────────────────────────────────────────────────── */
+    .estado-resultados {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .er-bloque {
+      background: var(--superficie);
+      border: 1px solid var(--borde);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+
+    .er-bloque.destacado {
+      background: var(--verde-oscuro);
+      border-color: var(--verde-oscuro);
+    }
+
+    .er-titulo {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--texto-3);
+      margin-bottom: 12px;
+    }
+    .er-bloque.destacado .er-titulo {
+      color: rgba(255,255,255,0.4);
+    }
+
+    .er-fila {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 0;
+    }
+
+    .er-fila + .er-fila {
+      border-top: 1px solid var(--borde);
+    }
+    .er-bloque.destacado .er-fila + .er-fila {
+      border-top-color: rgba(255,255,255,0.08);
+    }
+
+    .er-concepto {
+      font-size: 12px;
+      color: var(--texto-2);
+      flex: 1;
+    }
+    .er-concepto small {
+      display: block;
+      font-size: 10px;
+      color: var(--texto-3);
+      margin-top: 1px;
+    }
+    .er-bloque.destacado .er-concepto { color: rgba(255,255,255,0.55); }
+
+    .er-monto {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--texto);
+      white-space: nowrap;
+    }
+    .er-bloque.destacado .er-monto { color: rgba(255,255,255,0.8); }
+
+    .er-monto.negativo { color: var(--rojo); }
+    .er-bloque.destacado .er-monto.negativo { color: #f87171; }
+
+    .er-fila.subtotal .er-concepto {
+      font-weight: 700;
+      color: var(--texto);
+      font-size: 13px;
+    }
+    .er-fila.subtotal .er-monto {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--texto);
+    }
+    .er-bloque.destacado .er-fila.subtotal .er-concepto { color: var(--blanco); }
+    .er-bloque.destacado .er-fila.subtotal .er-monto    { color: var(--blanco); }
+
+    /* Fila total final — la ganancia neta */
+    .er-total-final {
+      border: 1px solid var(--borde);
+      border-radius: 12px;
+      padding: 16px 20px;
+      background: var(--verde-pos-dim);
+      border-color: var(--verde-pos-borde);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .er-total-final.negativo {
+      background: var(--rojo-dim);
+      border-color: var(--rojo-borde);
+    }
+
+    .er-total-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--verde-positivo);
+    }
+    .er-total-final.negativo .er-total-label { color: var(--rojo); }
+
+    .er-total-valor {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--verde-positivo);
+      letter-spacing: -1px;
+    }
+    .er-total-final.negativo .er-total-valor { color: var(--rojo); }
+
+    .er-total-sub {
+      font-size: 10px;
+      color: var(--texto-3);
+      margin-top: 3px;
+    }
+
+    .er-nota {
+      font-size: 10px;
+      color: var(--texto-3);
+      font-style: italic;
+      padding: 8px 4px 0;
+      border-top: 1px dashed var(--borde);
+      margin-top: 4px;
+    }
+
+    /* IVA nota separada */
+    .iva-nota {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 11px;
+      color: #92400e;
+    }
+    .iva-nota-icono {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .iva-nota strong { font-weight: 700; color: #78350f; }
+
+    /* ─────────────────────────────────────────────────────────
+       BARRA VISUAL DE DISTRIBUCIÓN
+    ───────────────────────────────────────────────────────── */
+    .distribucion {
+      border: 1px solid var(--borde);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+
+    .dist-barra-wrap {
+      height: 16px;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      margin-bottom: 10px;
+      background: var(--borde);
+    }
+
+    .dist-seg {
+      height: 100%;
+      flex-shrink: 0;
+      transition: width 0.4s ease;
+    }
+    .dist-seg.ganancia     { background: var(--acento); }
+    .dist-seg.refacciones  { background: #f59e0b; }
+    .dist-seg.sueldos      { background: #6366f1; }
+    .dist-seg.pagos-fijos  { background: #ec4899; }
+    .dist-seg.gastos-var   { background: #14b8a6; }
+
+    .dist-leyenda {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+    }
+    .dist-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--texto-2);
+    }
+    .dist-punto {
+      width: 8px; height: 8px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .dist-punto.ganancia     { background: var(--acento); }
+    .dist-punto.refacciones  { background: #f59e0b; }
+    .dist-punto.sueldos      { background: #6366f1; }
+    .dist-punto.pagos-fijos  { background: #ec4899; }
+    .dist-punto.gastos-var   { background: #14b8a6; }
+
+    /* ─────────────────────────────────────────────────────────
+       TABLA DE ÓRDENES
+    ───────────────────────────────────────────────────────── */
+    .tabla-wrap {
+      border: 1px solid var(--borde);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .tabla {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+    }
+
+    .tabla thead tr {
+      background: var(--verde-oscuro);
+    }
+    .tabla thead th {
+      padding: 9px 12px;
+      text-align: left;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      white-space: nowrap;
+    }
+    .tabla thead th.r { text-align: right; }
+
+    .tabla tbody tr {
+      border-bottom: 1px solid var(--borde);
+    }
+    .tabla tbody tr:last-child { border-bottom: none; }
+    .tabla tbody tr:nth-child(even) { background: var(--fondo); }
+
+    .tabla tbody td {
+      padding: 8px 12px;
+      color: var(--texto-2);
+      vertical-align: middle;
+    }
+    .tabla tbody td.r     { text-align: right; }
+    .tabla tbody td.bold  { font-weight: 600; color: var(--texto); }
+    .tabla tbody td.verde { font-weight: 700; color: var(--verde-positivo); }
+    .tabla tbody td.fecha-col { color: var(--texto-3); font-size: 11px; white-space: nowrap; }
+
+    .tabla tfoot tr {
+      background: var(--verde-oscuro);
+    }
+    .tabla tfoot td {
+      padding: 9px 12px;
+      color: rgba(255,255,255,0.6);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tabla tfoot td.r        { text-align: right; }
+    .tabla tfoot td.total    { color: var(--acento); font-weight: 800; font-size: 13px; }
+    .tabla tfoot td.label-t  { color: rgba(255,255,255,0.5); font-weight: 700; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+
+    /* Badge de estado */
+    .badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      border-radius: 100px;
+      padding: 2px 7px;
+    }
+    .badge.cerrado { background: #dcfce7; color: #15803d; }
+    .badge.proceso { background: #dbeafe; color: #1d4ed8; }
+
+    /* ─────────────────────────────────────────────────────────
+       DOS COLUMNAS: TOP SERVICIOS + TOP CLIENTES
+    ───────────────────────────────────────────────────────── */
+    .dos-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .ranking-card {
+      border: 1px solid var(--borde);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+
+    .ranking-fila {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+    }
+    .ranking-fila + .ranking-fila {
+      border-top: 1px solid var(--borde);
+    }
+
+    .ranking-num {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--texto-3);
+      width: 16px;
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .ranking-nombre {
+      font-size: 12px;
+      color: var(--texto);
+      font-weight: 500;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .ranking-meta {
+      font-size: 10px;
+      color: var(--texto-3);
+      flex-shrink: 0;
+    }
+
+    .ranking-monto {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--texto);
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    /* Barra de ranking */
+    .ranking-bar {
+      height: 3px;
+      background: var(--borde);
+      border-radius: 2px;
+      margin: -2px 0 4px 26px;
+      overflow: hidden;
+    }
+    .ranking-bar-fill {
+      height: 100%;
+      background: var(--acento);
+      border-radius: 2px;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       CAJA CHICA
+    ───────────────────────────────────────────────────────── */
+    .caja-chica {
+      border: 1px solid var(--borde);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .caja-header {
+      background: var(--verde-oscuro);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .caja-header-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+    }
+    .caja-saldo {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--acento);
+    }
+    .caja-saldo.negativo { color: #f87171; }
+
+    .caja-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      border-bottom: 1px solid var(--borde);
+    }
+    .caja-stat {
+      padding: 12px 16px;
+      text-align: center;
+      border-right: 1px solid var(--borde);
+    }
+    .caja-stat:last-child { border-right: none; }
+    .caja-stat-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--texto-3);
+      margin-bottom: 4px;
+    }
+    .caja-stat-valor {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--texto);
+    }
+    .caja-stat-valor.verde   { color: var(--verde-positivo); }
+    .caja-stat-valor.rojo    { color: var(--rojo); }
+
+    /* ─────────────────────────────────────────────────────────
+       PIE DE PÁGINA
+    ───────────────────────────────────────────────────────── */
+    .pie {
+      background: var(--verde-oscuro);
+      padding: 16px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .pie-marca {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pie-punto {
+      width: 6px; height: 6px;
+      background: var(--acento);
+      border-radius: 50%;
+    }
+    .pie-nombre {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.5);
+    }
+
+    .pie-meta {
+      font-size: 10px;
+      color: rgba(255,255,255,0.25);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       PRINT — @media print
+    ───────────────────────────────────────────────────────── */
+    @media print {
+      @page {
+        size: A4;
+        margin: 0;
+      }
+
+      html, body {
+        background: white;
+        margin: 0;
+        padding: 0;
+      }
+
+      .btn-imprimir { display: none !important; }
+
+      .reporte {
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      /* Evitar corte de tabla a mitad de fila */
+      .tabla tbody tr  { page-break-inside: avoid; }
+      .er-bloque       { page-break-inside: avoid; }
+      .ranking-card    { page-break-inside: avoid; }
+      .caja-chica      { page-break-inside: avoid; }
+
+      /* Salto de página opcional antes de la tabla si no cabe */
+      .tabla-seccion   { page-break-before: auto; }
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       SEPARADOR VISUAL
+    ───────────────────────────────────────────────────────── */
+    .separador {
+      border: none;
+      border-top: 1px solid var(--borde);
+      margin: 0;
+    }
+
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOTÓN IMPRIMIR (desaparece en PDF)
+════════════════════════════════════════════════════════════ -->
+<button class="btn-imprimir" onclick="window.print()">
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+      d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+  </svg>
+  Imprimir / Guardar PDF
+</button>
+
+<!-- ═══════════════════════════════════════════════════════════
+     REPORTE
+════════════════════════════════════════════════════════════ -->
+<div class="reporte">
+
+  <!-- ─── CABECERA ─────────────────────────────────────────── -->
+  <div class="cabecera">
+    <div class="cab-top">
+      <div class="marca">
+        <div class="marca-punto"></div>
+        <span class="marca-nombre">SAG Garage</span>
+      </div>
+      <span class="cab-badge">Reporte Financiero</span>
+    </div>
+
+    <div class="cab-titulo-bloque">
+      <p class="cab-tipo">Balance del período</p>
+      <h1 class="cab-titulo">{{titulo_reporte}}</h1>
+      <!--
+        Ejemplos de {{titulo_reporte}}:
+          Semana 12–18 May
+          Mayo 2026
+      -->
+      <p class="cab-periodo">{{periodo_completo}} &nbsp;·&nbsp; Generado el {{fecha_generacion}}</p>
+    </div>
+
+    <!-- KPIs grandes -->
+    <div class="kpis-grid">
+      <div class="kpi-bloque">
+        <p class="kpi-label">Facturado</p>
+        <p class="kpi-valor tabular">{{ingresos_brutos}}</p>
+        <p class="kpi-sub">{{num_ordenes}} órdenes</p>
+      </div>
+      <div class="kpi-bloque">
+        <p class="kpi-label">Costo refacciones</p>
+        <p class="kpi-valor tabular">{{costo_refacciones}}</p>
+        <p class="kpi-sub">Margen 30%: {{ganancia_refacciones}}</p>
+      </div>
+      <div class="kpi-bloque">
+        <p class="kpi-label">Total gastos</p>
+        <p class="kpi-valor tabular">{{total_gastos}}</p>
+        <!--
+          {{total_gastos}} = sueldos + pagos_fijos + gastos_variables
+        -->
+        <p class="kpi-sub">Sueldos + fijos + variables</p>
+      </div>
+      <div class="kpi-bloque">
+        <p class="kpi-label">Ganancia neta</p>
+        <p class="kpi-valor acento tabular">{{ganancia_neta}}</p>
+        <p class="kpi-sub">{{por_socio}} por socio</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── CUERPO ───────────────────────────────────────────── -->
+  <div class="cuerpo">
+
+    <!-- ─── ESTADO DE RESULTADOS ───────────────────────────── -->
+    <section>
+      <p class="sec-titulo">Estado de resultados</p>
+
+      <div class="estado-resultados">
+
+        <!-- Bloque ingresos -->
+        <div class="er-bloque">
+          <p class="er-titulo">Ingresos del período</p>
+
+          <div class="er-fila">
+            <div class="er-concepto">
+              Servicios y mano de obra
+            </div>
+            <span class="er-monto tabular">{{ingresos_servicios}}</span>
+          </div>
+
+          <div class="er-fila">
+            <div class="er-concepto">
+              Refacciones cobradas
+              <small>Al cliente con margen del 30%</small>
+            </div>
+            <span class="er-monto tabular">{{ingresos_refacciones}}</span>
+          </div>
+
+          <div class="er-fila subtotal">
+            <div class="er-concepto">Total facturado</div>
+            <span class="er-monto tabular">{{ingresos_brutos}}</span>
+          </div>
+
+          <div class="er-fila">
+            <div class="er-concepto">
+              − Costo de refacciones
+              <small>Lo que el taller pagó al proveedor</small>
+            </div>
+            <span class="er-monto negativo tabular">−{{costo_refacciones}}</span>
+          </div>
+
+          <div class="er-fila subtotal">
+            <div class="er-concepto">Ingreso neto operativo</div>
+            <span class="er-monto tabular">{{ingreso_neto_operativo}}</span>
+          </div>
+          <!--
+            ingreso_neto_operativo = ingresos_brutos − costo_refacciones
+            Incluye el margen de 30% de refacciones.
+          -->
+
+          <p class="er-nota">
+            Incluye {{ganancia_refacciones}} de margen en refacciones.
+          </p>
+        </div>
+
+        <!-- Bloque gastos — fondo oscuro -->
+        <div class="er-bloque destacado">
+          <p class="er-titulo">Egresos del período</p>
+
+          <div class="er-fila">
+            <div class="er-concepto">Sueldos del equipo</div>
+            <span class="er-monto negativo tabular">−{{total_sueldos}}</span>
+          </div>
+
+          <div class="er-fila">
+            <div class="er-concepto">
+              Pagos fijos
+              <small>Renta, internet, proveedores</small>
+            </div>
+            <span class="er-monto negativo tabular">−{{total_pagos_fijos}}</span>
+          </div>
+
+          <div class="er-fila">
+            <div class="er-concepto">
+              Gastos variables
+              <small>Gasolina, materiales, imprevistos</small>
+            </div>
+            <span class="er-monto negativo tabular">−{{total_gastos_variables}}</span>
+          </div>
+
+          <div class="er-fila subtotal">
+            <div class="er-concepto">Total egresos</div>
+            <span class="er-monto negativo tabular">−{{total_gastos}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ganancia neta — línea final protagonista -->
+      <!--
+        Agregar clase "negativo" al div si ganancia_neta < 0
+        Ejemplo: <div class="er-total-final negativo">
+      -->
+      <div class="er-total-final" style="margin-top: 12px;">
+        <div>
+          <p class="er-total-label">Ganancia neta del período</p>
+          <p class="er-total-sub">{{ingreso_neto_operativo}} − {{total_gastos}}</p>
+        </div>
+        <p class="er-total-valor tabular">{{ganancia_neta}}</p>
+      </div>
+
+      <!-- IVA — nota separada, no es deducción del negocio -->
+      <div class="iva-nota" style="margin-top: 10px;">
+        <span class="iva-nota-icono">&#9432;</span>
+        <span>
+          <strong>IVA cobrado este período: {{iva_cobrado}}</strong> —
+          Este dinero pertenece al SAT. No es ingreso del taller y no aparece en el cálculo de ganancia.
+        </span>
+      </div>
+    </section>
+
+    <hr class="separador" />
+
+    <!-- ─── BARRA DE DISTRIBUCIÓN ──────────────────────────── -->
+    <section>
+      <p class="sec-titulo">¿A dónde fue cada peso facturado?</p>
+      <div class="distribucion">
+        <!--
+          Anchos de cada segmento = porcentaje del total facturado.
+          Calcular: (valor / ingresos_brutos) * 100
+          Ejemplo: style="width: 38%"
+        -->
+        <div class="dist-barra-wrap">
+          <div class="dist-seg ganancia"    style="width: {{pct_ganancia}}%"></div>
+          <div class="dist-seg refacciones" style="width: {{pct_costo_refacciones}}%"></div>
+          <div class="dist-seg sueldos"     style="width: {{pct_sueldos}}%"></div>
+          <div class="dist-seg pagos-fijos" style="width: {{pct_pagos_fijos}}%"></div>
+          <div class="dist-seg gastos-var"  style="width: {{pct_gastos_variables}}%"></div>
+        </div>
+        <div class="dist-leyenda">
+          <div class="dist-item">
+            <div class="dist-punto ganancia"></div>
+            Ganancia neta ({{pct_ganancia}}%)
+          </div>
+          <div class="dist-item">
+            <div class="dist-punto refacciones"></div>
+            Costo refacciones ({{pct_costo_refacciones}}%)
+          </div>
+          <div class="dist-item">
+            <div class="dist-punto sueldos"></div>
+            Sueldos ({{pct_sueldos}}%)
+          </div>
+          <div class="dist-item">
+            <div class="dist-punto pagos-fijos"></div>
+            Pagos fijos ({{pct_pagos_fijos}}%)
+          </div>
+          <div class="dist-item">
+            <div class="dist-punto gastos-var"></div>
+            Gastos variables ({{pct_gastos_variables}}%)
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="separador" />
+
+    <!-- ─── TABLA ÓRDENES ──────────────────────────────────── -->
+    <section class="tabla-seccion">
+      <p class="sec-titulo">Detalle por orden ({{num_ordenes}} órdenes en el período)</p>
+      <div class="tabla-wrap">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>Vehículo</th>
+              <th>Estado</th>
+              <th class="r">Facturado</th>
+              <th class="r">Costo ref.</th>
+              <th class="r">Ganancia</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!--
+              Repetir este bloque por cada orden del período.
+              Reemplazar todas las variables {{...}} con valores reales.
+              Agregar clase "proceso" al badge si estado = "en proceso".
+            -->
+            <tr>
+              <td class="fecha-col">{{orden.fecha}}</td>
+              <td class="bold">{{orden.cliente}}</td>
+              <td>{{orden.vehiculo}}</td>
+              <td><span class="badge cerrado">{{orden.estado}}</span></td>
+              <td class="r tabular">{{orden.facturado}}</td>
+              <td class="r tabular">{{orden.costo_ref}}</td>
+              <td class="r verde tabular">{{orden.ganancia}}</td>
+            </tr>
+            <!-- FIN repetición -->
+
+            <!-- EJEMPLO de filas con datos reales para visualización -->
+            <tr>
+              <td class="fecha-col">06/05</td>
+              <td class="bold">Roberto Sánchez</td>
+              <td>BMW 320i 2019</td>
+              <td><span class="badge cerrado">Cerrado</span></td>
+              <td class="r tabular">$7,700</td>
+              <td class="r tabular">$4,000</td>
+              <td class="r verde tabular">$3,700</td>
+            </tr>
+            <tr>
+              <td class="fecha-col">07/05</td>
+              <td class="bold">Alejandro Ramírez</td>
+              <td>Jetta 2016</td>
+              <td><span class="badge cerrado">Cerrado</span></td>
+              <td class="r tabular">$3,390</td>
+              <td class="r tabular">$300</td>
+              <td class="r verde tabular">$3,090</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" class="label-t">Totales del período</td>
+              <td class="r total tabular">{{total_facturado_ordenes}}</td>
+              <td class="r tabular">{{total_costo_ref_ordenes}}</td>
+              <td class="r total tabular">{{total_ganancia_ordenes}}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <hr class="separador" />
+
+    <!-- ─── TOP SERVICIOS + TOP CLIENTES ───────────────────── -->
+    <section>
+      <p class="sec-titulo">Ranking del período</p>
+      <div class="dos-cols">
+
+        <!-- Top servicios -->
+        <div class="ranking-card">
+          <p class="er-titulo" style="margin-bottom:14px;">Top 5 servicios</p>
+
+          <!--
+            Repetir .ranking-fila + .ranking-bar por cada servicio.
+            {{srv.pct}} = (srv.monto / srv_max_monto) * 100
+          -->
+          <div class="ranking-fila">
+            <span class="ranking-num">1</span>
+            <span class="ranking-nombre">{{srv1.nombre}}</span>
+            <span class="ranking-meta">{{srv1.veces}}x</span>
+            <span class="ranking-monto tabular">{{srv1.monto}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:100%"></div></div>
+
+          <div class="ranking-fila">
+            <span class="ranking-num">2</span>
+            <span class="ranking-nombre">{{srv2.nombre}}</span>
+            <span class="ranking-meta">{{srv2.veces}}x</span>
+            <span class="ranking-monto tabular">{{srv2.monto}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:{{srv2.pct}}%"></div></div>
+
+          <div class="ranking-fila">
+            <span class="ranking-num">3</span>
+            <span class="ranking-nombre">{{srv3.nombre}}</span>
+            <span class="ranking-meta">{{srv3.veces}}x</span>
+            <span class="ranking-monto tabular">{{srv3.monto}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:{{srv3.pct}}%"></div></div>
+
+          <div class="ranking-fila">
+            <span class="ranking-num">4</span>
+            <span class="ranking-nombre">{{srv4.nombre}}</span>
+            <span class="ranking-meta">{{srv4.veces}}x</span>
+            <span class="ranking-monto tabular">{{srv4.monto}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:{{srv4.pct}}%"></div></div>
+
+          <div class="ranking-fila">
+            <span class="ranking-num">5</span>
+            <span class="ranking-nombre">{{srv5.nombre}}</span>
+            <span class="ranking-meta">{{srv5.veces}}x</span>
+            <span class="ranking-monto tabular">{{srv5.monto}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:{{srv5.pct}}%"></div></div>
+        </div>
+
+        <!-- Top clientes -->
+        <div class="ranking-card">
+          <p class="er-titulo" style="margin-bottom:14px;">Top 5 clientes</p>
+
+          <div class="ranking-fila">
+            <span class="ranking-num">1</span>
+            <span class="ranking-nombre">{{cli1.nombre}}</span>
+            <span class="ranking-meta">{{cli1.visitas}} visita(s)</span>
+            <span class="ranking-monto tabular">{{cli1.total}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:100%"></div></div>
+
+          <div class="ranking-fila">
+            <span class="ranking-num">2</span>
+            <span class="ranking-nombre">{{cli2.nombre}}</span>
+            <span class="ranking-meta">{{cli2.visitas}} visita(s)</span>
+            <span class="ranking-monto tabular">{{cli2.total}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:{{cli2.pct}}%"></div></div>
+
+          <div class="ranking-fila">
+            <span class="ranking-num">3</span>
+            <span class="ranking-nombre">{{cli3.nombre}}</span>
+            <span class="ranking-meta">{{cli3.visitas}} visita(s)</span>
+            <span class="ranking-monto tabular">{{cli3.total}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:{{cli3.pct}}%"></div></div>
+
+          <div class="ranking-fila">
+            <span class="ranking-num">4</span>
+            <span class="ranking-nombre">{{cli4.nombre}}</span>
+            <span class="ranking-meta">{{cli4.visitas}} visita(s)</span>
+            <span class="ranking-monto tabular">{{cli4.total}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:{{cli4.pct}}%"></div></div>
+
+          <div class="ranking-fila">
+            <span class="ranking-num">5</span>
+            <span class="ranking-nombre">{{cli5.nombre}}</span>
+            <span class="ranking-meta">{{cli5.visitas}} visita(s)</span>
+            <span class="ranking-monto tabular">{{cli5.total}}</span>
+          </div>
+          <div class="ranking-bar"><div class="ranking-bar-fill" style="width:{{cli5.pct}}%"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="separador" />
+
+    <!-- ─── CAJA CHICA ─────────────────────────────────────── -->
+    <section>
+      <p class="sec-titulo">Caja chica — efectivo físico</p>
+      <div class="caja-chica">
+        <div class="caja-header">
+          <span class="caja-header-label">Saldo al cierre del período</span>
+          <!--
+            Agregar clase "negativo" si saldo_actual < 0
+            Ejemplo: <span class="caja-saldo negativo">
+          -->
+          <span class="caja-saldo tabular">{{caja.saldo_actual}}</span>
+        </div>
+        <div class="caja-stats">
+          <div class="caja-stat">
+            <p class="caja-stat-label">Saldo anterior</p>
+            <p class="caja-stat-valor tabular">{{caja.saldo_anterior}}</p>
+          </div>
+          <div class="caja-stat">
+            <p class="caja-stat-label">Entradas</p>
+            <p class="caja-stat-valor verde tabular">+{{caja.entradas}}</p>
+          </div>
+          <div class="caja-stat">
+            <p class="caja-stat-label">Salidas</p>
+            <p class="caja-stat-valor rojo tabular">−{{caja.salidas}}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /cuerpo -->
+
+  <!-- ─── PIE DE PÁGINA ────────────────────────────────────── -->
+  <div class="pie">
+    <div class="pie-marca">
+      <div class="pie-punto"></div>
+      <span class="pie-nombre">SAG Garage — Taller Gudino</span>
+    </div>
+    <span class="pie-meta">Reporte generado el {{fecha_generacion}} &nbsp;·&nbsp; Documento interno</span>
+  </div>
+
+</div><!-- /reporte -->
+
+</body>
+</html>

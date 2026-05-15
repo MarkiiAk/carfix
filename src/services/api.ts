@@ -316,7 +316,7 @@ export const cajaChicaAPI = {
   resumen: (tipo: 'semana' | 'mes', offset: number): Promise<CajaChicaResponse> =>
     api.get(`/financiero/caja-chica?tipo=${tipo}&offset=${offset}`).then(r => r.data),
 
-  crear: (data: Omit<MovimientoCajaChica, 'id'>): Promise<{ success: boolean; movimiento: MovimientoCajaChica }> =>
+  crear: (data: Omit<MovimientoCajaChica, 'id' | 'gasto_admin_id'>): Promise<{ success: boolean; movimiento: MovimientoCajaChica }> =>
     api.post('/financiero/caja-chica', data).then(r => r.data),
 
   eliminar: (id: number): Promise<{ success: boolean }> =>

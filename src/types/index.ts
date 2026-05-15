@@ -428,6 +428,7 @@ export interface MovimientoCajaChica {
   concepto: string;
   monto: number;
   notas: string | null;
+  gasto_admin_id: number | null;
 }
 
 export interface CajaChicaResponse {

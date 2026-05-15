@@ -1272,6 +1272,9 @@ export const Financiero = () => {
                               <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${m.tipo === 'ingreso' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'}`}>
                                 {m.tipo}
                               </span>
+                              {m.tipo === 'egreso' && m.gasto_admin_id !== null && (
+                                <span className="text-[10px] text-teal-600 dark:text-teal-400 ml-1">→ P&L</span>
+                              )}
                             </td>
                             <td className="py-2 pr-3">{m.concepto}</td>
                             <td className="py-2 pr-3 text-right tabular-nums font-medium">{formatMoneda(m.monto)}</td>

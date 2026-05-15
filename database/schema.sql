@@ -7,7 +7,7 @@
 -- Server version: 11.4.10-MariaDB-cll-lve-log
 -- PHP Version: 8.4.19
 -- 
--- ACTUALIZADO: 2026-04-30 — sincronizado con staging real (columnas clientes+alertas, índices puntos_seguridad, gastos_orden)
+-- ACTUALIZADO: 2026-05-15 — columna gasto_admin_id + FK en caja_chica para vínculo automático al P&L
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -1003,16 +1003,23 @@ CREATE TABLE IF NOT EXISTS `pagos_fijos` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 2026-05-15: Vínculo egresos caja chica → gastos_administrativos (P&L)
+-- Archivo: database/20260515_caja_chica_gasto_admin_link.sql
+
 CREATE TABLE IF NOT EXISTS `caja_chica` (
-  `id`           INT(11)                  NOT NULL AUTO_INCREMENT,
-  `fecha`        DATE                     NOT NULL,
-  `tipo`         ENUM('ingreso','egreso') NOT NULL,
-  `concepto`     VARCHAR(150)             NOT NULL,
-  `monto`        DECIMAL(10,2)            NOT NULL DEFAULT 0.00,
-  `notas`        TEXT                     NULL,
-  `created_at`   TIMESTAMP                NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `id`             INT(11)                  NOT NULL AUTO_INCREMENT,
+  `fecha`          DATE                     NOT NULL,
+  `tipo`           ENUM('ingreso','egreso') NOT NULL,
+  `concepto`       VARCHAR(150)             NOT NULL,
+  `monto`          DECIMAL(10,2)            NOT NULL DEFAULT 0.00,
+  `notas`          TEXT                     NULL,
+  `gasto_admin_id` INT(11)                  NULL DEFAULT NULL,
+  `created_at`     TIMESTAMP                NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_caja_chica_fecha` (`fecha`)
+  KEY `idx_caja_chica_fecha` (`fecha`),
+  CONSTRAINT `fk_caja_chica_gasto_admin`
+    FOREIGN KEY (`gasto_admin_id`) REFERENCES `gastos_administrativos` (`id`)
+    ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 COMMIT;
