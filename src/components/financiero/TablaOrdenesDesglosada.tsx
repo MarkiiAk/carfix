@@ -17,7 +17,9 @@ const formatMoneda = (monto: number): string =>
 
 const formatFecha = (iso: string): string => {
   if (!iso) return '—';
-  const [, m, d] = iso.split('T')[0].split('-');
+  // MySQL devuelve "2026-05-06 18:00:00" (espacio), ISO usa "T" — normalizar
+  const datePart = iso.split('T')[0].split(' ')[0];
+  const [, m, d] = datePart.split('-');
   return `${d.replace(/^0/, '')}/${m}`;
 };
 
@@ -31,10 +33,10 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
     );
   }
 
-  const ESTADOS_ABIERTOS = ['en_proceso', 'en_revision', 'pendiente', 'cotizacion', 'en_espera'];
+  const ESTADOS_ABIERTOS = new Set(['en_proceso', 'en_revision', 'pendiente', 'cotizacion', 'en_espera', 'abierta', 'en proceso']);
 
   const etiquetaEstado = (estado: string) => {
-    if (ESTADOS_ABIERTOS.some(e => estado?.toLowerCase().includes(e.split('_')[0]))) {
+    if (ESTADOS_ABIERTOS.has(estado?.toLowerCase() ?? '')) {
       return (
         <span className="ml-1.5 text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full px-1.5 py-0.5 font-medium whitespace-nowrap">
           anticipo

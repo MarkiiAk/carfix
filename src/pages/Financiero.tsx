@@ -374,9 +374,19 @@ export const Financiero = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
 
-  // mes/año derivados del offset — usados por gastosAdmin (modo mes)
+  // mes/año derivados del período seleccionado — usados por gastosAdmin
+  // En semana: calcular el mes del lunes de la semana seleccionada
+  // En mes: restar el offset de meses al mes actual
   const hoy = new Date();
-  const fechaPeriodo = new Date(hoy.getFullYear(), hoy.getMonth() - offset, 1);
+  const fechaPeriodo = (() => {
+    if (tipoPeriodo === 'semana') {
+      const diaSemana = hoy.getDay() || 7;
+      const lunes = new Date(hoy);
+      lunes.setDate(hoy.getDate() - diaSemana + 1 - offset * 7);
+      return lunes;
+    }
+    return new Date(hoy.getFullYear(), hoy.getMonth() - offset, 1);
+  })();
   const mesSel  = fechaPeriodo.getMonth() + 1;
   const anioSel = fechaPeriodo.getFullYear();
 
