@@ -1,113 +1,145 @@
 -- =============================================================================
--- SEED: Datos de prueba para módulo financiero — Staging SAG Garage
--- Cubre semanas: 4-10 mayo 2026 y 11-17 mayo 2026
--- Incluye: órdenes abiertas/cerradas, caja chica, sueldos, pagos fijos, gastos
+-- SEED v2: Datos realistas basados en semanas reales de Paco Gudiño
+-- Semana 4-10 mayo 2026  → MEJOR semana (replica 13-17 abril 2026)
+-- Semana 11-17 mayo 2026 → PEOR semana  (replica 16-21 marzo 2026)
 --
--- INSTRUCCIONES:
---   1. Abre phpMyAdmin en cPanel → BD saggarag_staging
---   2. Pestaña "SQL" → pega todo este script → Ejecutar
---   3. El script es idempotente con DELETE previo para no duplicar en reruns
+-- INSTRUCCIONES: phpMyAdmin → saggarag_staging → SQL → pegar → Ejecutar
 -- =============================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ============================================================
--- LIMPIEZA de datos de prueba anteriores (por concepto único)
+-- LIMPIEZA COMPLETA de datos de prueba anteriores
 -- ============================================================
-DELETE FROM caja_chica         WHERE fecha BETWEEN '2026-05-04' AND '2026-05-17';
-DELETE FROM gastos_administrativos WHERE anio = 2026 AND mes = 5;
-DELETE FROM empleados_sueldos  WHERE nombre IN ('Mayte Macías','Carlos Castillo','Markus Fabela','Roberto Zamora','Karla Betzbae');
-DELETE FROM pagos_fijos        WHERE concepto IN ('Renta + Agua','Internet Telmex','Publicación Facebook','Préstamo Taller','AkLabs - Marco');
-DELETE FROM refacciones_orden  WHERE orden_id IN (SELECT id FROM ordenes_servicio WHERE numero_orden LIKE 'SEED-%');
-DELETE FROM servicios_orden    WHERE orden_id IN (SELECT id FROM ordenes_servicio WHERE numero_orden LIKE 'SEED-%');
-DELETE FROM ordenes_servicio   WHERE numero_orden LIKE 'SEED-%';
-DELETE FROM vehiculos          WHERE numero_serie LIKE 'SEED-%';
-DELETE FROM clientes           WHERE rfc LIKE 'SEED%';
+DELETE FROM caja_chica              WHERE fecha BETWEEN '2026-05-04' AND '2026-05-17';
+DELETE FROM gastos_administrativos  WHERE anio = 2026 AND mes = 5;
+DELETE FROM empleados_sueldos       WHERE nombre IN ('Mayte Macías','Carlos Castillo','Markus Fabela','Roberto Zamora','Karla Betzbae');
+DELETE FROM pagos_fijos             WHERE concepto IN ('Renta + Agua','Internet Telmex','Publicación Facebook','Préstamo Taller','AkLabs - Marco');
+DELETE FROM refacciones_orden       WHERE orden_id IN (SELECT id FROM ordenes_servicio WHERE numero_orden LIKE 'SEED-%');
+DELETE FROM servicios_orden         WHERE orden_id IN (SELECT id FROM ordenes_servicio WHERE numero_orden LIKE 'SEED-%');
+DELETE FROM ordenes_servicio        WHERE numero_orden LIKE 'SEED-%';
+DELETE FROM vehiculos               WHERE numero_serie LIKE 'SEED-%';
+DELETE FROM clientes                WHERE rfc LIKE 'SEED%';
 
 SET FOREIGN_KEY_CHECKS = 1;
 
--- ============================================================
--- VARIABLES DE APOYO (usuario admin de referencia)
--- ============================================================
--- Usamos una variable para el usuario_id admin
 SET @admin_id = (SELECT id FROM usuarios WHERE rol = 'admin' LIMIT 1);
--- Fallback por si la columna se llama diferente
 SET @admin_id = COALESCE(@admin_id, (SELECT id FROM usuarios LIMIT 1));
 
 -- ============================================================
--- 1. CLIENTES (6 ficticios pero realistas)
+-- 1. CLIENTES
 -- ============================================================
 INSERT INTO clientes (nombre, telefono, rfc, notas, activo) VALUES
-  ('Roberto Sánchez Torres',    '+5215512345601', 'SEEDRST', 'Cliente frecuente - BMW negro', 1),
-  ('Alejandro Ramírez López',   '+5215512345602', 'SEEDARL', 'Jetta rojo 2016', 1),
-  ('Karen Villegas Mora',       '+5215512345603', 'SEEDKVM', 'Mazda CX5 - suspensión', 1),
-  ('Fernando Díaz Cruz',        '+5215512345604', 'SEEDFDC', 'Ford Focus - clutch', 1),
-  ('Dulce María Anguiano',      '+5215512345605', 'SEEDDMA', 'Mercedes Blanco - servicio mayor', 1),
-  ('Jorge Ignacio Cabrera',     '+5215512345606', 'SEEDJIC', 'Toyota Yaris - verificación', 1);
+  ('Dulce María Anguiano',     '+5215512340001', 'SEEDDMA', 'Mercedes negro — cliente grande', 1),
+  ('Antonio Vargas Robles',    '+5215512340002', 'SEEDAVR', 'Ertiga 2022 — soportes', 1),
+  ('Dulce Razo Hernández',     '+5215512340003', 'SEEDDRH', 'Tida 2011 — clutch completo', 1),
+  ('Horte Calderon',           '+5215512340004', 'SEEDHCS', 'Spark 2017 — motor rectificado', 1),
+  ('Sr Tlapaleria',            '+5215512340005', 'SEEDSTP', 'Pointer blanco — servicio + inyectores', 1),
+  ('Bety Calderon',            '+5215512340006', 'SEEDBCG', 'Gol 2010 — batería', 1),
+  ('Elsa Kia Sportage',        '+5215512340007', 'SEEDEKS', 'Kia Sportage — servicio domicilio', 1),
+  ('Nicolas Urrieta',          '+5215512340008', 'SEEDNCU', 'Crafter 2024 — aceite y juntas', 1),
+  ('Maestra Rocio',            '+5215512340009', 'SEEDMRC', 'Captiva — servicio menor', 1),
+  ('Jorge Ignacio',            '+5215512340010', 'SEEDJIS', 'Sentra 2019 — servicio mayor', 1),
+  ('Capitan Maldonado',        '+5215512340011', 'SEEDCMA', 'Captiva 2014 — reten original', 1),
+  ('Nicolas Urrieta Sunray',   '+5215512340012', 'SEEDNSU', 'Sunray cargo — baleros prensa', 1),
+  ('Enrique Escudero',         '+5215512340013', 'SEEDEEG', 'Mercedes GLC 2018 — frenos', 1),
+  ('Nora Garcia',              '+5215512340014', 'SEEDNGA', 'Altima 2001 — servicio + frenos', 1),
+  ('Bryan Zepeda',             '+5215512340015', 'SEEDBZC', 'Cupra — frenos 4 discos', 1),
+  ('Sr Fusion 2016',           '+5215512340016', 'SEEDFSN', 'Fusion 2016 — cambio marcha', 1),
+  ('Amiga Paco Aveo',          '+5215512340017', 'SEEDAPA', 'Aveo blanco — pintura', 1);
 
--- Guardar IDs
-SET @cli_1 = LAST_INSERT_ID();
-SET @cli_2 = @cli_1 + 1;
-SET @cli_3 = @cli_1 + 2;
-SET @cli_4 = @cli_1 + 3;
-SET @cli_5 = @cli_1 + 4;
-SET @cli_6 = @cli_1 + 5;
+SET @c1  = LAST_INSERT_ID();
+SET @c2  = @c1 + 1;
+SET @c3  = @c1 + 2;
+SET @c4  = @c1 + 3;
+SET @c5  = @c1 + 4;
+SET @c6  = @c1 + 5;
+SET @c7  = @c1 + 6;
+SET @c8  = @c1 + 7;
+SET @c9  = @c1 + 8;
+SET @c10 = @c1 + 9;
+SET @c11 = @c1 + 10;
+SET @c12 = @c1 + 11;
+SET @c13 = @c1 + 12;
+SET @c14 = @c1 + 13;
+SET @c15 = @c1 + 14;
+SET @c16 = @c1 + 15;
+SET @c17 = @c1 + 16;
 
 -- ============================================================
 -- 2. VEHÍCULOS
 -- ============================================================
 INSERT INTO vehiculos (cliente_id, marca, modelo, anio, color, placas, numero_serie, kilometraje) VALUES
-  (@cli_1, 'BMW',        '320i',      2019, 'Negro',   'MBT624C', 'SEED-BMW001',  82400),
-  (@cli_2, 'Volkswagen', 'Jetta',     2016, 'Rojo',    'NDV429A', 'SEED-VW0002',  106273),
-  (@cli_3, 'Mazda',      'CX-5',      2019, 'Gris',    'PZH496D', 'SEED-MZD003', 171786),
-  (@cli_4, 'Ford',       'Focus',     2015, 'Blanco',  'LVC671A', 'SEED-FRD004',  98500),
-  (@cli_5, 'Mercedes',   'Clase C',   2020, 'Blanco',  'PZB870A', 'SEED-MBC005',  45200),
-  (@cli_6, 'Toyota',     'Yaris',     2017, 'Gris',    'NZR083B', 'SEED-TYT006',  88900);
+  (@c1,  'Mercedes',   'Clase C',       2020, 'Negro',  'PZB870A', 'SEED-MB001', 45200),
+  (@c2,  'Suzuki',     'Ertiga',        2022, 'Blanco', 'PBU5583', 'SEED-SZ002', 19314),
+  (@c3,  'Volkswagen', 'Tida',          2011, 'Gris',   'LRX8843', 'SEED-VW003', 155000),
+  (@c4,  'Chevrolet',  'Spark Clasico', 2017, 'Verde',  'NZW5440', 'SEED-CH004', 80060),
+  (@c5,  'Volkswagen', 'Pointer',       2006, 'Blanco', 'NTD040A', 'SEED-VW005', 198000),
+  (@c6,  'Volkswagen', 'Gol',           2010, 'Gris',   'NPA313A', 'SEED-VW006', 142000),
+  (@c7,  'Kia',        'Sportage',      2018, 'Rojo',   'LJK3344', 'SEED-KI007', 88000),
+  (@c8,  'Volkswagen', 'Crafter',       2024, 'Blanco', 'KP6813A', 'SEED-VW008', 65341),
+  (@c9,  'Chevrolet',  'Captiva',       2014, 'Negra',  'NPP235B', 'SEED-CH009', 104310),
+  (@c10, 'Nissan',     'Sentra',        2019, 'Blanco', 'RRY1122', 'SEED-NS010', 38400),
+  (@c11, 'Chevrolet',  'Captiva',       2014, 'Blanca', 'RTX8821', 'SEED-CH011', 91000),
+  (@c12, 'JAC',        'Sunray Cargo',  2022, 'Blanco', 'LE29055', 'SEED-JC012', 127556),
+  (@c13, 'Mercedes',   'GLC',           2018, 'Gris',   'AAL7722', 'SEED-MB013', 78000),
+  (@c14, 'Nissan',     'Altima',        2001, 'Rojo',   'PPQ5544', 'SEED-NS014', 187000),
+  (@c15, 'CUPRA',      'Formentor',     2022, 'Negro',  'RTU4433', 'SEED-CU015', 21000),
+  (@c16, 'Ford',       'Fusion',        2016, 'Gris',   'LUC8821', 'SEED-FD016', 143000),
+  (@c17, 'Chevrolet',  'Aveo',          2015, 'Blanco', 'MHJ9921', 'SEED-CH017', 88000);
 
-SET @veh_1 = LAST_INSERT_ID();
-SET @veh_2 = @veh_1 + 1;
-SET @veh_3 = @veh_1 + 2;
-SET @veh_4 = @veh_1 + 3;
-SET @veh_5 = @veh_1 + 4;
-SET @veh_6 = @veh_1 + 5;
+SET @v1  = LAST_INSERT_ID();
+SET @v2  = @v1 + 1;
+SET @v3  = @v1 + 2;
+SET @v4  = @v1 + 3;
+SET @v5  = @v1 + 4;
+SET @v6  = @v1 + 5;
+SET @v7  = @v1 + 6;
+SET @v8  = @v1 + 7;
+SET @v9  = @v1 + 8;
+SET @v10 = @v1 + 9;
+SET @v11 = @v1 + 10;
+SET @v12 = @v1 + 11;
+SET @v13 = @v1 + 12;
+SET @v14 = @v1 + 13;
+SET @v15 = @v1 + 14;
+SET @v16 = @v1 + 15;
+SET @v17 = @v1 + 16;
 
--- ============================================================
--- 3. ÓRDENES DE SERVICIO
---    Semana 1 (4-10 mayo): 4 órdenes — 2 cerradas S1, 2 abiertas que cierran S2
---    Semana 2 (11-17 mayo): 3 órdenes nuevas + cierre de las 2 abiertas de S1
--- ============================================================
+-- ==============================================================
+-- SEMANA 4-10 MAYO 2026 — MEJOR SEMANA
+-- Replica 13-17 abril 2026: Ingresos ~$66k | Ganancia neta ~$26k
+-- La estrella: Mercedes Dulce María $20,000 con $520 de costo
+-- ==============================================================
 
--- ---- SEMANA 1: CERRADAS ESA MISMA SEMANA ----
-
--- SEED-001: BMW — Full service + frenos delanteros
--- Mano de obra: $2,500 | Refacciones: $5,200 cobradas (costo real: $4,000) | Total: $7,700
+-- SEED-001: Mercedes Negro Dulce María — LA ORDEN BOMBA
+-- $20,000 cobrado | $520 costo refas | ganancia bruta $19,480
 INSERT INTO ordenes_servicio (
   numero_orden, cliente_id, vehiculo_id, usuario_id,
   problema_reportado, diagnostico,
   subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
-  descuento, incluir_iva, iva, total, anticipo, fecha_anticipo,
+  descuento, incluir_iva, iva, total, anticipo,
   estado, fecha_ingreso, fecha_completada, fecha_entregada
 ) VALUES (
-  'SEED-001', @cli_1, @veh_1, @admin_id,
-  'Servicio completo + ruido en frenos delanteros', 'Balatas y discos delanteros desgastados',
-  2500.00, 0.00, 5200.00,
-  0.00, 0, 0.00, 7700.00, 3000.00, '2026-05-05',
-  'entregada', '2026-05-05 09:00:00', '2026-05-06 17:00:00', '2026-05-06 18:00:00'
+  'SEED-001', @c1, @v1, @admin_id,
+  'Servicio mayor + soportes traseros + diagnóstico electrónico completo',
+  'Soportes motor desgastados, servicio preventivo completo, diagnóstico',
+  5000.00, 0.00, 15000.00, 0.00, 0, 0.00, 20000.00, 0.00,
+  'entregada', '2026-05-06 09:00:00', '2026-05-06 16:00:00', '2026-05-06 17:00:00'
 );
-SET @ord_1 = LAST_INSERT_ID();
-
+SET @o1 = LAST_INSERT_ID();
 INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
-  (@ord_1, 'mano_obra', 'Full service motor', 1500.00, 1, 1500.00),
-  (@ord_1, 'mano_obra', 'Cambio frenos delanteros', 1000.00, 1, 1000.00);
-
+  (@o1, 'mano_obra', 'Servicio mayor motor completo', 2500.00, 1, 2500.00),
+  (@o1, 'mano_obra', 'Cambio 2 soportes traseros', 1500.00, 1, 1500.00),
+  (@o1, 'mano_obra', 'Diagnóstico electrónico', 1000.00, 1, 1000.00);
 INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
-  (@ord_1, 'Aceite sintético 5W40 (5 litros)', 1, 975.00, 975.00, 'SAFE'),
-  (@ord_1, '2 Discos delanteros SAFE', 2, 1950.00, 3900.00, 'SAFE'),
-  (@ord_1, 'Balatas delanteras Textar', 1, 325.00, 325.00, 'SAFE');
--- costo_refacciones real = 5200 / 1.30 = $4,000
+  (@o1, 'Soporte motor derecho SAFE', 1, 5850.00, 5850.00, 'SAFE'),
+  (@o1, 'Soporte motor izquierdo SAFE', 1, 4550.00, 4550.00, 'SAFE'),
+  (@o1, 'Aceite sintético Mercedes 7 Lts', 1, 2600.00, 2600.00, 'SAFE'),
+  (@o1, 'Filtros aceite + aire + cabina SAFE', 1, 2000.00, 2000.00, 'SAFE');
 
--- SEED-002: Jetta — Servicio sin bujías
--- Mano de obra: $0 | Servicios: $3,000 | Refacciones: $390 | Total: $3,390
+-- SEED-002: Ertiga 2022 Antonio Vargas — Servicio + 2 soportes
+-- $10,050 cobrado | $3,094 costo refas | ganancia $6,956
 INSERT INTO ordenes_servicio (
   numero_orden, cliente_id, vehiculo_id, usuario_id,
   problema_reportado,
@@ -115,26 +147,21 @@ INSERT INTO ordenes_servicio (
   descuento, incluir_iva, iva, total, anticipo,
   estado, fecha_ingreso, fecha_completada, fecha_entregada
 ) VALUES (
-  'SEED-002', @cli_2, @veh_2, @admin_id,
-  'Servicio de mantenimiento preventivo sin bujías',
-  0.00, 3000.00, 390.00,
-  0.00, 0, 0.00, 3390.00, 0.00,
-  'entregada', '2026-05-07 10:00:00', '2026-05-07 14:00:00', '2026-05-07 15:30:00'
+  'SEED-002', @c2, @v2, @admin_id,
+  'Servicio sin bujías + vibración al acelerar — soportes motor',
+  900.00, 2900.00, 6250.00, 0.00, 0, 0.00, 10050.00, 0.00,
+  'entregada', '2026-05-05 10:00:00', '2026-05-05 17:00:00', '2026-05-05 18:00:00'
 );
-SET @ord_2 = LAST_INSERT_ID();
-
+SET @o2 = LAST_INSERT_ID();
 INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
-  (@ord_2, 'servicio', 'Servicio preventivo sin bujías UGSA', 3000.00, 1, 3000.00);
-
+  (@o2, 'servicio', 'Servicio sin bujías Autozone', 2900.00, 1, 2900.00),
+  (@o2, 'mano_obra', 'Cambio 2 soportes motor', 900.00, 1, 900.00);
 INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
-  (@ord_2, 'Filtro de aceite + filtro de aire', 1, 390.00, 390.00, 'UGSA');
--- costo_refacciones real = 390 / 1.30 = $300
+  (@o2, 'Soporte derecho Ramírez DAI', 1, 2950.00, 2950.00, 'Ramírez DAI'),
+  (@o2, 'Soporte lado caja Ramírez DAI', 1, 3300.00, 3300.00, 'Ramírez DAI');
 
--- ---- SEMANA 1: ABIERTAS (CIERRAN EN SEMANA 2) ----
-
--- SEED-003: Mazda CX5 — Suspensión trasera + soporte derecho
--- Entra lunes 4 mayo, se entregan hasta 14 mayo. Anticipo $4,000 el día 4.
--- Total estimado: $8,850 (mano obra $3,400 + refas $5,450 cobradas)
+-- SEED-003: Tida 2011 Dulce Razo — Clutch completo + soporte + banda
+-- $11,160 cobrado | $6,025 costo refas | ganancia $5,135
 INSERT INTO ordenes_servicio (
   numero_orden, cliente_id, vehiculo_id, usuario_id,
   problema_reportado, diagnostico,
@@ -142,28 +169,23 @@ INSERT INTO ordenes_servicio (
   descuento, incluir_iva, iva, total, anticipo, fecha_anticipo,
   estado, fecha_ingreso, fecha_completada, fecha_entregada
 ) VALUES (
-  'SEED-003', @cli_3, @veh_3, @admin_id,
-  'Ruido en suspensión trasera y vibración en volante', 'Horquillas traseras y soporte derecho desgastados',
-  3400.00, 0.00, 5450.00,
-  0.00, 0, 0.00, 8850.00, 4000.00, '2026-05-04',
-  'entregada', '2026-05-04 09:30:00', '2026-05-13 16:00:00', '2026-05-14 10:00:00'
+  'SEED-003', @c3, @v3, @admin_id,
+  'Clutch patinando no entran velocidades', 'Cambio kit clutch completo + soporte inferior + banda',
+  2800.00, 0.00, 8360.00, 0.00, 0, 0.00, 11160.00, 3000.00, '2026-05-04',
+  'entregada', '2026-05-04 11:00:00', '2026-05-07 15:00:00', '2026-05-07 16:30:00'
 );
--- fecha_ingreso = semana 1, fecha_entregada = semana 2 (esto es el caso de traspaso)
-SET @ord_3 = LAST_INSERT_ID();
-
+SET @o3 = LAST_INSERT_ID();
 INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
-  (@ord_3, 'mano_obra', 'Cambio horquillas traseras', 1800.00, 1, 1800.00),
-  (@ord_3, 'mano_obra', 'Cambio soporte motor derecho', 1000.00, 1, 1000.00),
-  (@ord_3, 'mano_obra', 'Alineación y balanceo', 600.00, 1, 600.00);
-
+  (@o3, 'mano_obra', 'Cambio clutch completo + soporte + banda', 2800.00, 1, 2800.00);
 INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
-  (@ord_3, '2 Horquillas traseras Autozone', 2, 1820.00, 3640.00, 'Autozone'),
-  (@ord_3, 'Soporte motor derecho UGSA SYD', 1, 1810.00, 1810.00, 'UGSA');
--- costo_refacciones real = 5450 / 1.30 = $4,192.30
+  (@o3, 'Clutch LUK Autozone', 1, 3960.00, 3960.00, 'Autozone'),
+  (@o3, 'Cilindro maestro Autozone', 1, 1150.00, 1150.00, 'Autozone'),
+  (@o3, 'Banda accesorios Autozone', 1, 400.00, 400.00, 'Autozone'),
+  (@o3, 'Soporte inferior UGSA', 1, 950.00, 950.00, 'UGSA'),
+  (@o3, 'Chicote velocidades Bucareli', 1, 1900.00, 1900.00, 'Bucareli');
 
--- SEED-004: Ford Focus — Cambio de clutch completo
--- Entra miércoles 6 mayo, se entrega jueves 15 mayo. Anticipo $2,500 el día 6.
--- Total: $7,850 (mano obra $2,500 + refas $5,350 cobradas)
+-- SEED-004: Spark Horte — Rectificado motor + inyectores
+-- $11,300 cobrado | $4,762 costo refas | ganancia $6,538
 INSERT INTO ordenes_servicio (
   numero_orden, cliente_id, vehiculo_id, usuario_id,
   problema_reportado, diagnostico,
@@ -171,55 +193,25 @@ INSERT INTO ordenes_servicio (
   descuento, incluir_iva, iva, total, anticipo, fecha_anticipo,
   estado, fecha_ingreso, fecha_completada, fecha_entregada
 ) VALUES (
-  'SEED-004', @cli_4, @veh_4, @admin_id,
-  'Clutch patinando, difícil meter primera', 'Disco, plato y collarín desgastados — requiere cambio completo',
-  2500.00, 0.00, 5350.00,
-  0.00, 0, 0.00, 7850.00, 2500.00, '2026-05-06',
-  'entregada', '2026-05-06 11:00:00', '2026-05-14 15:00:00', '2026-05-15 09:00:00'
+  'SEED-004', @c4, @v4, @admin_id,
+  'Motor con fuga de aceite y falla en inyectores',
+  'Rectificadora San Mateo + reparación 2 inyectores + kit distribución',
+  5500.00, 0.00, 5800.00, 0.00, 0, 0.00, 11300.00, 5000.00, '2026-05-04',
+  'entregada', '2026-05-04 09:00:00', '2026-05-08 17:00:00', '2026-05-09 10:00:00'
 );
-SET @ord_4 = LAST_INSERT_ID();
-
+SET @o4 = LAST_INSERT_ID();
 INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
-  (@ord_4, 'mano_obra', 'Cambio de clutch completo', 2500.00, 1, 2500.00);
-
+  (@o4, 'mano_obra', 'Mano de obra taller + reparación 2 inyectores', 3500.00, 1, 3500.00),
+  (@o4, 'mano_obra', 'Rectificadora San Mateo', 2000.00, 1, 2000.00);
 INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
-  (@ord_4, 'Kit clutch LUK Autozone', 1, 5148.00, 5148.00, 'Autozone'),
-  (@ord_4, 'Cilindro maestro Autozone', 1, 202.00, 202.00, 'Autozone');
--- costo_refacciones real = 5350 / 1.30 = $4,115.38
+  (@o4, 'Junta tapa punterias Autozone', 1, 350.00, 350.00, 'Autozone'),
+  (@o4, 'Manguera refrigerante UGSA', 1, 750.00, 750.00, 'UGSA'),
+  (@o4, 'Junta cabeza Autozone', 1, 750.00, 750.00, 'Ramirez'),
+  (@o4, 'Anticongelante Autozone', 1, 450.00, 450.00, 'Autozone'),
+  (@o4, 'Kit distribución Autozone', 1, 3500.00, 3500.00, 'Autozone');
 
--- ---- SEMANA 2: NUEVAS ÓRDENES (abiertas y cerradas en S2) ----
-
--- SEED-005: Mercedes Blanco — Servicio mayor + soportes
--- Entra lunes 11, se entrega miércoles 13. Sin anticipo. Total: $20,000 — la orden bomba de la semana.
-INSERT INTO ordenes_servicio (
-  numero_orden, cliente_id, vehiculo_id, usuario_id,
-  problema_reportado, diagnostico,
-  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
-  descuento, incluir_iva, iva, total, anticipo,
-  estado, fecha_ingreso, fecha_completada, fecha_entregada
-) VALUES (
-  'SEED-005', @cli_5, @veh_5, @admin_id,
-  'Servicio mayor + cambio soportes y diagnóstico electrónico', 'Servicio completo, soportes traseros desgastados',
-  5000.00, 0.00, 15000.00,
-  0.00, 0, 0.00, 20000.00, 0.00,
-  'entregada', '2026-05-11 09:00:00', '2026-05-12 17:00:00', '2026-05-13 10:00:00'
-);
-SET @ord_5 = LAST_INSERT_ID();
-
-INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
-  (@ord_5, 'mano_obra', 'Servicio mayor motor', 2500.00, 1, 2500.00),
-  (@ord_5, 'mano_obra', 'Cambio soportes traseros', 1500.00, 1, 1500.00),
-  (@ord_5, 'mano_obra', 'Diagnóstico electrónico completo', 1000.00, 1, 1000.00);
-
-INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
-  (@ord_5, 'Soporte derecho SAFE', 1, 5850.00, 5850.00, 'SAFE'),
-  (@ord_5, 'Soporte izquierdo SAFE', 1, 4550.00, 4550.00, 'SAFE'),
-  (@ord_5, 'Aceite sintético Mercedes 7 litros', 1, 2600.00, 2600.00, 'SAFE'),
-  (@ord_5, 'Filtros (aceite + aire + cabina)', 1, 2000.00, 2000.00, 'SAFE');
--- costo_refacciones real = 15000 / 1.30 = $11,538.46
-
--- SEED-006: Toyota Yaris — Verificación + aceite
--- Entra y se entrega el mismo día miércoles 14 mayo.
+-- SEED-005: Pointer blanco Sr Tlapaleria — Servicio bujías + inyectores + alternador
+-- $5,900 cobrado | $2,355 costo refas | ganancia $3,545
 INSERT INTO ordenes_servicio (
   numero_orden, cliente_id, vehiculo_id, usuario_id,
   problema_reportado,
@@ -227,160 +219,337 @@ INSERT INTO ordenes_servicio (
   descuento, incluir_iva, iva, total, anticipo,
   estado, fecha_ingreso, fecha_completada, fecha_entregada
 ) VALUES (
-  'SEED-006', @cli_6, @veh_6, @admin_id,
-  'Verificación EDOMEX + cambio de aceite',
-  0.00, 4950.00, 776.00,
-  0.00, 0, 0.00, 5726.00, 0.00,
-  'entregada', '2026-05-14 08:00:00', '2026-05-14 13:00:00', '2026-05-14 14:00:00'
+  'SEED-005', @c5, @v5, @admin_id,
+  'Servicio con bujías + falla inyectores + reparación alternador',
+  0.00, 2800.00, 3100.00, 0.00, 0, 0.00, 5900.00, 0.00,
+  'entregada', '2026-05-07 10:00:00', '2026-05-07 16:00:00', '2026-05-07 17:00:00'
 );
-SET @ord_6 = LAST_INSERT_ID();
-
+SET @o5 = LAST_INSERT_ID();
 INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
-  (@ord_6, 'servicio', 'Servicio mayor con bujías UGSA', 3700.00, 1, 3700.00),
-  (@ord_6, 'servicio', 'Servicio de verificación EDOMEX', 1250.00, 1, 1250.00);
-
+  (@o5, 'servicio', 'Servicio con bujías Autozone', 2800.00, 1, 2800.00);
 INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
-  (@ord_6, 'Aceite + filtro de aceite Autozone', 1, 776.00, 776.00, 'Autozone');
+  (@o5, 'Inyectores Juventino Rosas', 1, 1950.00, 1950.00, 'Juventino Rosas'),
+  (@o5, 'Refacciones alternador + borne', 1, 1150.00, 1150.00, 'Hernández');
 
--- SEED-007: VW Jetta abierta en semana 2, anticipo, AÚN NO cerrada
--- Representa trabajo activo en curso al final de la semana 11-17
+-- SEED-006: Gol 2010 Bety Calderon — Batería
+-- $2,950 cobrado | $1,800 costo refas | ganancia $1,150
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo,
+  estado, fecha_ingreso, fecha_completada, fecha_entregada
+) VALUES (
+  'SEED-006', @c6, @v6, @admin_id,
+  'No arranca — batería',
+  0.00, 1150.00, 1800.00, 0.00, 0, 0.00, 2950.00, 0.00,
+  'entregada', '2026-05-09 11:00:00', '2026-05-09 13:30:00', '2026-05-09 14:00:00'
+);
+SET @o6 = LAST_INSERT_ID();
+INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
+  (@o6, 'servicio', 'Cambio batería + diagnóstico carga', 1150.00, 1, 1150.00);
+INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
+  (@o6, 'Batería Autozone 18 meses garantía', 1, 1800.00, 1800.00, 'Autozone');
+
+-- SEED-007: Kia Sportage Elsa — Servicio domicilio
+-- $3,250 cobrado | $0 costo refas | ganancia $3,250
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo,
+  estado, fecha_ingreso, fecha_completada, fecha_entregada
+) VALUES (
+  'SEED-007', @c7, @v7, @admin_id,
+  'Servicio sin bujías a domicilio',
+  0.00, 3250.00, 0.00, 0.00, 0, 0.00, 3250.00, 0.00,
+  'entregada', '2026-05-08 09:00:00', '2026-05-08 13:00:00', '2026-05-08 14:00:00'
+);
+SET @o7 = LAST_INSERT_ID();
+INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
+  (@o7, 'servicio', 'Servicio sin bujías UGSA', 3000.00, 1, 3000.00),
+  (@o7, 'servicio', 'Recolección y entrega a domicilio', 250.00, 1, 250.00);
+
+-- SEED-008: Crafter Nico — Cambio aceite
+-- $2,080 cobrado | $0 costo refas | ganancia $2,080
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo,
+  estado, fecha_ingreso, fecha_completada, fecha_entregada
+) VALUES (
+  'SEED-008', @c8, @v8, @admin_id,
+  'Cambio de aceite + 2 juntas',
+  0.00, 2080.00, 0.00, 0.00, 0, 0.00, 2080.00, 0.00,
+  'entregada', '2026-05-06 09:00:00', '2026-05-06 11:00:00', '2026-05-06 11:30:00'
+);
+SET @o8 = LAST_INSERT_ID();
+INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
+  (@o8, 'servicio', 'Cambio de aceite Crafter diesel', 2080.00, 1, 2080.00);
+
+-- ==============================================================
+-- SEMANA 11-17 MAYO 2026 — PEOR SEMANA
+-- Replica 16-21 marzo 2026: Ingresos ~$36k | Ganancia -$6k
+-- Spark del taller, Captiva y Sunray sin cobrar se comieron la semana
+-- ==============================================================
+
+-- SEED-009: Sentra 2019 Jorge Ignacio — Servicio mayor con bujías
+-- $4,900 cobrado | $1,385 costo refas | ganancia $3,515
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo,
+  estado, fecha_ingreso, fecha_completada, fecha_entregada
+) VALUES (
+  'SEED-009', @c10, @v10, @admin_id,
+  'Servicio mayor con bujías + mantenimiento preventivo',
+  0.00, 3600.00, 1300.00, 0.00, 0, 0.00, 4900.00, 0.00,
+  'entregada', '2026-05-11 09:00:00', '2026-05-11 15:00:00', '2026-05-11 16:00:00'
+);
+SET @o9 = LAST_INSERT_ID();
+INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
+  (@o9, 'servicio', 'Servicio mayor con bujías Autozone', 3600.00, 1, 3600.00);
+INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
+  (@o9, 'Acumulador LTH 3 años ElectricPower', 1, 1300.00, 1300.00, 'ElectricPower');
+
+-- SEED-010: Captiva Capitán Maldonado — Reten solo gasto, sin cobrar
+-- EN PROCESO: compraron refacción pero el carro sigue en taller
+-- Gasto $1,236 | Sin ingreso → semana con hoyo
 INSERT INTO ordenes_servicio (
   numero_orden, cliente_id, vehiculo_id, usuario_id,
   problema_reportado, diagnostico,
   subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
-  descuento, incluir_iva, iva, total, anticipo, fecha_anticipo,
+  descuento, incluir_iva, iva, total, anticipo,
   estado, fecha_ingreso
 ) VALUES (
-  'SEED-007', @cli_2, @veh_2, @admin_id,
-  'Falla en sensor MAF + cuerpo de aceleración', 'Requiere limpiar inyectores y reemplazar sensor MAF',
-  1800.00, 0.00, 2340.00,
-  0.00, 0, 0.00, 4140.00, 1500.00, '2026-05-16',
-  'en_proceso', '2026-05-16 11:00:00'
+  'SEED-010', @c11, @v11, @admin_id,
+  'Fuga de aceite — reten flecha', 'Requiere reten original UGSA + liga distribución',
+  0.00, 0.00, 1236.00, 0.00, 0, 0.00, 4500.00, 0.00,
+  'en_proceso', '2026-05-11 10:00:00'
 );
-SET @ord_7 = LAST_INSERT_ID();
-
-INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
-  (@ord_7, 'mano_obra', 'Diagnóstico + limpieza inyectores + cuerpo aceleración', 1800.00, 1, 1800.00);
-
+SET @o10 = LAST_INSERT_ID();
 INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
-  (@ord_7, 'Sensor MAF Mercado Libre', 1, 1950.00, 1950.00, 'Mercado Libre'),
-  (@ord_7, 'Carbuklean 2 piezas Autozone', 2, 195.00, 390.00, 'Autozone');
--- costo_refacciones real = 2340 / 1.30 = $1,800 (la semana muestra -$300 por ahora)
+  (@o10, 'Reten original UGSA', 1, 950.00, 950.00, 'UGSA'),
+  (@o10, 'Junta tapa distribución Autozone', 1, 286.00, 286.00, 'Autozone');
+
+-- SEED-011: Sunray Cargo Nicolas — Baleros prensa Saúl solo gasto
+-- EN PROCESO: fueron al tornero, sin cobrar nada
+-- Gasto $962 | Sin ingreso
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo,
+  estado, fecha_ingreso
+) VALUES (
+  'SEED-011', @c12, @v12, @admin_id,
+  'Ruido en rueda delantera — baleros',
+  0.00, 0.00, 962.00, 0.00, 0, 0.00, 3500.00, 0.00,
+  'en_proceso', '2026-05-12 09:00:00'
+);
+SET @o11 = LAST_INSERT_ID();
+INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
+  (@o11, 'Balero Baleromex', 1, 242.00, 242.00, 'Baleromex'),
+  (@o11, 'Trabajo en prensa Saúl', 1, 720.00, 720.00, 'Saúl torno');
+
+-- SEED-012: Mercedes GLC Enrique Escudero — Frenos delanteros + brazo
+-- $8,114 cobrado | $4,390 costo refas | ganancia $3,724
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo,
+  estado, fecha_ingreso, fecha_completada, fecha_entregada
+) VALUES (
+  'SEED-012', @c13, @v13, @admin_id,
+  'Frenos delanteros + brazo recto inferior derecho',
+  2100.00, 0.00, 6014.00, 0.00, 0, 0.00, 8114.00, 0.00,
+  'entregada', '2026-05-12 09:00:00', '2026-05-13 16:00:00', '2026-05-13 17:00:00'
+);
+SET @o12 = LAST_INSERT_ID();
+INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
+  (@o12, 'mano_obra', 'Frenos delanteros + brazo recto inferior', 2100.00, 1, 2100.00);
+INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
+  (@o12, 'Balatas Unibrakes delanteras', 1, 2964.00, 2964.00, 'Unibrakes'),
+  (@o12, 'Sensor balata', 1, 350.00, 350.00, 'SAFE'),
+  (@o12, 'Brazo recto inferior SAFE', 1, 2100.00, 2100.00, 'SAFE'),
+  (@o12, 'Didi Unibrakes a taller', 1, 600.00, 600.00, 'Didi');
+
+-- SEED-013: Altima 2001 Nora García — Servicio sin bujías + frenos
+-- $8,094 cobrado | $3,480 costo refas | ganancia $4,614
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo,
+  estado, fecha_ingreso, fecha_completada, fecha_entregada
+) VALUES (
+  'SEED-013', @c14, @v14, @admin_id,
+  'Servicio sin bujías + ruido frenos delanteros',
+  750.00, 3600.00, 3744.00, 0.00, 0, 0.00, 8094.00, 0.00,
+  'entregada', '2026-05-13 10:00:00', '2026-05-13 16:00:00', '2026-05-14 10:00:00'
+);
+SET @o13 = LAST_INSERT_ID();
+INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
+  (@o13, 'servicio', 'Servicio sin bujías', 3600.00, 1, 3600.00),
+  (@o13, 'mano_obra', 'Frenos delanteros', 750.00, 1, 750.00);
+INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
+  (@o13, '2 Discos delanteros BEST', 2, 1222.00, 2444.00, 'BEST'),
+  (@o13, 'Balatas delanteras BEST', 1, 1300.00, 1300.00, 'BEST');
+
+-- SEED-014: Cupra Bryan Zepeda — Frenos 4 ruedas (margen delgado)
+-- $11,750 cobrado | $7,840 costo refas | ganancia $3,910
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo, fecha_anticipo,
+  estado, fecha_ingreso, fecha_completada, fecha_entregada
+) VALUES (
+  'SEED-014', @c15, @v15, @admin_id,
+  'Frenos delanteros y traseros completos',
+  1350.00, 0.00, 10400.00, 0.00, 0, 0.00, 11750.00, 5000.00, '2026-05-14',
+  'entregada', '2026-05-14 09:00:00', '2026-05-15 15:00:00', '2026-05-15 16:00:00'
+);
+SET @o14 = LAST_INSERT_ID();
+INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
+  (@o14, 'mano_obra', 'Frenos delanteros + traseros', 1350.00, 1, 1350.00);
+INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
+  (@o14, '2 Discos delanteros BEST', 2, 2400.00, 4800.00, 'BEST'),
+  (@o14, '2 Discos traseros BEST', 2, 2050.00, 4100.00, 'BEST'),
+  (@o14, 'Balatas traseras BEST', 1, 1500.00, 1500.00, 'BEST');
+
+-- SEED-015: Fusion 2016 — marcha Autozone
+-- $3,450 cobrado | $1,218 costo refas | ganancia $2,232
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo,
+  estado, fecha_ingreso, fecha_completada, fecha_entregada
+) VALUES (
+  'SEED-015', @c16, @v16, @admin_id,
+  'No arranca — marcha Autozone',
+  1000.00, 0.00, 2450.00, 0.00, 0, 0.00, 3450.00, 0.00,
+  'entregada', '2026-05-15 09:00:00', '2026-05-15 13:00:00', '2026-05-15 14:00:00'
+);
+SET @o15 = LAST_INSERT_ID();
+INSERT INTO servicios_orden (orden_id, tipo, descripcion, precio_unitario, cantidad, subtotal) VALUES
+  (@o15, 'mano_obra', 'Cambio de marcha', 1000.00, 1, 1000.00);
+INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
+  (@o15, 'Marcha 2LTS Autozone', 1, 2450.00, 2450.00, 'Autozone');
+
+-- SEED-016: Aveo blanco — pintura SIN COBRAR (orden abierta, ya gastaron)
+-- EN PROCESO: pintor Armando ya cobró pero cliente aún no paga
+-- Gasto $1,440 | Anticipo $0 → hoyo en la semana
+INSERT INTO ordenes_servicio (
+  numero_orden, cliente_id, vehiculo_id, usuario_id,
+  problema_reportado,
+  subtotal_mano_obra, subtotal_servicios, subtotal_refacciones,
+  descuento, incluir_iva, iva, total, anticipo,
+  estado, fecha_ingreso
+) VALUES (
+  'SEED-016', @c17, @v17, @admin_id,
+  'Baño de pintura completo + salpicadera derecha',
+  0.00, 0.00, 1440.00, 0.00, 0, 0.00, 2400.00, 0.00,
+  'en_proceso', '2026-05-12 11:00:00'
+);
+SET @o16 = LAST_INSERT_ID();
+INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor) VALUES
+  (@o16, 'Material pintura + pago pintor Armando', 1, 1440.00, 1440.00, 'Armando pintor');
 
 -- ============================================================
--- 4. CONFIGURACIÓN DE EMPLEADOS (sueldos base)
+-- 3. EMPLEADOS SUELDOS
 -- ============================================================
 INSERT INTO empleados_sueldos (usuario_id, nombre, puesto, sueldo_diario, activo) VALUES
-  (NULL, 'Mayte Macías',    'Administrativa',  780.00, 1),  -- $3,900/semana × 5
-  (NULL, 'Carlos Castillo', 'Mecánico Senior', 800.00, 1),  -- $4,000/semana × 5
-  (NULL, 'Markus Fabela',   'Mecánico',        500.00, 1),  -- $2,500/semana × 5
-  (NULL, 'Roberto Zamora',  'Mecánico Junior', 400.00, 1),  -- $2,000/semana × 5
-  (NULL, 'Karla Betzbae',   'Marketing',       200.00, 1);  -- $1,000/semana × 5
--- Total sueldos estimados semana: $13,400
+  (NULL, 'Mayte Macías',    'Administrativa',  780.00, 1),
+  (NULL, 'Carlos Castillo', 'Mecánico Senior', 800.00, 1),
+  (NULL, 'Markus Fabela',   'Mecánico',        500.00, 1),
+  (NULL, 'Roberto Zamora',  'Mecánico Junior', 400.00, 1),
+  (NULL, 'Karla Betzbae',   'Marketing',       200.00, 1);
+-- $2,680/día × 5 días = $13,400/semana
 
 -- ============================================================
--- 5. PAGOS FIJOS RECURRENTES
+-- 4. PAGOS FIJOS
 -- ============================================================
 INSERT INTO pagos_fijos (concepto, monto, frecuencia, categoria, activo) VALUES
-  ('Renta + Agua',            4575.00, 'semanal',  'renta',     1),
-  ('Internet Telmex',          135.00, 'mensual',  'servicio',  1),
-  ('Publicación Facebook',     500.00, 'mensual',  'marketing', 1),
-  ('Préstamo Taller',         1650.00, 'semanal',  'otro',      1),
-  ('AkLabs - Marco',          1000.00, 'semanal',  'servicio',  1);
--- Total fijos semana: 4575 + (135/4) + (500/4) = 4575 + 33.75 + 125 + 1650 + 1000 = $7,383.75
+  ('Renta + Agua',        4575.00, 'semanal',  'renta',    1),
+  ('Internet Telmex',      135.00, 'mensual',  'servicio', 1),
+  ('Publicación Facebook', 500.00, 'mensual',  'marketing',1),
+  ('Préstamo Taller',     1650.00, 'semanal',  'otro',     1),
+  ('AkLabs - Marco',      1000.00, 'semanal',  'servicio', 1);
+-- Semanal: 4575 + 1650 + 1000 + (135+500)/4 = $7,383.75
 
 -- ============================================================
--- 6. GASTOS ADMINISTRATIVOS VARIABLES — Mayo 2026
+-- 5. GASTOS ADMINISTRATIVOS VARIABLES — Mayo 2026
 -- ============================================================
 INSERT INTO gastos_administrativos (mes, anio, concepto, monto, categoria, registrado_por) VALUES
-  -- Semana 1 (4-10 mayo)
-  (5, 2026, 'Gasolina camioneta Hyundai',    500.00, 'insumo', @admin_id),
-  (5, 2026, 'Materiales limpieza (pinol, jalador, higienico)', 350.00, 'insumo', @admin_id),
-  (5, 2026, 'Propinas proveedores (Autozone, UGSA)', 80.00, 'otro', @admin_id),
-  (5, 2026, 'Garrafones agua (4)',            140.00, 'insumo', @admin_id),
-  (5, 2026, 'Comida mecánicos viernes',       280.00, 'otro', @admin_id),
-  -- Semana 2 (11-17 mayo)
-  (5, 2026, 'Gasolina camioneta Hyundai S2',  500.00, 'insumo', @admin_id),
-  (5, 2026, 'Tiempo aire celular taller',     200.00, 'servicio', @admin_id),
-  (5, 2026, 'Basura (2 semanas)',              70.00, 'otro', @admin_id),
-  (5, 2026, 'Carbuklean + desengrasante',     708.00, 'insumo', @admin_id),
-  (5, 2026, 'Curso híbridos Markus',         3500.00, 'otro', @admin_id);
--- Total gastos variables mayo: ~$6,328
+  -- Semana buena (4-10 mayo): gastos normales
+  (5, 2026, 'Gasolina camioneta Hyundai S1',       500.00, 'insumo',  @admin_id),
+  (5, 2026, 'Materiales limpieza taller',           350.00, 'insumo',  @admin_id),
+  (5, 2026, 'Propinas Autozone y UGSA S1',           80.00, 'otro',    @admin_id),
+  (5, 2026, 'Garrafones agua x4',                   140.00, 'insumo',  @admin_id),
+  (5, 2026, 'Comida mecánicos viernes S1',          280.00, 'otro',    @admin_id),
+  -- Semana mala (11-17 mayo): Spark del taller arruinó la semana
+  (5, 2026, 'Gasolina camioneta Hyundai S2',        500.00, 'insumo',  @admin_id),
+  (5, 2026, 'Llantas Spark taller (4)',            1900.00, 'otro',    @admin_id),
+  (5, 2026, 'Grúa para recoger Spark averiado',   2000.00, 'otro',    @admin_id),
+  (5, 2026, 'Refacciones Spark ProOne (motor)',    2409.00, 'insumo',  @admin_id),
+  (5, 2026, 'Lona nueva para taller',              1440.00, 'otro',    @admin_id),
+  (5, 2026, 'Tiempo aire celular taller',           200.00, 'servicio',@admin_id),
+  (5, 2026, 'Mordida policía — camión gasolina',    400.00, 'otro',    @admin_id);
+-- Total mayo: $10,199
 
 -- ============================================================
--- 7. CAJA CHICA — Mayte
---    Semana 1: Paco da fondo inicial + egresos normales
---    Semana 2: saldo arrastra, nuevos egresos
+-- 6. CAJA CHICA — Mayte
 -- ============================================================
 
--- Semana 1 (4-10 mayo)
+-- Semana buena (4-10 mayo): Fondo + ingresos clientes, pocos egresos
 INSERT INTO caja_chica (fecha, tipo, concepto, monto) VALUES
-  -- Lunes 4 mayo: Paco asigna fondo semanal
-  ('2026-05-04', 'ingreso', 'Fondo semanal - Paco',              2000.00),
-  -- Martes: recibió efectivo de cliente (Jetta - a cuenta)
-  ('2026-05-05', 'ingreso', 'A cuenta SEED-001 BMW Roberto',     1500.00),
-  -- Gastos de la semana
-  ('2026-05-05', 'egreso',  'Gasolina camioneta',                 500.00),
-  ('2026-05-06', 'egreso',  'Propina Autozone (2 visitas)',         40.00),
-  ('2026-05-07', 'egreso',  'Basura lunes y jueves',               40.00),
-  ('2026-05-07', 'egreso',  'Verificación Jetta - derechos CDMX',  770.00),
-  ('2026-05-08', 'egreso',  'Garrafones agua x4',                  140.00),
-  ('2026-05-09', 'egreso',  'Materiales limpieza',                 350.00),
-  ('2026-05-09', 'egreso',  'Comida mecánicos viernes',            280.00);
--- Saldo cierre S1: 2000 + 1500 - 500 - 40 - 40 - 770 - 140 - 350 - 280 = $1,380
+  ('2026-05-04', 'ingreso', 'Fondo semanal - Paco',                    2000.00),
+  ('2026-05-05', 'ingreso', 'A cuenta Tida Dulce Razo (efectivo)',      3000.00),
+  ('2026-05-06', 'ingreso', 'Efectivo Mercedes Dulce María (parcial)',  5000.00),
+  ('2026-05-05', 'egreso',  'Gasolina camioneta lunes',                  500.00),
+  ('2026-05-06', 'egreso',  'Propinas Autozone 2 visitas',                80.00),
+  ('2026-05-07', 'egreso',  'Basura jueves',                              20.00),
+  ('2026-05-07', 'egreso',  'Garrafones agua x4',                        140.00),
+  ('2026-05-08', 'egreso',  'Materiales limpieza',                       350.00),
+  ('2026-05-09', 'egreso',  'Comida mecánicos viernes',                  280.00);
+-- Saldo cierre S1: 2000+3000+5000 - 500-80-20-140-350-280 = $8,630
 
--- Semana 2 (11-17 mayo)
+-- Semana mala (11-17 mayo): Spark se comió la caja
 INSERT INTO caja_chica (fecha, tipo, concepto, monto) VALUES
-  -- Lunes 11 mayo: fondo semanal nuevo de Paco
-  ('2026-05-11', 'ingreso', 'Fondo semanal - Paco',              2000.00),
-  -- Entradas de clientes en efectivo semana 2
-  ('2026-05-13', 'ingreso', 'Pago Mercedes Dulce María (parcial)', 5000.00),
-  -- Gastos semana 2
-  ('2026-05-12', 'egreso',  'Gasolina camioneta',                  500.00),
-  ('2026-05-12', 'egreso',  'Tiempo aire celular taller',          200.00),
-  ('2026-05-13', 'egreso',  'Didi entrega Mercedes Col. Roma',     150.00),
-  ('2026-05-14', 'egreso',  'Propina repartidor Autozone',          30.00),
-  ('2026-05-14', 'egreso',  'Verificación Toyota EDOMEX derechos', 775.00),
-  ('2026-05-15', 'egreso',  'Basura sábado',                        20.00),
-  ('2026-05-15', 'egreso',  'Carbuklean Autozone',                 708.00);
--- Saldo semana 2: saldo_anterior ($1,380) + 2000 + 5000 - 500 - 200 - 150 - 30 - 775 - 20 - 708 = $6,997
+  ('2026-05-11', 'ingreso', 'Fondo semanal - Paco',                    2000.00),
+  ('2026-05-11', 'egreso',  'Gasolina Spark para pruebas motor',         675.00),
+  ('2026-05-12', 'egreso',  'Grúa recoger Spark averiado',             2000.00),
+  ('2026-05-12', 'egreso',  'Lona nueva taller',                        1440.00),
+  ('2026-05-13', 'egreso',  'Refacciones Spark ProOne',                 2409.00),
+  ('2026-05-14', 'egreso',  'Tiempo aire celular',                        200.00),
+  ('2026-05-14', 'egreso',  'Mordida policía',                            400.00),
+  ('2026-05-15', 'egreso',  'Materiales limpieza S2',                    350.00),
+  ('2026-05-15', 'egreso',  'Basura sábado',                              20.00);
+-- Saldo S2: anterior $8,630 + $2,000 - $7,494 = $3,136
 
 -- ============================================================
--- VERIFICACIÓN RÁPIDA (opcional — descomenta para revisar)
+-- RESUMEN ESPERADO
 -- ============================================================
--- SELECT 'Órdenes' as tabla, COUNT(*) as total FROM ordenes_servicio WHERE numero_orden LIKE 'SEED-%'
--- UNION ALL
--- SELECT 'Clientes', COUNT(*) FROM clientes WHERE rfc LIKE 'SEED%'
--- UNION ALL
--- SELECT 'Vehiculos', COUNT(*) FROM vehiculos WHERE numero_serie LIKE 'SEED-%'
--- UNION ALL
--- SELECT 'Empleados sueldos', COUNT(*) FROM empleados_sueldos
--- UNION ALL
--- SELECT 'Pagos fijos', COUNT(*) FROM pagos_fijos
--- UNION ALL
--- SELECT 'Caja chica S1', COUNT(*) FROM caja_chica WHERE fecha BETWEEN '2026-05-04' AND '2026-05-10'
--- UNION ALL
--- SELECT 'Caja chica S2', COUNT(*) FROM caja_chica WHERE fecha BETWEEN '2026-05-11' AND '2026-05-17';
-
--- ============================================================
--- RESUMEN DE LO QUE DEBERÍAS VER EN STAGING
--- ============================================================
--- SEMANA 4-10 MAYO:
---   Órdenes en tabla desglosada:
---     SEED-001 BMW       → completada S1 → venta $7,700  refas $4,000  ganancia $3,700
---     SEED-002 Jetta     → completada S1 → venta $3,390  refas $300    ganancia $3,090
---     SEED-003 Mazda     → EN PROCESO S1 → anticipo $4,000 (muestra inversión en refas)
---     SEED-004 Focus     → EN PROCESO S1 → anticipo $2,500 (muestra inversión en refas)
+-- SEMANA 4-10 MAYO (MEJOR):
+--   8 órdenes cerradas: Mercedes $20k (bomba) + Ertiga $10k + Spark $11.3k
+--   + Tida $11.2k + Pointer $5.9k + Kia $3.25k + Crafter $2.1k + Gol $2.95k
+--   Total facturado: ~$66,690
+--   Costo refacciones: ~$18,900 (/ 1.30 del total cobrado)
+--   Ingreso neto: ~$47,790
+--   Sueldos: $13,400 | Fijos: $7,384 | Variables (prorateado): ~$1,350
+--   GANANCIA NETA ESTIMADA: ~+$25,656 (BUENA SEMANA)
 --
---   Caja chica S1: saldo $1,380 al cierre
---
--- SEMANA 11-17 MAYO:
---   Órdenes en tabla desglosada:
---     SEED-003 Mazda     → cerrada S2 → venta $8,850 (ingresó S1, cobró S2)
---     SEED-004 Focus     → cerrada S2 → venta $7,850
---     SEED-005 Mercedes  → cerrada S2 → venta $20,000 (la orden bomba)
---     SEED-006 Yaris     → cerrada S2 → venta $5,726
---     SEED-007 Jetta     → EN PROCESO → anticipo $1,500 (abierta viernes 16)
---
---   Caja chica S2: saldo_anterior $1,380 + entradas $7,000 - salidas $2,383 = $5,997
+-- SEMANA 11-17 MAYO (PEOR):
+--   5 cerradas (Sentra, GLC, Altima, Cupra, Fusion) = $36,308
+--   3 en proceso SIN ingreso (Captiva, Sunray, Aveo) = solo gasto
+--   Total facturado: ~$36,308
+--   Costo refacciones: ~$17,000
+--   Ingreso neto: ~$19,308
+--   Sueldos: $13,400 | Fijos: $7,384 | Variables (prorateados): ~$9,000 (Spark!)
+--   GANANCIA NETA ESTIMADA: ~-$10,476 (MALA SEMANA — Spark del taller)
 -- ============================================================
