@@ -285,13 +285,18 @@ export const gastosAdminAPI = {
 };
 
 export const empleadosFinancieroAPI = {
-  listar: (): Promise<{ success: boolean; empleados: EmpleadoSueldo[] }> =>
-    api.get('/financiero/empleados').then(r => r.data),
+  listar: (fechaInicio?: string, fechaFin?: string): Promise<{ success: boolean; empleados: EmpleadoSueldo[] }> => {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.set('fecha_inicio', fechaInicio);
+    if (fechaFin)    params.set('fecha_fin',    fechaFin);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return api.get(`/financiero/empleados${qs}`).then(r => r.data);
+  },
 
   crear: (data: Omit<EmpleadoSueldo, 'id' | 'activo'>): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
     api.post('/financiero/empleados', data).then(r => r.data),
 
-  actualizar: (id: number, data: Partial<Omit<EmpleadoSueldo, 'id' | 'activo'>>): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
+  actualizar: (id: number, data: Partial<Omit<EmpleadoSueldo, 'id' | 'activo'>> & { fecha_inicio_cambio?: string }): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
     api.put(`/financiero/empleados/${id}`, data).then(r => r.data),
 
   toggle: (id: number): Promise<{ success: boolean; activo: boolean }> =>
@@ -299,13 +304,18 @@ export const empleadosFinancieroAPI = {
 };
 
 export const pagosFijosAPI = {
-  listar: (): Promise<{ success: boolean; pagos_fijos: PagoFijo[] }> =>
-    api.get('/financiero/pagos-fijos').then(r => r.data),
+  listar: (fechaInicio?: string, fechaFin?: string): Promise<{ success: boolean; pagos_fijos: PagoFijo[] }> => {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.set('fecha_inicio', fechaInicio);
+    if (fechaFin)    params.set('fecha_fin',    fechaFin);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return api.get(`/financiero/pagos-fijos${qs}`).then(r => r.data);
+  },
 
   crear: (data: Omit<PagoFijo, 'id' | 'activo'>): Promise<{ success: boolean; pago_fijo: PagoFijo }> =>
     api.post('/financiero/pagos-fijos', data).then(r => r.data),
 
-  actualizar: (id: number, data: Partial<Omit<PagoFijo, 'id' | 'activo'>>): Promise<{ success: boolean; pago_fijo: PagoFijo }> =>
+  actualizar: (id: number, data: Partial<Omit<PagoFijo, 'id' | 'activo'>> & { fecha_inicio_cambio?: string }): Promise<{ success: boolean; pago_fijo: PagoFijo }> =>
     api.put(`/financiero/pagos-fijos/${id}`, data).then(r => r.data),
 
   toggle: (id: number): Promise<{ success: boolean; activo: boolean }> =>

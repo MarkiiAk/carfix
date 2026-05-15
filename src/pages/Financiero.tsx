@@ -326,24 +326,33 @@ export const Financiero = () => {
   const [loadingEmpleados, setLoadingEmpleados] = useState(false);
   const [loadingPagos, setLoadingPagos]     = useState(false);
 
+  // Fechas del período activo — se llenan cuando llega la respuesta de financieroAPI.resumen
+  // Se usan para filtrar empleados y pagos fijos vigentes en ese período
+  const [periodoFechaInicio, setPeriodoFechaInicio] = useState<string | null>(null);
+  const [periodoFechaFin, setPeriodoFechaFin]       = useState<string | null>(null);
+
   // Formulario empleados
-  const [empEditId, setEmpEditId]           = useState<number | null>(null);
-  const [empNombre, setEmpNombre]           = useState('');
-  const [empPuesto, setEmpPuesto]           = useState('');
-  const [empSueldo, setEmpSueldo]           = useState('');
-  const [empGuardando, setEmpGuardando]     = useState(false);
-  const [empError, setEmpError]             = useState<string | null>(null);
-  const [mostrarFormEmp, setMostrarFormEmp] = useState(false);
+  const [empEditId, setEmpEditId]                   = useState<number | null>(null);
+  const [empNombre, setEmpNombre]                   = useState('');
+  const [empPuesto, setEmpPuesto]                   = useState('');
+  const [empSueldo, setEmpSueldo]                   = useState('');
+  const [empSueldoOriginal, setEmpSueldoOriginal]   = useState('');  // para detectar si cambió
+  const [empFechaInicioCambio, setEmpFechaInicioCambio] = useState(() => new Date().toISOString().split('T')[0]);
+  const [empGuardando, setEmpGuardando]             = useState(false);
+  const [empError, setEmpError]                     = useState<string | null>(null);
+  const [mostrarFormEmp, setMostrarFormEmp]         = useState(false);
 
   // Formulario pagos fijos
-  const [pagoEditId, setPagoEditId]         = useState<number | null>(null);
-  const [pagoConcepto, setPagoConcepto]     = useState('');
-  const [pagoMonto, setPagoMonto]           = useState('');
-  const [pagoFrecuencia, setPagoFrecuencia] = useState<PagoFijo['frecuencia']>('mensual');
-  const [pagoCategoria, setPagoCategoria]   = useState<PagoFijo['categoria']>('otro');
-  const [pagoGuardando, setPagoGuardando]   = useState(false);
-  const [pagoError, setPagoError]           = useState<string | null>(null);
-  const [mostrarFormPago, setMostrarFormPago] = useState(false);
+  const [pagoEditId, setPagoEditId]                     = useState<number | null>(null);
+  const [pagoConcepto, setPagoConcepto]                 = useState('');
+  const [pagoMonto, setPagoMonto]                       = useState('');
+  const [pagoMontoOriginal, setPagoMontoOriginal]       = useState('');  // para detectar si cambió
+  const [pagoFechaInicioCambio, setPagoFechaInicioCambio] = useState(() => new Date().toISOString().split('T')[0]);
+  const [pagoFrecuencia, setPagoFrecuencia]             = useState<PagoFijo['frecuencia']>('mensual');
+  const [pagoCategoria, setPagoCategoria]               = useState<PagoFijo['categoria']>('otro');
+  const [pagoGuardando, setPagoGuardando]               = useState(false);
+  const [pagoError, setPagoError]                       = useState<string | null>(null);
+  const [mostrarFormPago, setMostrarFormPago]           = useState(false);
 
   // Estado caja chica
   const [cajaChica, setCajaChica]         = useState<CajaChicaResponse | null>(null);
@@ -367,6 +376,11 @@ export const Financiero = () => {
     try {
       const resultado = await financieroAPI.resumen(tipoPeriodo, offset);
       setDatos(resultado);
+      // Guardar fechas del período para filtrar empleados y pagos fijos vigentes
+      if (resultado.periodo?.fecha_inicio && resultado.periodo?.fecha_fin) {
+        setPeriodoFechaInicio(resultado.periodo.fecha_inicio);
+        setPeriodoFechaFin(resultado.periodo.fecha_fin);
+      }
     } catch {
       setError('No se pudo cargar la informacion de ingresos.');
     } finally {
@@ -421,10 +435,10 @@ export const Financiero = () => {
     }
   }, [mesSel, anioSel]);
 
-  const cargarEmpleados = useCallback(async () => {
+  const cargarEmpleados = useCallback(async (fechaInicio?: string, fechaFin?: string) => {
     setLoadingEmpleados(true);
     try {
-      const res = await empleadosFinancieroAPI.listar();
+      const res = await empleadosFinancieroAPI.listar(fechaInicio, fechaFin);
       setEmpleados(res.empleados);
     } catch {
       // silencioso
@@ -433,10 +447,10 @@ export const Financiero = () => {
     }
   }, []);
 
-  const cargarPagosFijos = useCallback(async () => {
+  const cargarPagosFijos = useCallback(async (fechaInicio?: string, fechaFin?: string) => {
     setLoadingPagos(true);
     try {
-      const res = await pagosFijosAPI.listar();
+      const res = await pagosFijosAPI.listar(fechaInicio, fechaFin);
       setPagosFijos(res.pagos_fijos);
     } catch {
       // silencioso
@@ -458,9 +472,11 @@ export const Financiero = () => {
   }, [tipoPeriodo, offset]);
 
   useEffect(() => {
-    cargarEmpleados();
-    cargarPagosFijos();
-  }, [cargarEmpleados, cargarPagosFijos]);
+    // Pasar las fechas del período cuando estén disponibles para obtener los registros
+    // vigentes en ese período específico (no los actuales)
+    cargarEmpleados(periodoFechaInicio ?? undefined, periodoFechaFin ?? undefined);
+    cargarPagosFijos(periodoFechaInicio ?? undefined, periodoFechaFin ?? undefined);
+  }, [cargarEmpleados, cargarPagosFijos, periodoFechaInicio, periodoFechaFin]);
 
   useEffect(() => {
     cargarCajaChica();
@@ -472,17 +488,21 @@ export const Financiero = () => {
 
   // Handlers para empleados
   const abrirFormEmp = (emp?: EmpleadoSueldo) => {
+    const hoy = new Date().toISOString().split('T')[0];
     if (emp) {
       setEmpEditId(emp.id);
       setEmpNombre(emp.nombre);
       setEmpPuesto(emp.puesto ?? '');
       setEmpSueldo(String(emp.sueldo_diario));
+      setEmpSueldoOriginal(String(emp.sueldo_diario));
     } else {
       setEmpEditId(null);
       setEmpNombre('');
       setEmpPuesto('');
       setEmpSueldo('');
+      setEmpSueldoOriginal('');
     }
+    setEmpFechaInicioCambio(hoy);
     setEmpError(null);
     setMostrarFormEmp(true);
   };
@@ -502,11 +522,27 @@ export const Financiero = () => {
     setEmpGuardando(true);
     try {
       if (empEditId !== null) {
-        await empleadosFinancieroAPI.actualizar(empEditId, { nombre, puesto: empPuesto || null, sueldo_diario: sueldo });
+        const sueldoCambio = sueldo !== parseFloat(empSueldoOriginal);
+        const payload: Parameters<typeof empleadosFinancieroAPI.actualizar>[1] = {
+          nombre,
+          puesto: empPuesto || null,
+          sueldo_diario: sueldo,
+        };
+        if (sueldoCambio) {
+          payload.fecha_inicio_cambio = empFechaInicioCambio;
+        }
+        await empleadosFinancieroAPI.actualizar(empEditId, payload);
       } else {
-        await empleadosFinancieroAPI.crear({ nombre, puesto: empPuesto || null, sueldo_diario: sueldo, usuario_id: null });
+        await empleadosFinancieroAPI.crear({
+          nombre,
+          puesto: empPuesto || null,
+          sueldo_diario: sueldo,
+          usuario_id: null,
+          fecha_inicio: empFechaInicioCambio,
+          fecha_fin: null,
+        });
       }
-      await cargarEmpleados();
+      await cargarEmpleados(periodoFechaInicio ?? undefined, periodoFechaFin ?? undefined);
       cancelarFormEmp();
     } catch {
       setEmpError('Error al guardar. Intenta de nuevo.');
@@ -524,19 +560,23 @@ export const Financiero = () => {
 
   // Handlers para pagos fijos
   const abrirFormPago = (pago?: PagoFijo) => {
+    const hoy = new Date().toISOString().split('T')[0];
     if (pago) {
       setPagoEditId(pago.id);
       setPagoConcepto(pago.concepto);
       setPagoMonto(String(pago.monto));
+      setPagoMontoOriginal(String(pago.monto));
       setPagoFrecuencia(pago.frecuencia);
       setPagoCategoria(pago.categoria);
     } else {
       setPagoEditId(null);
       setPagoConcepto('');
       setPagoMonto('');
+      setPagoMontoOriginal('');
       setPagoFrecuencia('mensual');
       setPagoCategoria('otro');
     }
+    setPagoFechaInicioCambio(hoy);
     setPagoError(null);
     setMostrarFormPago(true);
   };
@@ -556,11 +596,28 @@ export const Financiero = () => {
     setPagoGuardando(true);
     try {
       if (pagoEditId !== null) {
-        await pagosFijosAPI.actualizar(pagoEditId, { concepto, monto, frecuencia: pagoFrecuencia, categoria: pagoCategoria });
+        const montoCambio = monto !== parseFloat(pagoMontoOriginal);
+        const payload: Parameters<typeof pagosFijosAPI.actualizar>[1] = {
+          concepto,
+          monto,
+          frecuencia: pagoFrecuencia,
+          categoria: pagoCategoria,
+        };
+        if (montoCambio) {
+          payload.fecha_inicio_cambio = pagoFechaInicioCambio;
+        }
+        await pagosFijosAPI.actualizar(pagoEditId, payload);
       } else {
-        await pagosFijosAPI.crear({ concepto, monto, frecuencia: pagoFrecuencia, categoria: pagoCategoria });
+        await pagosFijosAPI.crear({
+          concepto,
+          monto,
+          frecuencia: pagoFrecuencia,
+          categoria: pagoCategoria,
+          fecha_inicio: pagoFechaInicioCambio,
+          fecha_fin: null,
+        });
       }
-      await cargarPagosFijos();
+      await cargarPagosFijos(periodoFechaInicio ?? undefined, periodoFechaFin ?? undefined);
       cancelarFormPago();
     } catch {
       setPagoError('Error al guardar. Intenta de nuevo.');
@@ -1017,41 +1074,59 @@ export const Financiero = () => {
                 )}
 
                 {mostrarFormEmp && (
-                  <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-indigo-200 dark:border-indigo-700/40">
-                    <input
-                      type="text"
-                      placeholder="Nombre"
-                      value={empNombre}
-                      onChange={e => setEmpNombre(e.target.value)}
-                      className="flex-1 min-w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Puesto (opcional)"
-                      value={empPuesto}
-                      onChange={e => setEmpPuesto(e.target.value)}
-                      className="flex-1 min-w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Sueldo/día"
-                      value={empSueldo}
-                      onChange={e => setEmpSueldo(e.target.value)}
-                      min="0"
-                      step="0.01"
-                      className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    />
-                    <button
-                      onClick={guardarEmpleado}
-                      disabled={empGuardando}
-                      className="flex items-center gap-1 text-sm font-medium bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white rounded-lg px-3 py-2 transition-colors"
-                    >
-                      {empGuardando ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} /> : <FontAwesomeIcon icon={faCheck} style={{ width: 14, height: 14 }} />}
-                      Guardar
-                    </button>
-                    <button onClick={cancelarFormEmp} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2">
-                      <FontAwesomeIcon icon={faXmark} style={{ width: 14, height: 14 }} />
-                    </button>
+                  <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-indigo-200 dark:border-indigo-700/40">
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nombre"
+                        value={empNombre}
+                        onChange={e => setEmpNombre(e.target.value)}
+                        className="flex-1 min-w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Puesto (opcional)"
+                        value={empPuesto}
+                        onChange={e => setEmpPuesto(e.target.value)}
+                        className="flex-1 min-w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Sueldo/día"
+                        value={empSueldo}
+                        onChange={e => setEmpSueldo(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                      <button
+                        onClick={guardarEmpleado}
+                        disabled={empGuardando}
+                        className="flex items-center gap-1 text-sm font-medium bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white rounded-lg px-3 py-2 transition-colors"
+                      >
+                        {empGuardando ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} /> : <FontAwesomeIcon icon={faCheck} style={{ width: 14, height: 14 }} />}
+                        {empEditId !== null && parseFloat(empSueldo) !== parseFloat(empSueldoOriginal) ? 'Guardar cambio' : 'Guardar'}
+                      </button>
+                      <button onClick={cancelarFormEmp} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2">
+                        <FontAwesomeIcon icon={faXmark} style={{ width: 14, height: 14 }} />
+                      </button>
+                    </div>
+                    {empEditId !== null && parseFloat(empSueldo) !== parseFloat(empSueldoOriginal) && (
+                      <div className="flex items-center gap-2 pt-1 border-t border-indigo-100 dark:border-indigo-700/30">
+                        <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                          Aplica desde:
+                        </label>
+                        <input
+                          type="date"
+                          value={empFechaInicioCambio}
+                          onChange={e => setEmpFechaInicioCambio(e.target.value)}
+                          className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        />
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          El registro anterior se conserva para el historial.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1156,53 +1231,71 @@ export const Financiero = () => {
                 )}
 
                 {mostrarFormPago && (
-                  <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-rose-200 dark:border-rose-700/40">
-                    <input
-                      type="text"
-                      placeholder="Concepto"
-                      value={pagoConcepto}
-                      onChange={e => setPagoConcepto(e.target.value)}
-                      className="flex-1 min-w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Monto"
-                      value={pagoMonto}
-                      onChange={e => setPagoMonto(e.target.value)}
-                      min="0.01"
-                      step="0.01"
-                      className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                    />
-                    <select
-                      value={pagoFrecuencia}
-                      onChange={e => setPagoFrecuencia(e.target.value as PagoFijo['frecuencia'])}
-                      className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                    >
-                      <option value="mensual">Mensual</option>
-                      <option value="semanal">Semanal</option>
-                    </select>
-                    <select
-                      value={pagoCategoria}
-                      onChange={e => setPagoCategoria(e.target.value as PagoFijo['categoria'])}
-                      className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                    >
-                      <option value="renta">Renta</option>
-                      <option value="servicio">Servicio</option>
-                      <option value="proveedor">Proveedor</option>
-                      <option value="marketing">Marketing</option>
-                      <option value="otro">Otro</option>
-                    </select>
-                    <button
-                      onClick={guardarPagoFijo}
-                      disabled={pagoGuardando}
-                      className="flex items-center gap-1 text-sm font-medium bg-rose-500 hover:bg-rose-600 disabled:bg-rose-300 text-white rounded-lg px-3 py-2 transition-colors"
-                    >
-                      {pagoGuardando ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} /> : <FontAwesomeIcon icon={faCheck} style={{ width: 14, height: 14 }} />}
-                      Guardar
-                    </button>
-                    <button onClick={cancelarFormPago} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2">
-                      <FontAwesomeIcon icon={faXmark} style={{ width: 14, height: 14 }} />
-                    </button>
+                  <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-rose-200 dark:border-rose-700/40">
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        type="text"
+                        placeholder="Concepto"
+                        value={pagoConcepto}
+                        onChange={e => setPagoConcepto(e.target.value)}
+                        className="flex-1 min-w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Monto"
+                        value={pagoMonto}
+                        onChange={e => setPagoMonto(e.target.value)}
+                        min="0.01"
+                        step="0.01"
+                        className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                      />
+                      <select
+                        value={pagoFrecuencia}
+                        onChange={e => setPagoFrecuencia(e.target.value as PagoFijo['frecuencia'])}
+                        className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                      >
+                        <option value="mensual">Mensual</option>
+                        <option value="semanal">Semanal</option>
+                      </select>
+                      <select
+                        value={pagoCategoria}
+                        onChange={e => setPagoCategoria(e.target.value as PagoFijo['categoria'])}
+                        className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                      >
+                        <option value="renta">Renta</option>
+                        <option value="servicio">Servicio</option>
+                        <option value="proveedor">Proveedor</option>
+                        <option value="marketing">Marketing</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                      <button
+                        onClick={guardarPagoFijo}
+                        disabled={pagoGuardando}
+                        className="flex items-center gap-1 text-sm font-medium bg-rose-500 hover:bg-rose-600 disabled:bg-rose-300 text-white rounded-lg px-3 py-2 transition-colors"
+                      >
+                        {pagoGuardando ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} /> : <FontAwesomeIcon icon={faCheck} style={{ width: 14, height: 14 }} />}
+                        {pagoEditId !== null && parseFloat(pagoMonto) !== parseFloat(pagoMontoOriginal) ? 'Guardar cambio' : 'Guardar'}
+                      </button>
+                      <button onClick={cancelarFormPago} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2">
+                        <FontAwesomeIcon icon={faXmark} style={{ width: 14, height: 14 }} />
+                      </button>
+                    </div>
+                    {pagoEditId !== null && parseFloat(pagoMonto) !== parseFloat(pagoMontoOriginal) && (
+                      <div className="flex items-center gap-2 pt-1 border-t border-rose-100 dark:border-rose-700/30">
+                        <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                          Aplica desde:
+                        </label>
+                        <input
+                          type="date"
+                          value={pagoFechaInicioCambio}
+                          onChange={e => setPagoFechaInicioCambio(e.target.value)}
+                          className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                        />
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          El registro anterior se conserva para el historial.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 

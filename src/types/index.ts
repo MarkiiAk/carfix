@@ -379,6 +379,8 @@ export interface GastosAdminResponse {
   total_admin: number;
   gastos_ordenes_mes: number;
   utilidad_neta: number;
+  total_sueldos_periodo: number;
+  total_pagos_fijos_periodo: number;
 }
 
 export interface OrdenFinanciero {
@@ -409,6 +411,8 @@ export interface EmpleadoSueldo {
   nombre: string;
   puesto: string | null;
   sueldo_diario: number;
+  fecha_inicio: string;    // 'YYYY-MM-DD'
+  fecha_fin: string | null;
   activo: boolean;
 }
 
@@ -416,6 +420,8 @@ export interface PagoFijo {
   id: number;
   concepto: string;
   monto: number;
+  fecha_inicio: string;    // 'YYYY-MM-DD'
+  fecha_fin: string | null;
   frecuencia: 'semanal' | 'mensual';
   categoria: 'renta' | 'servicio' | 'proveedor' | 'marketing' | 'otro';
   activo: boolean;

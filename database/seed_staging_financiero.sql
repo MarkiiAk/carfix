@@ -13,8 +13,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- ============================================================
 DELETE FROM caja_chica              WHERE fecha BETWEEN '2026-05-04' AND '2026-05-17';
 DELETE FROM gastos_administrativos  WHERE anio = 2026 AND mes = 5;
-DELETE FROM empleados_sueldos       WHERE nombre IN ('Mayte Macías','Carlos Castillo','Markus Fabela','Roberto Zamora','Karla Betzbae');
-DELETE FROM pagos_fijos             WHERE concepto IN ('Renta + Agua','Internet Telmex','Publicación Facebook','Préstamo Taller','AkLabs - Marco');
+DELETE FROM empleados_sueldos       WHERE nombre IN ('Mayte Macías','Carlos Castillo','Markus Fabela','Roberto Zamora','Karla Betzbae','Jorge Marín');
+DELETE FROM pagos_fijos             WHERE concepto IN ('Renta + Agua','Internet Telmex','Publicación Facebook','Préstamo Taller','Pago iPhone Taller','AkLabs - Marco');
 DELETE FROM refacciones_orden       WHERE orden_id IN (SELECT id FROM ordenes_servicio WHERE numero_orden LIKE 'SEED-%');
 DELETE FROM servicios_orden         WHERE orden_id IN (SELECT id FROM ordenes_servicio WHERE numero_orden LIKE 'SEED-%');
 DELETE FROM ordenes_servicio        WHERE numero_orden LIKE 'SEED-%';
@@ -462,25 +462,30 @@ INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario,
 
 -- ============================================================
 -- 3. EMPLEADOS SUELDOS
+-- fecha_inicio='2026-01-01' cubre todos los períodos históricos del sistema
 -- ============================================================
-INSERT INTO empleados_sueldos (usuario_id, nombre, puesto, sueldo_diario, activo) VALUES
-  (NULL, 'Mayte Macías',    'Administrativa',  780.00, 1),
-  (NULL, 'Carlos Castillo', 'Mecánico Senior', 800.00, 1),
-  (NULL, 'Markus Fabela',   'Mecánico',        500.00, 1),
-  (NULL, 'Roberto Zamora',  'Mecánico Junior', 400.00, 1),
-  (NULL, 'Karla Betzbae',   'Marketing',       200.00, 1);
--- $2,680/día × 5 días = $13,400/semana
+INSERT INTO empleados_sueldos (usuario_id, nombre, puesto, sueldo_diario, fecha_inicio, activo) VALUES
+  (NULL, 'Mayte Macías',    'Administrativa',  780.00, '2026-01-01', 1),
+  (NULL, 'Carlos Castillo', 'Mecánico Senior', 800.00, '2026-01-01', 1),
+  (NULL, 'Markus Fabela',   'Mecánico',        500.00, '2026-01-01', 1),
+  (NULL, 'Roberto Zamora',  'Mecánico Junior', 400.00, '2026-01-01', 1),
+  (NULL, 'Karla Betzbae',   'Marketing',       200.00, '2026-01-01', 1),
+  (NULL, 'Jorge Marín',     'Contador',        100.00, '2026-01-01', 1);
+-- $2,780/día × 5 días = $13,900/semana
 
 -- ============================================================
 -- 4. PAGOS FIJOS
+-- AkLabs - Marco: fecha_inicio='2026-05-01' porque antes era pago puntual,
+-- no recurrente. Todos los demás desde '2026-01-01'.
 -- ============================================================
-INSERT INTO pagos_fijos (concepto, monto, frecuencia, categoria, activo) VALUES
-  ('Renta + Agua',        4575.00, 'semanal',  'renta',    1),
-  ('Internet Telmex',      135.00, 'mensual',  'servicio', 1),
-  ('Publicación Facebook', 500.00, 'mensual',  'marketing',1),
-  ('Préstamo Taller',     1650.00, 'semanal',  'otro',     1),
-  ('AkLabs - Marco',      1000.00, 'semanal',  'servicio', 1);
--- Semanal: 4575 + 1650 + 1000 + (135+500)/4 = $7,383.75
+INSERT INTO pagos_fijos (concepto, monto, fecha_inicio, frecuencia, categoria, activo) VALUES
+  ('Renta + Agua',        4575.00, '2026-01-01', 'semanal',  'renta',    1),
+  ('Internet Telmex',      135.00, '2026-01-01', 'mensual',  'servicio', 1),
+  ('Préstamo Taller',     1650.00, '2026-01-01', 'semanal',  'otro',     1),
+  ('Pago iPhone Taller',  1000.00, '2026-01-01', 'semanal',  'servicio', 1),
+  ('AkLabs - Marco',      1000.00, '2026-05-01', 'semanal',  'servicio', 1);
+-- Semanal (desde mayo): 4575 + 1650 + 1000 + 1000 + 135/4 = $8,258.75
+-- Nota: 'Publicación Facebook' eliminada — Paco la canceló. No era pago real en esas semanas.
 
 -- ============================================================
 -- 5. GASTOS ADMINISTRATIVOS VARIABLES — Mayo 2026

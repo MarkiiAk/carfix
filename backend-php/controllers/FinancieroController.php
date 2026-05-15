@@ -703,26 +703,75 @@ class FinancieroController {
 
             $utilidadNeta = round($ingresosNetos - $totalAdmin - $gastosOrdenesMes, 2);
 
+            // Calcular sueldos vigentes en el período
+            // Empleados cuyo rango (fecha_inicio, fecha_fin) se solapa con (fechaInicio, fechaFin)
+            $sqlSueldos = "
+                SELECT COALESCE(SUM(sueldo_diario), 0) AS suma_diaria
+                FROM empleados_sueldos
+                WHERE activo = 1
+                  AND fecha_inicio <= :fecha_fin
+                  AND (fecha_fin IS NULL OR fecha_fin >= :fecha_inicio)
+            ";
+            $stmtSueldos = $this->db->prepare($sqlSueldos);
+            $stmtSueldos->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+            $stmtSueldos->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmtSueldos->execute();
+            $sumaDiaria = (float) ($stmtSueldos->fetchColumn() ?? 0);
+
+            // Días hábiles estimados: 5 para semana, 22 para mes
+            $diasHabiles = isset($tipo) && $tipo === 'semana' ? 5 : 22;
+            $totalSueldosPeriodo = round($sumaDiaria * $diasHabiles, 2);
+
+            // Calcular pagos fijos vigentes en el período
+            $sqlFijos = "
+                SELECT id, monto, frecuencia
+                FROM pagos_fijos
+                WHERE activo = 1
+                  AND fecha_inicio <= :fecha_fin
+                  AND (fecha_fin IS NULL OR fecha_fin >= :fecha_inicio)
+            ";
+            $stmtFijos = $this->db->prepare($sqlFijos);
+            $stmtFijos->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+            $stmtFijos->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmtFijos->execute();
+            $rowsFijos = $stmtFijos->fetchAll(PDO::FETCH_ASSOC);
+
+            $totalFijosPeriodo = 0.0;
+            foreach ($rowsFijos as $fijo) {
+                $montoFijo  = (float) $fijo['monto'];
+                $frecuencia = $fijo['frecuencia'];
+                if ($diasHabiles === 5) {
+                    // Modo semana: semanal = 1x, mensual = /4
+                    $totalFijosPeriodo += ($frecuencia === 'semanal') ? $montoFijo : $montoFijo / 4;
+                } else {
+                    // Modo mes: semanal = x4, mensual = 1x
+                    $totalFijosPeriodo += ($frecuencia === 'semanal') ? $montoFijo * 4 : $montoFijo;
+                }
+            }
+            $totalFijosPeriodo = round($totalFijosPeriodo, 2);
+
             http_response_code(200);
             echo json_encode([
-                'success'              => true,
-                'mes'                  => $mes,
-                'anio'                 => $anio,
-                'fecha_inicio'         => $fechaInicio,
-                'fecha_fin'            => $fechaFin,
-                'label'                => $labelPeriodo,
-                'gastos'               => $gastos,
-                'total_facturado'      => round($totalFacturado, 2),
-                'total_iva'            => round($totalIva, 2),
-                'ingresos_servicios'   => round($ingresosServicios, 2),
-                'ingresos_mano_obra'   => round($ingresosManoObra, 2),
-                'ingresos_refacciones' => round($ingresoRefacc, 2),
-                'costo_refacciones'    => round($costoRefacc, 2),
-                'margen_refacciones'   => $margenRefacc,
-                'ingresos_netos'       => $ingresosNetos,
-                'total_admin'          => round($totalAdmin, 2),
-                'gastos_ordenes_mes'   => round($gastosOrdenesMes, 2),
-                'utilidad_neta'        => $utilidadNeta,
+                'success'                   => true,
+                'mes'                       => $mes,
+                'anio'                      => $anio,
+                'fecha_inicio'              => $fechaInicio,
+                'fecha_fin'                 => $fechaFin,
+                'label'                     => $labelPeriodo,
+                'gastos'                    => $gastos,
+                'total_facturado'           => round($totalFacturado, 2),
+                'total_iva'                 => round($totalIva, 2),
+                'ingresos_servicios'        => round($ingresosServicios, 2),
+                'ingresos_mano_obra'        => round($ingresosManoObra, 2),
+                'ingresos_refacciones'      => round($ingresoRefacc, 2),
+                'costo_refacciones'         => round($costoRefacc, 2),
+                'margen_refacciones'        => $margenRefacc,
+                'ingresos_netos'            => $ingresosNetos,
+                'total_admin'               => round($totalAdmin, 2),
+                'gastos_ordenes_mes'        => round($gastosOrdenesMes, 2),
+                'utilidad_neta'             => $utilidadNeta,
+                'total_sueldos_periodo'     => $totalSueldosPeriodo,
+                'total_pagos_fijos_periodo' => $totalFijosPeriodo,
             ]);
 
         } catch (Exception $e) {
@@ -1003,9 +1052,23 @@ class FinancieroController {
                 return;
             }
 
-            $stmt = $this->db->prepare(
-                'SELECT id, usuario_id, nombre, puesto, sueldo_diario, activo FROM empleados_sueldos ORDER BY nombre ASC'
-            );
+            // Filtrado por vigencia. Si no se pasan fechas, se usa CURDATE() para ambas
+            // (devuelve solo los registros vigentes hoy).
+            $fechaConsultaInicio = isset($_GET['fecha_inicio']) ? trim($_GET['fecha_inicio']) : date('Y-m-d');
+            $fechaConsultaFin    = isset($_GET['fecha_fin'])    ? trim($_GET['fecha_fin'])    : date('Y-m-d');
+
+            $sql = "
+                SELECT id, usuario_id, nombre, puesto, sueldo_diario,
+                       fecha_inicio, fecha_fin, activo
+                FROM empleados_sueldos
+                WHERE activo = 1
+                  AND fecha_inicio <= :fecha_consulta_fin
+                  AND (fecha_fin IS NULL OR fecha_fin >= :fecha_consulta_inicio)
+                ORDER BY nombre ASC
+            ";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':fecha_consulta_inicio', $fechaConsultaInicio, PDO::PARAM_STR);
+            $stmt->bindParam(':fecha_consulta_fin',    $fechaConsultaFin,    PDO::PARAM_STR);
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1016,6 +1079,8 @@ class FinancieroController {
                     'nombre'       => $r['nombre'],
                     'puesto'       => $r['puesto'],
                     'sueldo_diario'=> (float)  $r['sueldo_diario'],
+                    'fecha_inicio' => $r['fecha_inicio'],
+                    'fecha_fin'    => $r['fecha_fin'],
                     'activo'       => (bool)   $r['activo'],
                 ];
             }, $rows);
@@ -1049,10 +1114,11 @@ class FinancieroController {
                 return;
             }
 
-            $nombre      = isset($body['nombre'])      ? trim((string) $body['nombre'])      : '';
-            $puesto      = isset($body['puesto'])      ? trim((string) $body['puesto'])      : null;
-            $sueldoDiario= isset($body['sueldo_diario'])? (float) $body['sueldo_diario']     : 0;
-            $usuarioId   = isset($body['usuario_id'])  ? (int)   $body['usuario_id']        : null;
+            $nombre       = isset($body['nombre'])       ? trim((string) $body['nombre'])       : '';
+            $puesto       = isset($body['puesto'])       ? trim((string) $body['puesto'])       : null;
+            $sueldoDiario = isset($body['sueldo_diario']) ? (float) $body['sueldo_diario']      : 0;
+            $usuarioId    = isset($body['usuario_id'])   ? (int)   $body['usuario_id']         : null;
+            $fechaInicio  = isset($body['fecha_inicio']) ? trim((string) $body['fecha_inicio']) : date('Y-m-d');
 
             if ($nombre === '') {
                 http_response_code(400);
@@ -1066,13 +1132,14 @@ class FinancieroController {
             }
 
             $sql = "
-                INSERT INTO empleados_sueldos (nombre, puesto, sueldo_diario, usuario_id)
-                VALUES (:nombre, :puesto, :sueldo_diario, :usuario_id)
+                INSERT INTO empleados_sueldos (nombre, puesto, sueldo_diario, fecha_inicio, usuario_id)
+                VALUES (:nombre, :puesto, :sueldo_diario, :fecha_inicio, :usuario_id)
             ";
             $stmt = $this->db->prepare($sql);
-            $stmt->bindParam(':nombre',       $nombre,       PDO::PARAM_STR);
-            $stmt->bindParam(':puesto',        $puesto,       PDO::PARAM_STR);
-            $stmt->bindParam(':sueldo_diario', $sueldoDiario);
+            $stmt->bindParam(':nombre',        $nombre,       PDO::PARAM_STR);
+            $stmt->bindParam(':puesto',         $puesto,       PDO::PARAM_STR);
+            $stmt->bindParam(':sueldo_diario',  $sueldoDiario);
+            $stmt->bindParam(':fecha_inicio',   $fechaInicio,  PDO::PARAM_STR);
             if ($usuarioId !== null) {
                 $stmt->bindParam(':usuario_id', $usuarioId, PDO::PARAM_INT);
             } else {
@@ -1090,6 +1157,8 @@ class FinancieroController {
                     'nombre'       => $nombre,
                     'puesto'       => $puesto,
                     'sueldo_diario'=> $sueldoDiario,
+                    'fecha_inicio' => $fechaInicio,
+                    'fecha_fin'    => null,
                     'activo'       => true,
                 ],
             ]);
@@ -1120,81 +1189,167 @@ class FinancieroController {
                 return;
             }
 
-            $stmtCheck = $this->db->prepare('SELECT id FROM empleados_sueldos WHERE id = :id LIMIT 1');
+            $stmtCheck = $this->db->prepare(
+                'SELECT id, nombre, puesto, sueldo_diario, usuario_id, activo FROM empleados_sueldos WHERE id = :id LIMIT 1'
+            );
             $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
             $stmtCheck->execute();
-            if (!$stmtCheck->fetch()) {
+            $existente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$existente) {
                 http_response_code(404);
                 echo json_encode(['success' => false, 'error' => 'Empleado no encontrado']);
                 return;
             }
 
-            $campos = [];
-            $params = [];
+            // Validar campos entrantes
+            $cambiaNombre  = isset($body['nombre']);
+            $cambiaPuesto  = array_key_exists('puesto', $body);
+            $cambiaSueldo  = isset($body['sueldo_diario']);
 
-            if (isset($body['nombre'])) {
-                $nombre = trim((string) $body['nombre']);
-                if ($nombre === '') {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'El nombre no puede estar vacío']);
-                    return;
-                }
-                $campos[]          = 'nombre = :nombre';
-                $params['nombre']  = $nombre;
-            }
-            if (array_key_exists('puesto', $body)) {
-                $campos[]         = 'puesto = :puesto';
-                $params['puesto'] = $body['puesto'] !== null ? trim((string) $body['puesto']) : null;
-            }
-            if (isset($body['sueldo_diario'])) {
-                $sd = (float) $body['sueldo_diario'];
-                if ($sd < 0) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'El sueldo diario no puede ser negativo']);
-                    return;
-                }
-                $campos[]               = 'sueldo_diario = :sueldo_diario';
-                $params['sueldo_diario']= $sd;
-            }
-
-            if (empty($campos)) {
+            if (!$cambiaNombre && !$cambiaPuesto && !$cambiaSueldo) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'No se enviaron campos a actualizar']);
                 return;
             }
 
-            $sql  = 'UPDATE empleados_sueldos SET ' . implode(', ', $campos) . ' WHERE id = :id';
-            $stmt = $this->db->prepare($sql);
-            foreach ($params as $key => $val) {
-                if ($val === null) {
-                    $stmt->bindValue(':' . $key, null, PDO::PARAM_NULL);
-                } else {
-                    $stmt->bindValue(':' . $key, $val);
+            if ($cambiaNombre) {
+                $nuevoNombre = trim((string) $body['nombre']);
+                if ($nuevoNombre === '') {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'El nombre no puede estar vacío']);
+                    return;
                 }
+            } else {
+                $nuevoNombre = $existente['nombre'];
             }
-            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-            $stmt->execute();
 
-            // Re-fetch para devolver el registro actualizado
-            $stmtGet = $this->db->prepare(
-                'SELECT id, usuario_id, nombre, puesto, sueldo_diario, activo FROM empleados_sueldos WHERE id = :id LIMIT 1'
-            );
-            $stmtGet->bindParam(':id', $id, PDO::PARAM_INT);
-            $stmtGet->execute();
-            $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
+            $nuevoPuesto = $cambiaPuesto
+                ? ($body['puesto'] !== null ? trim((string) $body['puesto']) : null)
+                : $existente['puesto'];
 
-            http_response_code(200);
-            echo json_encode([
-                'success'  => true,
-                'empleado' => [
-                    'id'           => (int)   $row['id'],
-                    'usuario_id'   => $row['usuario_id'] !== null ? (int) $row['usuario_id'] : null,
-                    'nombre'       => $row['nombre'],
-                    'puesto'       => $row['puesto'],
-                    'sueldo_diario'=> (float) $row['sueldo_diario'],
-                    'activo'       => (bool)  $row['activo'],
-                ],
-            ]);
+            if ($cambiaSueldo) {
+                $nuevoSueldo = (float) $body['sueldo_diario'];
+                if ($nuevoSueldo < 0) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'El sueldo diario no puede ser negativo']);
+                    return;
+                }
+            } else {
+                $nuevoSueldo = (float) $existente['sueldo_diario'];
+            }
+
+            if ($cambiaSueldo) {
+                // PATRÓN VERSIONAR: solo cuando cambia el monto/sueldo.
+                // 1. Cerrar el registro actual: fecha_fin = fecha_inicio_cambio - 1 día
+                // 2. Insertar nuevo registro con el nuevo sueldo y fecha_inicio = fecha_inicio_cambio
+                // Así el historial queda intacto para cualquier período anterior.
+                $nuevaFechaInicio = isset($body['fecha_inicio_cambio'])
+                    ? trim((string) $body['fecha_inicio_cambio'])
+                    : date('Y-m-d');
+
+                $fechaFinAnterior = date('Y-m-d', strtotime($nuevaFechaInicio . ' -1 day'));
+
+                $this->db->beginTransaction();
+                try {
+                    // Cerrar el registro existente
+                    $stmtCierre = $this->db->prepare(
+                        'UPDATE empleados_sueldos SET fecha_fin = :fecha_fin WHERE id = :id'
+                    );
+                    $stmtCierre->bindParam(':fecha_fin', $fechaFinAnterior, PDO::PARAM_STR);
+                    $stmtCierre->bindParam(':id',        $id,               PDO::PARAM_INT);
+                    $stmtCierre->execute();
+
+                    // Crear nuevo registro vigente
+                    $usuarioId = $existente['usuario_id'] !== null ? (int) $existente['usuario_id'] : null;
+                    $sqlNuevo  = "
+                        INSERT INTO empleados_sueldos
+                            (nombre, puesto, sueldo_diario, fecha_inicio, usuario_id, activo)
+                        VALUES
+                            (:nombre, :puesto, :sueldo_diario, :fecha_inicio, :usuario_id, 1)
+                    ";
+                    $stmtNuevo = $this->db->prepare($sqlNuevo);
+                    $stmtNuevo->bindParam(':nombre',        $nuevoNombre,     PDO::PARAM_STR);
+                    $stmtNuevo->bindParam(':puesto',         $nuevoPuesto,     PDO::PARAM_STR);
+                    $stmtNuevo->bindParam(':sueldo_diario',  $nuevoSueldo);
+                    $stmtNuevo->bindParam(':fecha_inicio',   $nuevaFechaInicio, PDO::PARAM_STR);
+                    if ($usuarioId !== null) {
+                        $stmtNuevo->bindParam(':usuario_id', $usuarioId, PDO::PARAM_INT);
+                    } else {
+                        $stmtNuevo->bindValue(':usuario_id', null, PDO::PARAM_NULL);
+                    }
+                    $stmtNuevo->execute();
+                    $nuevoId = (int) $this->db->lastInsertId();
+
+                    $this->db->commit();
+
+                    // Devolver el nuevo registro creado
+                    http_response_code(200);
+                    echo json_encode([
+                        'success'  => true,
+                        'empleado' => [
+                            'id'           => $nuevoId,
+                            'usuario_id'   => $usuarioId,
+                            'nombre'       => $nuevoNombre,
+                            'puesto'       => $nuevoPuesto,
+                            'sueldo_diario'=> $nuevoSueldo,
+                            'fecha_inicio' => $nuevaFechaInicio,
+                            'fecha_fin'    => null,
+                            'activo'       => true,
+                        ],
+                    ]);
+                } catch (Exception $e) {
+                    $this->db->rollBack();
+                    throw $e;
+                }
+            } else {
+                // Solo cambió nombre o puesto — UPDATE directo, sin crear versión nueva
+                $campos = [];
+                $params = [];
+                if ($cambiaNombre) {
+                    $campos[]         = 'nombre = :nombre';
+                    $params['nombre'] = $nuevoNombre;
+                }
+                if ($cambiaPuesto) {
+                    $campos[]         = 'puesto = :puesto';
+                    $params['puesto'] = $nuevoPuesto;
+                }
+
+                $sql  = 'UPDATE empleados_sueldos SET ' . implode(', ', $campos) . ' WHERE id = :id';
+                $stmt = $this->db->prepare($sql);
+                foreach ($params as $key => $val) {
+                    if ($val === null) {
+                        $stmt->bindValue(':' . $key, null, PDO::PARAM_NULL);
+                    } else {
+                        $stmt->bindValue(':' . $key, $val);
+                    }
+                }
+                $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+                $stmt->execute();
+
+                // Re-fetch para devolver el registro actualizado
+                $stmtGet = $this->db->prepare(
+                    'SELECT id, usuario_id, nombre, puesto, sueldo_diario, fecha_inicio, fecha_fin, activo
+                     FROM empleados_sueldos WHERE id = :id LIMIT 1'
+                );
+                $stmtGet->bindParam(':id', $id, PDO::PARAM_INT);
+                $stmtGet->execute();
+                $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
+
+                http_response_code(200);
+                echo json_encode([
+                    'success'  => true,
+                    'empleado' => [
+                        'id'           => (int)   $row['id'],
+                        'usuario_id'   => $row['usuario_id'] !== null ? (int) $row['usuario_id'] : null,
+                        'nombre'       => $row['nombre'],
+                        'puesto'       => $row['puesto'],
+                        'sueldo_diario'=> (float) $row['sueldo_diario'],
+                        'fecha_inicio' => $row['fecha_inicio'],
+                        'fecha_fin'    => $row['fecha_fin'],
+                        'activo'       => (bool)  $row['activo'],
+                    ],
+                ]);
+            }
 
         } catch (Exception $e) {
             error_log('[FinancieroController::actualizarEmpleado] ERROR: ' . $e->getMessage());
@@ -1260,20 +1415,35 @@ class FinancieroController {
                 return;
             }
 
-            $stmt = $this->db->prepare(
-                'SELECT id, concepto, monto, frecuencia, categoria, activo FROM pagos_fijos ORDER BY concepto ASC'
-            );
+            // Filtrado por vigencia. Si no se pasan fechas, se usa CURDATE() para ambas
+            // (devuelve solo los registros vigentes hoy).
+            $fechaConsultaInicio = isset($_GET['fecha_inicio']) ? trim($_GET['fecha_inicio']) : date('Y-m-d');
+            $fechaConsultaFin    = isset($_GET['fecha_fin'])    ? trim($_GET['fecha_fin'])    : date('Y-m-d');
+
+            $sql = "
+                SELECT id, concepto, monto, fecha_inicio, fecha_fin, frecuencia, categoria, activo
+                FROM pagos_fijos
+                WHERE activo = 1
+                  AND fecha_inicio <= :fecha_consulta_fin
+                  AND (fecha_fin IS NULL OR fecha_fin >= :fecha_consulta_inicio)
+                ORDER BY concepto ASC
+            ";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':fecha_consulta_inicio', $fechaConsultaInicio, PDO::PARAM_STR);
+            $stmt->bindParam(':fecha_consulta_fin',    $fechaConsultaFin,    PDO::PARAM_STR);
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $pagos = array_map(function ($r) {
                 return [
-                    'id'         => (int)   $r['id'],
-                    'concepto'   => $r['concepto'],
-                    'monto'      => (float) $r['monto'],
-                    'frecuencia' => $r['frecuencia'],
-                    'categoria'  => $r['categoria'],
-                    'activo'     => (bool)  $r['activo'],
+                    'id'          => (int)   $r['id'],
+                    'concepto'    => $r['concepto'],
+                    'monto'       => (float) $r['monto'],
+                    'fecha_inicio'=> $r['fecha_inicio'],
+                    'fecha_fin'   => $r['fecha_fin'],
+                    'frecuencia'  => $r['frecuencia'],
+                    'categoria'   => $r['categoria'],
+                    'activo'      => (bool)  $r['activo'],
                 ];
             }, $rows);
 
@@ -1306,10 +1476,11 @@ class FinancieroController {
                 return;
             }
 
-            $concepto   = isset($body['concepto'])   ? trim((string) $body['concepto'])   : '';
-            $monto      = isset($body['monto'])      ? (float) $body['monto']             : 0;
-            $frecuencia = isset($body['frecuencia']) ? trim((string) $body['frecuencia']) : 'mensual';
-            $categoria  = isset($body['categoria'])  ? trim((string) $body['categoria'])  : 'otro';
+            $concepto    = isset($body['concepto'])      ? trim((string) $body['concepto'])      : '';
+            $monto       = isset($body['monto'])         ? (float) $body['monto']               : 0;
+            $frecuencia  = isset($body['frecuencia'])    ? trim((string) $body['frecuencia'])    : 'mensual';
+            $categoria   = isset($body['categoria'])     ? trim((string) $body['categoria'])     : 'otro';
+            $fechaInicio = isset($body['fecha_inicio'])  ? trim((string) $body['fecha_inicio'])  : date('Y-m-d');
 
             if ($concepto === '') {
                 http_response_code(400);
@@ -1333,14 +1504,15 @@ class FinancieroController {
             }
 
             $sql = "
-                INSERT INTO pagos_fijos (concepto, monto, frecuencia, categoria)
-                VALUES (:concepto, :monto, :frecuencia, :categoria)
+                INSERT INTO pagos_fijos (concepto, monto, fecha_inicio, frecuencia, categoria)
+                VALUES (:concepto, :monto, :fecha_inicio, :frecuencia, :categoria)
             ";
             $stmt = $this->db->prepare($sql);
-            $stmt->bindParam(':concepto',   $concepto,   PDO::PARAM_STR);
-            $stmt->bindParam(':monto',      $monto);
-            $stmt->bindParam(':frecuencia', $frecuencia, PDO::PARAM_STR);
-            $stmt->bindParam(':categoria',  $categoria,  PDO::PARAM_STR);
+            $stmt->bindParam(':concepto',    $concepto,    PDO::PARAM_STR);
+            $stmt->bindParam(':monto',       $monto);
+            $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+            $stmt->bindParam(':frecuencia',  $frecuencia,  PDO::PARAM_STR);
+            $stmt->bindParam(':categoria',   $categoria,   PDO::PARAM_STR);
             $stmt->execute();
             $nuevoId = (int) $this->db->lastInsertId();
 
@@ -1348,12 +1520,14 @@ class FinancieroController {
             echo json_encode([
                 'success'    => true,
                 'pago_fijo'  => [
-                    'id'         => $nuevoId,
-                    'concepto'   => $concepto,
-                    'monto'      => $monto,
-                    'frecuencia' => $frecuencia,
-                    'categoria'  => $categoria,
-                    'activo'     => true,
+                    'id'          => $nuevoId,
+                    'concepto'    => $concepto,
+                    'monto'       => $monto,
+                    'fecha_inicio'=> $fechaInicio,
+                    'fecha_fin'   => null,
+                    'frecuencia'  => $frecuencia,
+                    'categoria'   => $categoria,
+                    'activo'      => true,
                 ],
             ]);
 
@@ -1383,92 +1557,167 @@ class FinancieroController {
                 return;
             }
 
-            $stmtCheck = $this->db->prepare('SELECT id FROM pagos_fijos WHERE id = :id LIMIT 1');
+            $stmtCheck = $this->db->prepare(
+                'SELECT id, concepto, monto, frecuencia, categoria, activo FROM pagos_fijos WHERE id = :id LIMIT 1'
+            );
             $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
             $stmtCheck->execute();
-            if (!$stmtCheck->fetch()) {
+            $existente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$existente) {
                 http_response_code(404);
                 echo json_encode(['success' => false, 'error' => 'Pago fijo no encontrado']);
                 return;
             }
 
-            $campos = [];
-            $params = [];
+            // Validar campos entrantes
+            $cambiaConcepto   = isset($body['concepto']);
+            $cambiaMonto      = isset($body['monto']);
+            $cambiaFrecuencia = isset($body['frecuencia']);
+            $cambiaCategoria  = isset($body['categoria']);
 
-            if (isset($body['concepto'])) {
-                $c = trim((string) $body['concepto']);
-                if ($c === '') {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'El concepto no puede estar vacío']);
-                    return;
-                }
-                $campos[]           = 'concepto = :concepto';
-                $params['concepto'] = $c;
-            }
-            if (isset($body['monto'])) {
-                $m = (float) $body['monto'];
-                if ($m <= 0) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'El monto debe ser mayor a 0']);
-                    return;
-                }
-                $campos[]        = 'monto = :monto';
-                $params['monto'] = $m;
-            }
-            if (isset($body['frecuencia'])) {
-                $f = trim((string) $body['frecuencia']);
-                if (!in_array($f, ['semanal', 'mensual'], true)) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'frecuencia inválida']);
-                    return;
-                }
-                $campos[]             = 'frecuencia = :frecuencia';
-                $params['frecuencia'] = $f;
-            }
-            if (isset($body['categoria'])) {
-                $cat = trim((string) $body['categoria']);
-                if (!in_array($cat, ['renta', 'servicio', 'proveedor', 'marketing', 'otro'], true)) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'categoria inválida']);
-                    return;
-                }
-                $campos[]            = 'categoria = :categoria';
-                $params['categoria'] = $cat;
-            }
-
-            if (empty($campos)) {
+            if (!$cambiaConcepto && !$cambiaMonto && !$cambiaFrecuencia && !$cambiaCategoria) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'No se enviaron campos a actualizar']);
                 return;
             }
 
-            $sql  = 'UPDATE pagos_fijos SET ' . implode(', ', $campos) . ' WHERE id = :id';
-            $stmt = $this->db->prepare($sql);
-            foreach ($params as $key => $val) {
-                $stmt->bindValue(':' . $key, $val);
+            if ($cambiaConcepto) {
+                $nuevoConcepto = trim((string) $body['concepto']);
+                if ($nuevoConcepto === '') {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'El concepto no puede estar vacío']);
+                    return;
+                }
+            } else {
+                $nuevoConcepto = $existente['concepto'];
             }
-            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-            $stmt->execute();
 
-            $stmtGet = $this->db->prepare(
-                'SELECT id, concepto, monto, frecuencia, categoria, activo FROM pagos_fijos WHERE id = :id LIMIT 1'
-            );
-            $stmtGet->bindParam(':id', $id, PDO::PARAM_INT);
-            $stmtGet->execute();
-            $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
+            if ($cambiaMonto) {
+                $nuevoMonto = (float) $body['monto'];
+                if ($nuevoMonto <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'El monto debe ser mayor a 0']);
+                    return;
+                }
+            } else {
+                $nuevoMonto = (float) $existente['monto'];
+            }
 
-            http_response_code(200);
-            echo json_encode([
-                'success'   => true,
-                'pago_fijo' => [
-                    'id'         => (int)   $row['id'],
-                    'concepto'   => $row['concepto'],
-                    'monto'      => (float) $row['monto'],
-                    'frecuencia' => $row['frecuencia'],
-                    'categoria'  => $row['categoria'],
-                    'activo'     => (bool)  $row['activo'],
-                ],
-            ]);
+            if ($cambiaFrecuencia) {
+                $nuevaFrecuencia = trim((string) $body['frecuencia']);
+                if (!in_array($nuevaFrecuencia, ['semanal', 'mensual'], true)) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'frecuencia inválida']);
+                    return;
+                }
+            } else {
+                $nuevaFrecuencia = $existente['frecuencia'];
+            }
+
+            if ($cambiaCategoria) {
+                $nuevaCategoria = trim((string) $body['categoria']);
+                if (!in_array($nuevaCategoria, ['renta', 'servicio', 'proveedor', 'marketing', 'otro'], true)) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'categoria inválida']);
+                    return;
+                }
+            } else {
+                $nuevaCategoria = $existente['categoria'];
+            }
+
+            if ($cambiaMonto) {
+                // PATRÓN VERSIONAR: solo cuando cambia el monto.
+                // 1. Cerrar el registro actual: fecha_fin = fecha_inicio_cambio - 1 día
+                // 2. Insertar nuevo registro con el nuevo monto y fecha_inicio = fecha_inicio_cambio
+                $nuevaFechaInicio = isset($body['fecha_inicio_cambio'])
+                    ? trim((string) $body['fecha_inicio_cambio'])
+                    : date('Y-m-d');
+
+                $fechaFinAnterior = date('Y-m-d', strtotime($nuevaFechaInicio . ' -1 day'));
+
+                $this->db->beginTransaction();
+                try {
+                    $stmtCierre = $this->db->prepare(
+                        'UPDATE pagos_fijos SET fecha_fin = :fecha_fin WHERE id = :id'
+                    );
+                    $stmtCierre->bindParam(':fecha_fin', $fechaFinAnterior, PDO::PARAM_STR);
+                    $stmtCierre->bindParam(':id',        $id,               PDO::PARAM_INT);
+                    $stmtCierre->execute();
+
+                    $sqlNuevo = "
+                        INSERT INTO pagos_fijos
+                            (concepto, monto, fecha_inicio, frecuencia, categoria, activo)
+                        VALUES
+                            (:concepto, :monto, :fecha_inicio, :frecuencia, :categoria, 1)
+                    ";
+                    $stmtNuevo = $this->db->prepare($sqlNuevo);
+                    $stmtNuevo->bindParam(':concepto',    $nuevoConcepto,   PDO::PARAM_STR);
+                    $stmtNuevo->bindParam(':monto',       $nuevoMonto);
+                    $stmtNuevo->bindParam(':fecha_inicio', $nuevaFechaInicio, PDO::PARAM_STR);
+                    $stmtNuevo->bindParam(':frecuencia',  $nuevaFrecuencia,  PDO::PARAM_STR);
+                    $stmtNuevo->bindParam(':categoria',   $nuevaCategoria,   PDO::PARAM_STR);
+                    $stmtNuevo->execute();
+                    $nuevoId = (int) $this->db->lastInsertId();
+
+                    $this->db->commit();
+
+                    http_response_code(200);
+                    echo json_encode([
+                        'success'   => true,
+                        'pago_fijo' => [
+                            'id'          => $nuevoId,
+                            'concepto'    => $nuevoConcepto,
+                            'monto'       => $nuevoMonto,
+                            'fecha_inicio'=> $nuevaFechaInicio,
+                            'fecha_fin'   => null,
+                            'frecuencia'  => $nuevaFrecuencia,
+                            'categoria'   => $nuevaCategoria,
+                            'activo'      => true,
+                        ],
+                    ]);
+                } catch (Exception $e) {
+                    $this->db->rollBack();
+                    throw $e;
+                }
+            } else {
+                // Solo cambió concepto, frecuencia o categoría — UPDATE directo
+                $campos = [];
+                $params = [];
+                if ($cambiaConcepto)   { $campos[] = 'concepto = :concepto';     $params['concepto']   = $nuevoConcepto; }
+                if ($cambiaFrecuencia) { $campos[] = 'frecuencia = :frecuencia'; $params['frecuencia'] = $nuevaFrecuencia; }
+                if ($cambiaCategoria)  { $campos[] = 'categoria = :categoria';   $params['categoria']  = $nuevaCategoria; }
+
+                $sql  = 'UPDATE pagos_fijos SET ' . implode(', ', $campos) . ' WHERE id = :id';
+                $stmt = $this->db->prepare($sql);
+                foreach ($params as $key => $val) {
+                    $stmt->bindValue(':' . $key, $val);
+                }
+                $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+                $stmt->execute();
+
+                $stmtGet = $this->db->prepare(
+                    'SELECT id, concepto, monto, fecha_inicio, fecha_fin, frecuencia, categoria, activo
+                     FROM pagos_fijos WHERE id = :id LIMIT 1'
+                );
+                $stmtGet->bindParam(':id', $id, PDO::PARAM_INT);
+                $stmtGet->execute();
+                $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
+
+                http_response_code(200);
+                echo json_encode([
+                    'success'   => true,
+                    'pago_fijo' => [
+                        'id'          => (int)   $row['id'],
+                        'concepto'    => $row['concepto'],
+                        'monto'       => (float) $row['monto'],
+                        'fecha_inicio'=> $row['fecha_inicio'],
+                        'fecha_fin'   => $row['fecha_fin'],
+                        'frecuencia'  => $row['frecuencia'],
+                        'categoria'   => $row['categoria'],
+                        'activo'      => (bool)  $row['activo'],
+                    ],
+                ]);
+            }
 
         } catch (Exception $e) {
             error_log('[FinancieroController::actualizarPagoFijo] ERROR: ' . $e->getMessage());
