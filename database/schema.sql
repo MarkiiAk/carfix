@@ -973,6 +973,35 @@ CREATE TABLE `gastos_administrativos` (
   CONSTRAINT `fk_gastos_admin_usuario` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 2026-05-15: Sueldos de empleados y pagos fijos del taller
+-- Archivo: database/20260515_financiero_sueldos_pagos_fijos.sql
+
+CREATE TABLE IF NOT EXISTS `empleados_sueldos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `usuario_id` int(11) DEFAULT NULL,
+  `nombre` varchar(120) NOT NULL,
+  `puesto` varchar(80) DEFAULT NULL,
+  `sueldo_diario` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_empleados_sueldos_usuario` (`usuario_id`),
+  CONSTRAINT `fk_empleados_sueldos_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `pagos_fijos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `concepto` varchar(120) NOT NULL,
+  `monto` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `frecuencia` enum('semanal','mensual') NOT NULL DEFAULT 'mensual',
+  `categoria` enum('renta','servicio','proveedor','marketing','otro') NOT NULL DEFAULT 'otro',
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

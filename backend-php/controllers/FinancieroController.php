@@ -580,8 +580,9 @@ class FinancieroController {
     }
 
     // -----------------------------------------------------------------------
-    // GET /api/financiero/gastos-admin?mes=X&anio=Y
-    // Solo admin. Retorna lista de gastos + balance del mes.
+    // GET /api/financiero/gastos-admin?tipo=mes|semana&offset=0
+    // Acepta también ?mes=X&anio=Y para retrocompatibilidad.
+    // Solo admin. Retorna lista de gastos + balance del período.
     // -----------------------------------------------------------------------
     public function gastosAdmin(int $mes, int $anio, $userData): void {
         try {
@@ -597,31 +598,45 @@ class FinancieroController {
                 return;
             }
 
-            if ($mes < 1 || $mes > 12) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'mes debe estar entre 1 y 12']);
-                return;
+            // Soporte dual: tipo+offset (nuevo) o mes+anio (retrocompatible)
+            if (isset($_GET['tipo'])) {
+                $tipo   = trim($_GET['tipo']);
+                $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
+                if (!in_array($tipo, ['semana', 'quincena', 'mes'], true)) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'tipo debe ser semana, quincena o mes']);
+                    return;
+                }
+                [$fechaInicio, $fechaFin, $labelPeriodo] = $this->calcularPeriodo($tipo, $offset);
+            } else {
+                if ($mes < 1 || $mes > 12) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'mes debe estar entre 1 y 12']);
+                    return;
+                }
+                if ($anio < 2020 || $anio > 2030) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'anio fuera de rango permitido']);
+                    return;
+                }
+                $fechaInicio  = sprintf('%04d-%02d-01', $anio, $mes);
+                $fechaFin     = date('Y-m-t', strtotime($fechaInicio));
+                $labelPeriodo = $this->nombreMes($mes) . ' ' . $anio;
             }
 
-            if ($anio < 2020 || $anio > 2030) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'anio fuera de rango permitido']);
-                return;
-            }
-
-            // Lista de gastos administrativos del mes
+            // Lista de gastos administrativos del período
             $sqlGastos = "
                 SELECT g.id, g.mes, g.anio, g.concepto, g.monto, g.categoria,
                        COALESCE(u.nombre_completo, u.username) AS registrado_por_nombre,
                        g.created_at
                 FROM gastos_administrativos g
                 INNER JOIN usuarios u ON u.id = g.registrado_por
-                WHERE g.mes = :mes AND g.anio = :anio
+                WHERE DATE(g.created_at) BETWEEN :fecha_inicio AND :fecha_fin
                 ORDER BY g.created_at ASC
             ";
             $stmtGastos = $this->db->prepare($sqlGastos);
-            $stmtGastos->bindParam(':mes',  $mes,  PDO::PARAM_INT);
-            $stmtGastos->bindParam(':anio', $anio, PDO::PARAM_INT);
+            $stmtGastos->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+            $stmtGastos->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
             $stmtGastos->execute();
             $rows = $stmtGastos->fetchAll(PDO::FETCH_ASSOC);
 
@@ -640,52 +655,48 @@ class FinancieroController {
 
             $totalAdmin = array_sum(array_column($gastos, 'monto'));
 
-            // Ingresos del mes: desglose detallado para calcular ingresos netos
-            // (excluye IVA y costo de refacciones — solo queda margen real del negocio)
+            // Ingresos del período usando rango de fechas (compatible con semanas)
             $sqlIngresos = "
                 SELECT
                   COALESCE(SUM(o.total), 0)                        AS total_facturado,
-                  COALESCE(SUM(o.iva), 0)                           AS total_iva,
-                  COALESCE(SUM(o.subtotal_servicios), 0)            AS ingresos_servicios,
-                  COALESCE(SUM(o.subtotal_mano_obra), 0)            AS ingresos_mano_obra,
-                  COALESCE(SUM(o.subtotal_refacciones), 0)          AS ingresos_refacciones,
-                  COALESCE(SUM(o.subtotal_refacciones / 1.30), 0)   AS costo_refacciones
+                  COALESCE(SUM(o.iva), 0)                          AS total_iva,
+                  COALESCE(SUM(o.subtotal_servicios), 0)           AS ingresos_servicios,
+                  COALESCE(SUM(o.subtotal_mano_obra), 0)           AS ingresos_mano_obra,
+                  COALESCE(SUM(o.subtotal_refacciones), 0)         AS ingresos_refacciones,
+                  COALESCE(SUM(o.subtotal_refacciones / 1.30), 0)  AS costo_refacciones
                 FROM ordenes_servicio o
                 WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-                  AND MONTH(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)) = :mes
-                  AND YEAR(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso))  = :anio
+                  AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)
+                      BETWEEN :fecha_inicio AND :fecha_fin
             ";
             $stmtIngresos = $this->db->prepare($sqlIngresos);
-            $stmtIngresos->bindParam(':mes',  $mes,  PDO::PARAM_INT);
-            $stmtIngresos->bindParam(':anio', $anio, PDO::PARAM_INT);
+            $stmtIngresos->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+            $stmtIngresos->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
             $stmtIngresos->execute();
             $rowIngresos = $stmtIngresos->fetch(PDO::FETCH_ASSOC);
 
-            $totalFacturado    = (float) ($rowIngresos['total_facturado']    ?? 0);
-            $totalIva          = (float) ($rowIngresos['total_iva']          ?? 0);
-            $ingresosServicios = (float) ($rowIngresos['ingresos_servicios'] ?? 0);
-            $ingresosManoObra  = (float) ($rowIngresos['ingresos_mano_obra'] ?? 0);
+            $totalFacturado    = (float) ($rowIngresos['total_facturado']      ?? 0);
+            $totalIva          = (float) ($rowIngresos['total_iva']            ?? 0);
+            $ingresosServicios = (float) ($rowIngresos['ingresos_servicios']   ?? 0);
+            $ingresosManoObra  = (float) ($rowIngresos['ingresos_mano_obra']   ?? 0);
             $ingresoRefacc     = (float) ($rowIngresos['ingresos_refacciones'] ?? 0);
-            $costoRefacc       = (float) ($rowIngresos['costo_refacciones']  ?? 0);
+            $costoRefacc       = (float) ($rowIngresos['costo_refacciones']    ?? 0);
             $margenRefacc      = round($ingresoRefacc - $costoRefacc, 2);
 
-            // Ingresos netos = servicios + mano de obra + margen de refacciones
-            // (no incluye IVA porque va al SAT, ni costo de material porque no es ganancia)
             $ingresosNetos = round($ingresosServicios + $ingresosManoObra + $margenRefacc, 2);
 
-            // Gastos internos de órdenes del mes — solo órdenes cerradas/entregadas
-            // para no contaminar el balance con gastos de órdenes que aún no generaron ingreso
+            // Gastos internos de órdenes del período
             $sqlGastosOrdenes = "
                 SELECT COALESCE(SUM(costo_interno_total), 0) AS gastos_ordenes_mes
                 FROM ordenes_servicio
-                WHERE MONTH(COALESCE(fecha_completada, fecha_entregada, fecha_ingreso)) = :mes
-                  AND YEAR(COALESCE(fecha_completada, fecha_entregada, fecha_ingreso))  = :anio
+                WHERE COALESCE(fecha_completada, fecha_entregada, fecha_ingreso)
+                      BETWEEN :fecha_inicio AND :fecha_fin
                   AND costo_interno_total > 0
                   AND estado IN ('cerrada', 'entregada')
             ";
             $stmtGO = $this->db->prepare($sqlGastosOrdenes);
-            $stmtGO->bindParam(':mes',  $mes,  PDO::PARAM_INT);
-            $stmtGO->bindParam(':anio', $anio, PDO::PARAM_INT);
+            $stmtGO->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+            $stmtGO->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
             $stmtGO->execute();
             $rowGO = $stmtGO->fetch(PDO::FETCH_ASSOC);
             $gastosOrdenesMes = (float) ($rowGO['gastos_ordenes_mes'] ?? 0);
@@ -697,6 +708,9 @@ class FinancieroController {
                 'success'              => true,
                 'mes'                  => $mes,
                 'anio'                 => $anio,
+                'fecha_inicio'         => $fechaInicio,
+                'fecha_fin'            => $fechaFin,
+                'label'                => $labelPeriodo,
                 'gastos'               => $gastos,
                 'total_facturado'      => round($totalFacturado, 2),
                 'total_iva'            => round($totalIva, 2),
@@ -859,6 +873,622 @@ class FinancieroController {
             error_log('[FinancieroController::eliminarGastoAdmin] ERROR: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Error al eliminar el gasto administrativo']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/financiero/ordenes?tipo=mes|semana&offset=0
+    // Órdenes del período con desglose financiero por orden.
+    // Solo admin.
+    // -----------------------------------------------------------------------
+    public function ordenesDesglosadas(): void {
+        try {
+            $userData = requireAuth();
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $tipo   = isset($_GET['tipo'])   ? trim($_GET['tipo'])   : 'mes';
+            $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
+
+            if (!in_array($tipo, ['semana', 'quincena', 'mes'], true)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'tipo debe ser semana, quincena o mes']);
+                return;
+            }
+
+            [$fechaInicio, $fechaFin] = $this->calcularPeriodo($tipo, $offset);
+
+            $sql = "
+                SELECT
+                    os.id,
+                    os.numero_orden,
+                    COALESCE(os.fecha_completada, os.fecha_entregada, os.fecha_ingreso) AS fecha,
+                    CONCAT(c.nombre, ' ', COALESCE(c.apellido, ''))                    AS cliente_nombre,
+                    CONCAT(v.marca, ' ', v.modelo, ' ', COALESCE(v.anio, ''))          AS vehiculo,
+                    os.total                                                            AS costo_venta,
+                    COALESCE(os.subtotal_refacciones, 0) / 1.30                        AS costo_refacciones,
+                    (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30)           AS ganancia,
+                    os.estado
+                FROM ordenes_servicio os
+                LEFT JOIN clientes c  ON os.cliente_id  = c.id
+                LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
+                WHERE COALESCE(os.fecha_completada, os.fecha_entregada, os.fecha_ingreso)
+                      BETWEEN :fecha_inicio AND :fecha_fin
+                  AND os.estado IN ('completado', 'entregado', 'completada', 'entregada', 'cerrada')
+                ORDER BY COALESCE(os.fecha_completada, os.fecha_entregada, os.fecha_ingreso) ASC
+            ";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+            $stmt->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $ordenes = array_map(function ($r) {
+                return [
+                    'id'               => (int)   $r['id'],
+                    'numero_orden'     => $r['numero_orden'],
+                    'fecha'            => $r['fecha'],
+                    'cliente_nombre'   => trim($r['cliente_nombre']),
+                    'vehiculo'         => trim($r['vehiculo']),
+                    'costo_venta'      => round((float) $r['costo_venta'], 2),
+                    'costo_refacciones'=> round((float) $r['costo_refacciones'], 2),
+                    'ganancia'         => round((float) $r['ganancia'], 2),
+                    'estado'           => $r['estado'],
+                ];
+            }, $rows);
+
+            $totales = [
+                'costo_venta'       => round(array_sum(array_column($ordenes, 'costo_venta')), 2),
+                'costo_refacciones' => round(array_sum(array_column($ordenes, 'costo_refacciones')), 2),
+                'ganancia'          => round(array_sum(array_column($ordenes, 'ganancia')), 2),
+            ];
+
+            http_response_code(200);
+            echo json_encode([
+                'success' => true,
+                'ordenes' => $ordenes,
+                'totales' => $totales,
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::ordenesDesglosadas] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener las órdenes']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/financiero/empleados
+    // Listar empleados. Todos los roles autenticados.
+    // -----------------------------------------------------------------------
+    public function empleadosSueldos(): void {
+        try {
+            $userData = requireAuth();
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            $stmt = $this->db->prepare(
+                'SELECT id, usuario_id, nombre, puesto, sueldo_diario, activo FROM empleados_sueldos ORDER BY nombre ASC'
+            );
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $empleados = array_map(function ($r) {
+                return [
+                    'id'           => (int)    $r['id'],
+                    'usuario_id'   => $r['usuario_id'] !== null ? (int) $r['usuario_id'] : null,
+                    'nombre'       => $r['nombre'],
+                    'puesto'       => $r['puesto'],
+                    'sueldo_diario'=> (float)  $r['sueldo_diario'],
+                    'activo'       => (bool)   $r['activo'],
+                ];
+            }, $rows);
+
+            http_response_code(200);
+            echo json_encode(['success' => true, 'empleados' => $empleados]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::empleadosSueldos] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener empleados']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/financiero/empleados
+    // Body: { nombre, puesto?, sueldo_diario, usuario_id? }
+    // Solo admin.
+    // -----------------------------------------------------------------------
+    public function crearEmpleado(array $body, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $nombre      = isset($body['nombre'])      ? trim((string) $body['nombre'])      : '';
+            $puesto      = isset($body['puesto'])      ? trim((string) $body['puesto'])      : null;
+            $sueldoDiario= isset($body['sueldo_diario'])? (float) $body['sueldo_diario']     : 0;
+            $usuarioId   = isset($body['usuario_id'])  ? (int)   $body['usuario_id']        : null;
+
+            if ($nombre === '') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El nombre no puede estar vacío']);
+                return;
+            }
+            if ($sueldoDiario < 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El sueldo diario no puede ser negativo']);
+                return;
+            }
+
+            $sql = "
+                INSERT INTO empleados_sueldos (nombre, puesto, sueldo_diario, usuario_id)
+                VALUES (:nombre, :puesto, :sueldo_diario, :usuario_id)
+            ";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':nombre',       $nombre,       PDO::PARAM_STR);
+            $stmt->bindParam(':puesto',        $puesto,       PDO::PARAM_STR);
+            $stmt->bindParam(':sueldo_diario', $sueldoDiario);
+            if ($usuarioId !== null) {
+                $stmt->bindParam(':usuario_id', $usuarioId, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue(':usuario_id', null, PDO::PARAM_NULL);
+            }
+            $stmt->execute();
+            $nuevoId = (int) $this->db->lastInsertId();
+
+            http_response_code(201);
+            echo json_encode([
+                'success'  => true,
+                'empleado' => [
+                    'id'           => $nuevoId,
+                    'usuario_id'   => $usuarioId,
+                    'nombre'       => $nombre,
+                    'puesto'       => $puesto,
+                    'sueldo_diario'=> $sueldoDiario,
+                    'activo'       => true,
+                ],
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::crearEmpleado] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al crear empleado']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // PUT /api/financiero/empleados/:id
+    // Body: { nombre?, puesto?, sueldo_diario? }
+    // Solo admin.
+    // -----------------------------------------------------------------------
+    public function actualizarEmpleado(int $id, array $body, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $stmtCheck = $this->db->prepare('SELECT id FROM empleados_sueldos WHERE id = :id LIMIT 1');
+            $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtCheck->execute();
+            if (!$stmtCheck->fetch()) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Empleado no encontrado']);
+                return;
+            }
+
+            $campos = [];
+            $params = [];
+
+            if (isset($body['nombre'])) {
+                $nombre = trim((string) $body['nombre']);
+                if ($nombre === '') {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'El nombre no puede estar vacío']);
+                    return;
+                }
+                $campos[]          = 'nombre = :nombre';
+                $params['nombre']  = $nombre;
+            }
+            if (array_key_exists('puesto', $body)) {
+                $campos[]         = 'puesto = :puesto';
+                $params['puesto'] = $body['puesto'] !== null ? trim((string) $body['puesto']) : null;
+            }
+            if (isset($body['sueldo_diario'])) {
+                $sd = (float) $body['sueldo_diario'];
+                if ($sd < 0) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'El sueldo diario no puede ser negativo']);
+                    return;
+                }
+                $campos[]               = 'sueldo_diario = :sueldo_diario';
+                $params['sueldo_diario']= $sd;
+            }
+
+            if (empty($campos)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'No se enviaron campos a actualizar']);
+                return;
+            }
+
+            $sql  = 'UPDATE empleados_sueldos SET ' . implode(', ', $campos) . ' WHERE id = :id';
+            $stmt = $this->db->prepare($sql);
+            foreach ($params as $key => $val) {
+                if ($val === null) {
+                    $stmt->bindValue(':' . $key, null, PDO::PARAM_NULL);
+                } else {
+                    $stmt->bindValue(':' . $key, $val);
+                }
+            }
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+
+            // Re-fetch para devolver el registro actualizado
+            $stmtGet = $this->db->prepare(
+                'SELECT id, usuario_id, nombre, puesto, sueldo_diario, activo FROM empleados_sueldos WHERE id = :id LIMIT 1'
+            );
+            $stmtGet->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtGet->execute();
+            $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
+
+            http_response_code(200);
+            echo json_encode([
+                'success'  => true,
+                'empleado' => [
+                    'id'           => (int)   $row['id'],
+                    'usuario_id'   => $row['usuario_id'] !== null ? (int) $row['usuario_id'] : null,
+                    'nombre'       => $row['nombre'],
+                    'puesto'       => $row['puesto'],
+                    'sueldo_diario'=> (float) $row['sueldo_diario'],
+                    'activo'       => (bool)  $row['activo'],
+                ],
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::actualizarEmpleado] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al actualizar empleado']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // PUT /api/financiero/empleados/:id/toggle
+    // Cambia activo ↔ inactivo. Solo admin.
+    // -----------------------------------------------------------------------
+    public function toggleEmpleado(int $id, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $stmtCheck = $this->db->prepare('SELECT id, activo FROM empleados_sueldos WHERE id = :id LIMIT 1');
+            $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtCheck->execute();
+            $row = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Empleado no encontrado']);
+                return;
+            }
+
+            $nuevoEstado = $row['activo'] ? 0 : 1;
+            $stmtUp = $this->db->prepare('UPDATE empleados_sueldos SET activo = :activo WHERE id = :id');
+            $stmtUp->bindParam(':activo', $nuevoEstado, PDO::PARAM_INT);
+            $stmtUp->bindParam(':id',     $id,          PDO::PARAM_INT);
+            $stmtUp->execute();
+
+            http_response_code(200);
+            echo json_encode(['success' => true, 'activo' => (bool) $nuevoEstado]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::toggleEmpleado] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al cambiar estado del empleado']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/financiero/pagos-fijos
+    // Listar pagos fijos. Todos los roles autenticados.
+    // -----------------------------------------------------------------------
+    public function pagosFijos(): void {
+        try {
+            $userData = requireAuth();
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            $stmt = $this->db->prepare(
+                'SELECT id, concepto, monto, frecuencia, categoria, activo FROM pagos_fijos ORDER BY concepto ASC'
+            );
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $pagos = array_map(function ($r) {
+                return [
+                    'id'         => (int)   $r['id'],
+                    'concepto'   => $r['concepto'],
+                    'monto'      => (float) $r['monto'],
+                    'frecuencia' => $r['frecuencia'],
+                    'categoria'  => $r['categoria'],
+                    'activo'     => (bool)  $r['activo'],
+                ];
+            }, $rows);
+
+            http_response_code(200);
+            echo json_encode(['success' => true, 'pagos_fijos' => $pagos]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::pagosFijos] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener pagos fijos']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /api/financiero/pagos-fijos
+    // Body: { concepto, monto, frecuencia, categoria }
+    // Solo admin.
+    // -----------------------------------------------------------------------
+    public function crearPagoFijo(array $body, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $concepto   = isset($body['concepto'])   ? trim((string) $body['concepto'])   : '';
+            $monto      = isset($body['monto'])      ? (float) $body['monto']             : 0;
+            $frecuencia = isset($body['frecuencia']) ? trim((string) $body['frecuencia']) : 'mensual';
+            $categoria  = isset($body['categoria'])  ? trim((string) $body['categoria'])  : 'otro';
+
+            if ($concepto === '') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El concepto no puede estar vacío']);
+                return;
+            }
+            if ($monto <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'El monto debe ser mayor a 0']);
+                return;
+            }
+            if (!in_array($frecuencia, ['semanal', 'mensual'], true)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'frecuencia debe ser semanal o mensual']);
+                return;
+            }
+            if (!in_array($categoria, ['renta', 'servicio', 'proveedor', 'marketing', 'otro'], true)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'categoria inválida']);
+                return;
+            }
+
+            $sql = "
+                INSERT INTO pagos_fijos (concepto, monto, frecuencia, categoria)
+                VALUES (:concepto, :monto, :frecuencia, :categoria)
+            ";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':concepto',   $concepto,   PDO::PARAM_STR);
+            $stmt->bindParam(':monto',      $monto);
+            $stmt->bindParam(':frecuencia', $frecuencia, PDO::PARAM_STR);
+            $stmt->bindParam(':categoria',  $categoria,  PDO::PARAM_STR);
+            $stmt->execute();
+            $nuevoId = (int) $this->db->lastInsertId();
+
+            http_response_code(201);
+            echo json_encode([
+                'success'    => true,
+                'pago_fijo'  => [
+                    'id'         => $nuevoId,
+                    'concepto'   => $concepto,
+                    'monto'      => $monto,
+                    'frecuencia' => $frecuencia,
+                    'categoria'  => $categoria,
+                    'activo'     => true,
+                ],
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::crearPagoFijo] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al crear pago fijo']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // PUT /api/financiero/pagos-fijos/:id
+    // Body: { concepto?, monto?, frecuencia?, categoria? }
+    // Solo admin.
+    // -----------------------------------------------------------------------
+    public function actualizarPagoFijo(int $id, array $body, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $stmtCheck = $this->db->prepare('SELECT id FROM pagos_fijos WHERE id = :id LIMIT 1');
+            $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtCheck->execute();
+            if (!$stmtCheck->fetch()) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Pago fijo no encontrado']);
+                return;
+            }
+
+            $campos = [];
+            $params = [];
+
+            if (isset($body['concepto'])) {
+                $c = trim((string) $body['concepto']);
+                if ($c === '') {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'El concepto no puede estar vacío']);
+                    return;
+                }
+                $campos[]           = 'concepto = :concepto';
+                $params['concepto'] = $c;
+            }
+            if (isset($body['monto'])) {
+                $m = (float) $body['monto'];
+                if ($m <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'El monto debe ser mayor a 0']);
+                    return;
+                }
+                $campos[]        = 'monto = :monto';
+                $params['monto'] = $m;
+            }
+            if (isset($body['frecuencia'])) {
+                $f = trim((string) $body['frecuencia']);
+                if (!in_array($f, ['semanal', 'mensual'], true)) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'frecuencia inválida']);
+                    return;
+                }
+                $campos[]             = 'frecuencia = :frecuencia';
+                $params['frecuencia'] = $f;
+            }
+            if (isset($body['categoria'])) {
+                $cat = trim((string) $body['categoria']);
+                if (!in_array($cat, ['renta', 'servicio', 'proveedor', 'marketing', 'otro'], true)) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'categoria inválida']);
+                    return;
+                }
+                $campos[]            = 'categoria = :categoria';
+                $params['categoria'] = $cat;
+            }
+
+            if (empty($campos)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'No se enviaron campos a actualizar']);
+                return;
+            }
+
+            $sql  = 'UPDATE pagos_fijos SET ' . implode(', ', $campos) . ' WHERE id = :id';
+            $stmt = $this->db->prepare($sql);
+            foreach ($params as $key => $val) {
+                $stmt->bindValue(':' . $key, $val);
+            }
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+
+            $stmtGet = $this->db->prepare(
+                'SELECT id, concepto, monto, frecuencia, categoria, activo FROM pagos_fijos WHERE id = :id LIMIT 1'
+            );
+            $stmtGet->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtGet->execute();
+            $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
+
+            http_response_code(200);
+            echo json_encode([
+                'success'   => true,
+                'pago_fijo' => [
+                    'id'         => (int)   $row['id'],
+                    'concepto'   => $row['concepto'],
+                    'monto'      => (float) $row['monto'],
+                    'frecuencia' => $row['frecuencia'],
+                    'categoria'  => $row['categoria'],
+                    'activo'     => (bool)  $row['activo'],
+                ],
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::actualizarPagoFijo] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al actualizar pago fijo']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // PUT /api/financiero/pagos-fijos/:id/toggle
+    // Solo admin.
+    // -----------------------------------------------------------------------
+    public function togglePagoFijo(int $id, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $stmtCheck = $this->db->prepare('SELECT id, activo FROM pagos_fijos WHERE id = :id LIMIT 1');
+            $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtCheck->execute();
+            $row = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Pago fijo no encontrado']);
+                return;
+            }
+
+            $nuevoEstado = $row['activo'] ? 0 : 1;
+            $stmtUp = $this->db->prepare('UPDATE pagos_fijos SET activo = :activo WHERE id = :id');
+            $stmtUp->bindParam(':activo', $nuevoEstado, PDO::PARAM_INT);
+            $stmtUp->bindParam(':id',     $id,          PDO::PARAM_INT);
+            $stmtUp->execute();
+
+            http_response_code(200);
+            echo json_encode(['success' => true, 'activo' => (bool) $nuevoEstado]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::togglePagoFijo] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al cambiar estado del pago fijo']);
         }
     }
 }

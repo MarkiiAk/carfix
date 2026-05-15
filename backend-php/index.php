@@ -272,6 +272,58 @@ try {
         $controller->eliminarGastoAdmin((int) $matches[1], $userData);
     }
 
+    // Órdenes desglosadas por período
+    elseif ($path === 'financiero/ordenes' && $request_method === 'GET') {
+        $controller = new FinancieroController();
+        $controller->ordenesDesglosadas();
+    }
+
+    // Empleados y sueldos
+    elseif ($path === 'financiero/empleados' && $request_method === 'GET') {
+        $controller = new FinancieroController();
+        $controller->empleadosSueldos();
+    }
+    elseif ($path === 'financiero/empleados' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->crearEmpleado($body, $userData);
+    }
+    elseif (preg_match('#^financiero/empleados/([0-9]+)/toggle$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $controller = new FinancieroController();
+        $controller->toggleEmpleado((int) $matches[1], $userData);
+    }
+    elseif (preg_match('#^financiero/empleados/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->actualizarEmpleado((int) $matches[1], $body, $userData);
+    }
+
+    // Pagos fijos del taller
+    elseif ($path === 'financiero/pagos-fijos' && $request_method === 'GET') {
+        $controller = new FinancieroController();
+        $controller->pagosFijos();
+    }
+    elseif ($path === 'financiero/pagos-fijos' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->crearPagoFijo($body, $userData);
+    }
+    elseif (preg_match('#^financiero/pagos-fijos/([0-9]+)/toggle$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $controller = new FinancieroController();
+        $controller->togglePagoFijo((int) $matches[1], $userData);
+    }
+    elseif (preg_match('#^financiero/pagos-fijos/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->actualizarPagoFijo((int) $matches[1], $body, $userData);
+    }
+
     // Ruta de salud
     elseif ($path === 'health' && $request_method === 'GET') {
         echo json_encode([

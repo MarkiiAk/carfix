@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil, ResumenFinancieroResponse, GastoOrden, GastoAdmin, GastosAdminResponse } from '../types';
+import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil, ResumenFinancieroResponse, GastoOrden, GastoAdmin, GastosAdminResponse, OrdenesFinancieroResponse, EmpleadoSueldo, PagoFijo } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -234,6 +234,10 @@ export const financieroAPI = {
     const response = await api.get<ResumenFinancieroResponse>('/financiero', { params: { tipo, offset } });
     return response.data;
   },
+  ordenes: async (tipo: 'mes' | 'semana', offset = 0): Promise<OrdenesFinancieroResponse> => {
+    const response = await api.get<OrdenesFinancieroResponse>('/financiero/ordenes', { params: { tipo, offset } });
+    return response.data;
+  },
 };
 
 export const gastosOrdenAPI = {
@@ -278,6 +282,34 @@ export const gastosAdminAPI = {
 
   eliminar: (id: number): Promise<{ success: boolean }> =>
     api.delete(`/financiero/gastos-admin/${id}`).then(r => r.data),
+};
+
+export const empleadosFinancieroAPI = {
+  listar: (): Promise<{ success: boolean; empleados: EmpleadoSueldo[] }> =>
+    api.get('/financiero/empleados').then(r => r.data),
+
+  crear: (data: Omit<EmpleadoSueldo, 'id' | 'activo'>): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
+    api.post('/financiero/empleados', data).then(r => r.data),
+
+  actualizar: (id: number, data: Partial<Omit<EmpleadoSueldo, 'id' | 'activo'>>): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
+    api.put(`/financiero/empleados/${id}`, data).then(r => r.data),
+
+  toggle: (id: number): Promise<{ success: boolean; activo: boolean }> =>
+    api.put(`/financiero/empleados/${id}/toggle`, {}).then(r => r.data),
+};
+
+export const pagosFijosAPI = {
+  listar: (): Promise<{ success: boolean; pagos_fijos: PagoFijo[] }> =>
+    api.get('/financiero/pagos-fijos').then(r => r.data),
+
+  crear: (data: Omit<PagoFijo, 'id' | 'activo'>): Promise<{ success: boolean; pago_fijo: PagoFijo }> =>
+    api.post('/financiero/pagos-fijos', data).then(r => r.data),
+
+  actualizar: (id: number, data: Partial<Omit<PagoFijo, 'id' | 'activo'>>): Promise<{ success: boolean; pago_fijo: PagoFijo }> =>
+    api.put(`/financiero/pagos-fijos/${id}`, data).then(r => r.data),
+
+  toggle: (id: number): Promise<{ success: boolean; activo: boolean }> =>
+    api.put(`/financiero/pagos-fijos/${id}/toggle`, {}).then(r => r.data),
 };
 
 export default api;

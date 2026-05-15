@@ -379,3 +379,43 @@ export interface GastosAdminResponse {
   gastos_ordenes_mes: number;
   utilidad_neta: number;
 }
+
+export interface OrdenFinanciero {
+  id: number;
+  numero_orden: string;
+  fecha: string;
+  cliente_nombre: string;
+  vehiculo: string;
+  costo_venta: number;
+  costo_refacciones: number;
+  ganancia: number;
+  estado: string;
+}
+
+export interface OrdenesFinancieroResponse {
+  success: boolean;
+  ordenes: OrdenFinanciero[];
+  totales: {
+    costo_venta: number;
+    costo_refacciones: number;
+    ganancia: number;
+  };
+}
+
+export interface EmpleadoSueldo {
+  id: number;
+  usuario_id: number | null;
+  nombre: string;
+  puesto: string | null;
+  sueldo_diario: number;
+  activo: boolean;
+}
+
+export interface PagoFijo {
+  id: number;
+  concepto: string;
+  monto: number;
+  frecuencia: 'semanal' | 'mensual';
+  categoria: 'renta' | 'servicio' | 'proveedor' | 'marketing' | 'otro';
+  activo: boolean;
+}

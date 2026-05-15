@@ -10,9 +10,12 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrash, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import { financieroAPI, gastosAdminAPI } from '../services/api';
+import { faPlus, faTrash, faSpinner, faPencil, faCheck, faXmark, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { financieroAPI, gastosAdminAPI, empleadosFinancieroAPI, pagosFijosAPI } from '../services/api';
+import { generarReporteFinanciero } from '../utils/reporteFinanciero';
 import { useAuth } from '../contexts/AuthContext';
+import { TablaOrdenesDesglosada } from '../components/financiero/TablaOrdenesDesglosada';
+import { GraficaDistribucion } from '../components/financiero/GraficaDistribucion';
 import type {
   ResumenFinancieroResponse,
   MargenRefacciones,
@@ -21,6 +24,9 @@ import type {
   IngresosDia,
   GastoAdmin,
   GastosAdminResponse,
+  OrdenFinanciero,
+  EmpleadoSueldo,
+  PagoFijo,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -304,7 +310,18 @@ const MargenRefaccionesCard = ({ datos }: MargenRefaccionesCardProps) => {
   );
 };
 
-// (SelectorPeriodo eliminado — el módulo financiero usa solo mes)
+// Calcula el label de una semana dado un offset (0 = semana actual)
+const labelSemana = (offset: number): string => {
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const hoy = new Date();
+  const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay(); // 1=lun … 7=dom
+  const lunes = new Date(hoy);
+  lunes.setDate(hoy.getDate() - (diaSemana - 1) - offset * 7);
+  const domingo = new Date(lunes);
+  domingo.setDate(lunes.getDate() + 6);
+  const fmt = (d: Date) => `${d.getDate()} ${meses[d.getMonth()]}`;
+  return `Sem. ${fmt(lunes)} – ${fmt(domingo)}`;
+};
 
 // ---------------------------------------------------------------------------
 // Estado vacío
@@ -350,16 +367,24 @@ export const Financiero = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [tipoPeriodo, setTipoPeriodo] = useState<'semana' | 'mes'>('semana');
   const [offset, setOffset] = useState(0);
   const [datos, setDatos]   = useState<ResumenFinancieroResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
 
-  // mes/año derivados del offset — siempre sincronizados con la sección de ingresos
+  // mes/año derivados del offset — usados por gastosAdmin (modo mes)
   const hoy = new Date();
   const fechaPeriodo = new Date(hoy.getFullYear(), hoy.getMonth() - offset, 1);
   const mesSel  = fechaPeriodo.getMonth() + 1;
   const anioSel = fechaPeriodo.getFullYear();
+
+  // Label del período activo
+  const labelPeriodoActivo = tipoPeriodo === 'semana'
+    ? labelSemana(offset)
+    : new Date(anioSel, mesSel - 1, 1)
+        .toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+        .replace(/^./, c => c.toUpperCase());
 
   // Estado para gastos administrativos
   const [gastosAdmin, setGastosAdmin]           = useState<GastosAdminResponse | null>(null);
@@ -374,6 +399,36 @@ export const Financiero = () => {
   const [adminCategoria, setAdminCategoria]   = useState<GastoAdmin['categoria']>('otro');
   const [adminError, setAdminError]           = useState<string | null>(null);
 
+  // Estado para tabla de órdenes desglosadas
+  const [ordenes, setOrdenes]             = useState<OrdenFinanciero[]>([]);
+  const [ordTotales, setOrdTotales]       = useState({ costo_venta: 0, costo_refacciones: 0, ganancia: 0 });
+  const [loadingOrdenes, setLoadingOrdenes] = useState(false);
+
+  // Estado para empleados y pagos fijos
+  const [empleados, setEmpleados]           = useState<EmpleadoSueldo[]>([]);
+  const [pagosFijos, setPagosFijos]         = useState<PagoFijo[]>([]);
+  const [loadingEmpleados, setLoadingEmpleados] = useState(false);
+  const [loadingPagos, setLoadingPagos]     = useState(false);
+
+  // Formulario empleados
+  const [empEditId, setEmpEditId]           = useState<number | null>(null);
+  const [empNombre, setEmpNombre]           = useState('');
+  const [empPuesto, setEmpPuesto]           = useState('');
+  const [empSueldo, setEmpSueldo]           = useState('');
+  const [empGuardando, setEmpGuardando]     = useState(false);
+  const [empError, setEmpError]             = useState<string | null>(null);
+  const [mostrarFormEmp, setMostrarFormEmp] = useState(false);
+
+  // Formulario pagos fijos
+  const [pagoEditId, setPagoEditId]         = useState<number | null>(null);
+  const [pagoConcepto, setPagoConcepto]     = useState('');
+  const [pagoMonto, setPagoMonto]           = useState('');
+  const [pagoFrecuencia, setPagoFrecuencia] = useState<PagoFijo['frecuencia']>('mensual');
+  const [pagoCategoria, setPagoCategoria]   = useState<PagoFijo['categoria']>('otro');
+  const [pagoGuardando, setPagoGuardando]   = useState(false);
+  const [pagoError, setPagoError]           = useState<string | null>(null);
+  const [mostrarFormPago, setMostrarFormPago] = useState(false);
+
   // Redirigir si no es admin
   useEffect(() => {
     if (user && user.rol !== 'admin') {
@@ -385,18 +440,35 @@ export const Financiero = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const resultado = await financieroAPI.resumen('mes', offset);
+      const resultado = await financieroAPI.resumen(tipoPeriodo, offset);
       setDatos(resultado);
     } catch {
       setError('No se pudo cargar la informacion de ingresos.');
     } finally {
       setIsLoading(false);
     }
-  }, [offset]);
+  }, [tipoPeriodo, offset]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  const cargarOrdenes = useCallback(async () => {
+    setLoadingOrdenes(true);
+    try {
+      const res = await financieroAPI.ordenes(tipoPeriodo, offset);
+      setOrdenes(res.ordenes);
+      setOrdTotales(res.totales);
+    } catch {
+      // silencioso — la tabla mostrará vacío
+    } finally {
+      setLoadingOrdenes(false);
+    }
+  }, [tipoPeriodo, offset]);
+
+  useEffect(() => {
+    cargarOrdenes();
+  }, [cargarOrdenes]);
 
   const cargarAdmin = useCallback(async () => {
     setLoadingAdmin(true);
@@ -424,9 +496,174 @@ export const Financiero = () => {
     }
   }, [mesSel, anioSel]);
 
+  const cargarEmpleados = useCallback(async () => {
+    setLoadingEmpleados(true);
+    try {
+      const res = await empleadosFinancieroAPI.listar();
+      setEmpleados(res.empleados);
+    } catch {
+      // silencioso
+    } finally {
+      setLoadingEmpleados(false);
+    }
+  }, []);
+
+  const cargarPagosFijos = useCallback(async () => {
+    setLoadingPagos(true);
+    try {
+      const res = await pagosFijosAPI.listar();
+      setPagosFijos(res.pagos_fijos);
+    } catch {
+      // silencioso
+    } finally {
+      setLoadingPagos(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarEmpleados();
+    cargarPagosFijos();
+  }, [cargarEmpleados, cargarPagosFijos]);
+
   useEffect(() => {
     cargarAdmin();
   }, [cargarAdmin]);
+
+  // Handlers para empleados
+  const abrirFormEmp = (emp?: EmpleadoSueldo) => {
+    if (emp) {
+      setEmpEditId(emp.id);
+      setEmpNombre(emp.nombre);
+      setEmpPuesto(emp.puesto ?? '');
+      setEmpSueldo(String(emp.sueldo_diario));
+    } else {
+      setEmpEditId(null);
+      setEmpNombre('');
+      setEmpPuesto('');
+      setEmpSueldo('');
+    }
+    setEmpError(null);
+    setMostrarFormEmp(true);
+  };
+
+  const cancelarFormEmp = () => {
+    setMostrarFormEmp(false);
+    setEmpEditId(null);
+    setEmpError(null);
+  };
+
+  const guardarEmpleado = async () => {
+    const nombre = empNombre.trim();
+    const sueldo = parseFloat(empSueldo);
+    if (!nombre) { setEmpError('El nombre es obligatorio.'); return; }
+    if (isNaN(sueldo) || sueldo < 0) { setEmpError('Sueldo diario inválido.'); return; }
+    setEmpError(null);
+    setEmpGuardando(true);
+    try {
+      if (empEditId !== null) {
+        await empleadosFinancieroAPI.actualizar(empEditId, { nombre, puesto: empPuesto || null, sueldo_diario: sueldo });
+      } else {
+        await empleadosFinancieroAPI.crear({ nombre, puesto: empPuesto || null, sueldo_diario: sueldo, usuario_id: null });
+      }
+      await cargarEmpleados();
+      cancelarFormEmp();
+    } catch {
+      setEmpError('Error al guardar. Intenta de nuevo.');
+    } finally {
+      setEmpGuardando(false);
+    }
+  };
+
+  const toggleEmpleado = async (id: number) => {
+    try {
+      const res = await empleadosFinancieroAPI.toggle(id);
+      setEmpleados(prev => prev.map(e => e.id === id ? { ...e, activo: res.activo } : e));
+    } catch { /* silencioso */ }
+  };
+
+  // Handlers para pagos fijos
+  const abrirFormPago = (pago?: PagoFijo) => {
+    if (pago) {
+      setPagoEditId(pago.id);
+      setPagoConcepto(pago.concepto);
+      setPagoMonto(String(pago.monto));
+      setPagoFrecuencia(pago.frecuencia);
+      setPagoCategoria(pago.categoria);
+    } else {
+      setPagoEditId(null);
+      setPagoConcepto('');
+      setPagoMonto('');
+      setPagoFrecuencia('mensual');
+      setPagoCategoria('otro');
+    }
+    setPagoError(null);
+    setMostrarFormPago(true);
+  };
+
+  const cancelarFormPago = () => {
+    setMostrarFormPago(false);
+    setPagoEditId(null);
+    setPagoError(null);
+  };
+
+  const guardarPagoFijo = async () => {
+    const concepto = pagoConcepto.trim();
+    const monto = parseFloat(pagoMonto);
+    if (!concepto) { setPagoError('El concepto es obligatorio.'); return; }
+    if (isNaN(monto) || monto <= 0) { setPagoError('El monto debe ser mayor a $0.'); return; }
+    setPagoError(null);
+    setPagoGuardando(true);
+    try {
+      if (pagoEditId !== null) {
+        await pagosFijosAPI.actualizar(pagoEditId, { concepto, monto, frecuencia: pagoFrecuencia, categoria: pagoCategoria });
+      } else {
+        await pagosFijosAPI.crear({ concepto, monto, frecuencia: pagoFrecuencia, categoria: pagoCategoria });
+      }
+      await cargarPagosFijos();
+      cancelarFormPago();
+    } catch {
+      setPagoError('Error al guardar. Intenta de nuevo.');
+    } finally {
+      setPagoGuardando(false);
+    }
+  };
+
+  const togglePagoFijo = async (id: number) => {
+    try {
+      const res = await pagosFijosAPI.toggle(id);
+      setPagosFijos(prev => prev.map(p => p.id === id ? { ...p, activo: res.activo } : p));
+    } catch { /* silencioso */ }
+  };
+
+  // Totales calculados para la gráfica de distribución
+  const totalSueldosActivos = empleados
+    .filter(e => e.activo)
+    .reduce((acc, e) => acc + e.sueldo_diario * (tipoPeriodo === 'semana' ? 5 : 22), 0);
+
+  const totalPagosFijosActivos = pagosFijos
+    .filter(p => p.activo)
+    .reduce((acc, p) => {
+      if (p.frecuencia === 'semanal') return acc + p.monto * (tipoPeriodo === 'semana' ? 1 : 4);
+      return acc + p.monto;
+    }, 0);
+
+  // Handler para descargar el reporte PDF
+  const handleDescargarReporte = () => {
+    if (!datos || !gastosAdmin) return;
+    generarReporteFinanciero({
+      resumen: datos,
+      ordenes: {
+        success: true,
+        ordenes,
+        totales: ordTotales,
+      },
+      empleados,
+      pagosFijos,
+      gastos: gastosAdmin,
+      labelPeriodo: labelPeriodoActivo,
+      tipoPeriodo,
+    });
+  };
 
   // --- Loading ---
   if (isLoading) {
@@ -464,30 +701,61 @@ export const Financiero = () => {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
       {/* ------------------------------------------------------------------ */}
-      {/* Header con selector de periodo                                       */}
+      {/* Header con selector de período (tipo + flechas)                     */}
       {/* ------------------------------------------------------------------ */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5">
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white mb-4 text-center">
-          Ingresos
-        </h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+            Ingresos
+          </h1>
+          <button
+            onClick={handleDescargarReporte}
+            disabled={sinDatos || isLoading || !gastosAdmin}
+            className="flex items-center gap-2 px-4 py-2 bg-sag-500 text-gray-900 rounded-lg text-sm font-semibold hover:bg-sag-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <FontAwesomeIcon icon={faDownload} className="text-xs" />
+            Descargar reporte
+          </button>
+        </div>
+
+        {/* Toggle Semana / Mes */}
+        <div className="flex justify-center mb-4">
+          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-0.5 gap-0.5">
+            {(['semana', 'mes'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => { setTipoPeriodo(t); setOffset(0); }}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  tipoPeriodo === t
+                    ? 'bg-sag-500 text-gray-900 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+              >
+                {t === 'semana' ? 'Semana' : 'Mes'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Selector de flechas */}
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={() => setOffset(o => o + 1)}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title="Mes anterior"
+            title="Período anterior"
           >
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[120px] text-center capitalize">
-            {new Date(anioSel, mesSel - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase())}
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[160px] text-center capitalize">
+            {labelPeriodoActivo}
           </span>
           <button
             onClick={() => setOffset(o => Math.max(0, o - 1))}
             disabled={offset === 0}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Mes siguiente"
+            title="Período siguiente"
           >
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -572,6 +840,310 @@ export const Financiero = () => {
           </h2>
           <TopClientes clientes={top_clientes} />
         </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Tabla órdenes desglosadas                                            */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+          Detalle por orden
+        </h2>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+          Ganancia = total facturado − costo de refacciones (sin margen)
+        </p>
+        <TablaOrdenesDesglosada
+          ordenes={ordenes}
+          totales={ordTotales}
+          loading={loadingOrdenes}
+        />
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Gráfica de distribución del ingreso                                  */}
+      {/* ------------------------------------------------------------------ */}
+      {ordTotales.costo_venta > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
+            Distribución del ingreso
+          </h2>
+          <GraficaDistribucion
+            gananciaReal={ordTotales.ganancia - totalSueldosActivos - totalPagosFijosActivos}
+            totalSueldos={totalSueldosActivos}
+            costoRefacciones={ordTotales.costo_refacciones}
+            totalPagosFijos={totalPagosFijosActivos}
+          />
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Sección: Equipo y sueldos (solo admin)                               */}
+      {/* ------------------------------------------------------------------ */}
+      {user?.rol === 'admin' && (
+        <section className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700/40 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-indigo-200 dark:border-indigo-700/40 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-gray-800 dark:text-gray-100">Equipo y sueldos</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Sueldo diario · Se estima {tipoPeriodo === 'semana' ? '5 días' : '22 días'} para este período
+              </p>
+            </div>
+            <button
+              onClick={() => abrirFormEmp()}
+              className="flex items-center gap-1.5 text-sm font-medium bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <FontAwesomeIcon icon={faPlus} style={{ width: 12, height: 12 }} />
+              Agregar
+            </button>
+          </div>
+
+          <div className="px-6 py-4 space-y-3">
+            {empError && (
+              <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/40 rounded-lg px-3 py-2">
+                {empError}
+              </p>
+            )}
+
+            {mostrarFormEmp && (
+              <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-gray-800 rounded-xl border border-indigo-200 dark:border-indigo-700/40">
+                <input
+                  type="text"
+                  placeholder="Nombre"
+                  value={empNombre}
+                  onChange={e => setEmpNombre(e.target.value)}
+                  className="flex-1 min-w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Puesto (opcional)"
+                  value={empPuesto}
+                  onChange={e => setEmpPuesto(e.target.value)}
+                  className="flex-1 min-w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <input
+                  type="number"
+                  placeholder="Sueldo/día"
+                  value={empSueldo}
+                  onChange={e => setEmpSueldo(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <button
+                  onClick={guardarEmpleado}
+                  disabled={empGuardando}
+                  className="flex items-center gap-1 text-sm font-medium bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white rounded-lg px-3 py-2 transition-colors"
+                >
+                  {empGuardando ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} /> : <FontAwesomeIcon icon={faCheck} style={{ width: 14, height: 14 }} />}
+                  Guardar
+                </button>
+                <button onClick={cancelarFormEmp} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2">
+                  <FontAwesomeIcon icon={faXmark} style={{ width: 14, height: 14 }} />
+                </button>
+              </div>
+            )}
+
+            {loadingEmpleados ? (
+              <div className="flex items-center gap-2 text-gray-500 py-4">
+                <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 16, height: 16 }} />
+                <span className="text-sm">Cargando...</span>
+              </div>
+            ) : empleados.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Sin empleados registrados.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-indigo-200 dark:border-indigo-700/40">
+                      <th className="pb-2 pr-4 font-medium">Nombre</th>
+                      <th className="pb-2 pr-4 font-medium">Puesto</th>
+                      <th className="pb-2 pr-4 font-medium text-right">Sueldo/día</th>
+                      <th className="pb-2 pr-4 font-medium text-right">Est. período</th>
+                      <th className="pb-2 font-medium w-16 text-center">Activo</th>
+                      <th className="pb-2 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {empleados.map(e => (
+                      <tr key={e.id} className={`border-b border-indigo-100 dark:border-indigo-800/30 last:border-0 ${!e.activo ? 'opacity-50' : ''}`}>
+                        <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{e.nombre}</td>
+                        <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{e.puesto ?? '—'}</td>
+                        <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                          {formatMoneda(e.sueldo_diario)}
+                        </td>
+                        <td className="py-2 pr-4 text-right tabular-nums text-gray-600 dark:text-gray-400">
+                          {formatMoneda(e.sueldo_diario * (tipoPeriodo === 'semana' ? 5 : 22))}
+                        </td>
+                        <td className="py-2 text-center">
+                          <button
+                            onClick={() => toggleEmpleado(e.id)}
+                            className={`w-10 h-5 rounded-full transition-colors ${e.activo ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                          >
+                            <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${e.activo ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </td>
+                        <td className="py-2 text-right">
+                          <button onClick={() => abrirFormEmp(e)} className="text-gray-400 hover:text-indigo-500 transition-colors">
+                            <FontAwesomeIcon icon={faPencil} style={{ width: 13, height: 13 }} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="flex justify-end pt-3 border-t border-indigo-200 dark:border-indigo-700/40 mt-1">
+                  <span className="text-sm text-gray-500 dark:text-gray-400 mr-4">Total estimado del período:</span>
+                  <span className="font-bold text-gray-900 dark:text-white tabular-nums">
+                    {formatMoneda(totalSueldosActivos)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Sección: Gastos fijos del taller (solo admin)                        */}
+      {/* ------------------------------------------------------------------ */}
+      {user?.rol === 'admin' && (
+        <section className="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-700/40 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-rose-200 dark:border-rose-700/40 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-gray-800 dark:text-gray-100">Gastos fijos del taller</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Renta, servicios y pagos recurrentes configurados
+              </p>
+            </div>
+            <button
+              onClick={() => abrirFormPago()}
+              className="flex items-center gap-1.5 text-sm font-medium bg-rose-500 hover:bg-rose-600 text-white rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <FontAwesomeIcon icon={faPlus} style={{ width: 12, height: 12 }} />
+              Agregar
+            </button>
+          </div>
+
+          <div className="px-6 py-4 space-y-3">
+            {pagoError && (
+              <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/40 rounded-lg px-3 py-2">
+                {pagoError}
+              </p>
+            )}
+
+            {mostrarFormPago && (
+              <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-gray-800 rounded-xl border border-rose-200 dark:border-rose-700/40">
+                <input
+                  type="text"
+                  placeholder="Concepto"
+                  value={pagoConcepto}
+                  onChange={e => setPagoConcepto(e.target.value)}
+                  className="flex-1 min-w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                />
+                <input
+                  type="number"
+                  placeholder="Monto"
+                  value={pagoMonto}
+                  onChange={e => setPagoMonto(e.target.value)}
+                  min="0.01"
+                  step="0.01"
+                  className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                />
+                <select
+                  value={pagoFrecuencia}
+                  onChange={e => setPagoFrecuencia(e.target.value as PagoFijo['frecuencia'])}
+                  className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                >
+                  <option value="mensual">Mensual</option>
+                  <option value="semanal">Semanal</option>
+                </select>
+                <select
+                  value={pagoCategoria}
+                  onChange={e => setPagoCategoria(e.target.value as PagoFijo['categoria'])}
+                  className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                >
+                  <option value="renta">Renta</option>
+                  <option value="servicio">Servicio</option>
+                  <option value="proveedor">Proveedor</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="otro">Otro</option>
+                </select>
+                <button
+                  onClick={guardarPagoFijo}
+                  disabled={pagoGuardando}
+                  className="flex items-center gap-1 text-sm font-medium bg-rose-500 hover:bg-rose-600 disabled:bg-rose-300 text-white rounded-lg px-3 py-2 transition-colors"
+                >
+                  {pagoGuardando ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} /> : <FontAwesomeIcon icon={faCheck} style={{ width: 14, height: 14 }} />}
+                  Guardar
+                </button>
+                <button onClick={cancelarFormPago} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2">
+                  <FontAwesomeIcon icon={faXmark} style={{ width: 14, height: 14 }} />
+                </button>
+              </div>
+            )}
+
+            {loadingPagos ? (
+              <div className="flex items-center gap-2 text-gray-500 py-4">
+                <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 16, height: 16 }} />
+                <span className="text-sm">Cargando...</span>
+              </div>
+            ) : pagosFijos.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Sin gastos fijos configurados.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-rose-200 dark:border-rose-700/40">
+                      <th className="pb-2 pr-4 font-medium">Concepto</th>
+                      <th className="pb-2 pr-4 font-medium">Categoría</th>
+                      <th className="pb-2 pr-4 font-medium">Frecuencia</th>
+                      <th className="pb-2 pr-4 font-medium text-right">Monto</th>
+                      <th className="pb-2 font-medium w-16 text-center">Activo</th>
+                      <th className="pb-2 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagosFijos.map(p => (
+                      <tr key={p.id} className={`border-b border-rose-100 dark:border-rose-800/30 last:border-0 ${!p.activo ? 'opacity-50' : ''}`}>
+                        <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{p.concepto}</td>
+                        <td className="py-2 pr-4">
+                          <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded px-2 py-0.5 capitalize">{p.categoria}</span>
+                        </td>
+                        <td className="py-2 pr-4">
+                          <span className={`text-xs rounded px-2 py-0.5 capitalize ${p.frecuencia === 'semanal' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'}`}>
+                            {p.frecuencia}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                          {formatMoneda(p.monto)}
+                        </td>
+                        <td className="py-2 text-center">
+                          <button
+                            onClick={() => togglePagoFijo(p.id)}
+                            className={`w-10 h-5 rounded-full transition-colors ${p.activo ? 'bg-rose-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                          >
+                            <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${p.activo ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </td>
+                        <td className="py-2 text-right">
+                          <button onClick={() => abrirFormPago(p)} className="text-gray-400 hover:text-rose-500 transition-colors">
+                            <FontAwesomeIcon icon={faPencil} style={{ width: 13, height: 13 }} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="flex justify-end pt-3 border-t border-rose-200 dark:border-rose-700/40 mt-1">
+                  <span className="text-sm text-gray-500 dark:text-gray-400 mr-4">Total activos (estimado período):</span>
+                  <span className="font-bold text-gray-900 dark:text-white tabular-nums">
+                    {formatMoneda(totalPagosFijosActivos)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
       {/* ------------------------------------------------------------------ */}
