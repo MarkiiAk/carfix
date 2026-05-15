@@ -854,7 +854,6 @@ export const Financiero = () => {
                 const gastosOrdenesVal  = Number(gastosAdmin.gastos_ordenes_mes ?? 0);
                 const gananciaNetaFinal =
                   ingresoNeto - totalSueldosActivos - totalPagosFijosActivos - gastosVarsRaw - gastosOrdenesVal;
-                const porSocioFinal     = gananciaNetaFinal / 2;
                 const tituloPeriodo     =
                   tipoPeriodo === 'semana'
                     ? labelPeriodoActivo
@@ -883,9 +882,6 @@ export const Financiero = () => {
                         </p>
                         <p className={`text-5xl font-black tabular-nums leading-none ${gananciaNetaFinal >= 0 ? 'text-sag-500' : 'text-red-400'}`}>
                           {formatMoneda(gananciaNetaFinal)}
-                        </p>
-                        <p className="text-sm text-gray-400 mt-2 tabular-nums">
-                          Por socio: <span className="font-semibold text-gray-300">{formatMoneda(porSocioFinal)}</span>
                         </p>
                       </div>
 
@@ -961,10 +957,6 @@ export const Financiero = () => {
                             <span className={`text-lg font-black tabular-nums ${gananciaNetaFinal >= 0 ? 'text-sag-500' : 'text-red-500 dark:text-red-400'}`}>
                               {formatMoneda(gananciaNetaFinal)}
                             </span>
-                          </div>
-                          <div className="flex items-baseline justify-between">
-                            <span className="text-xs text-gray-400 dark:text-gray-500">Por socio (÷ 2)</span>
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 tabular-nums">{formatMoneda(porSocioFinal)}</span>
                           </div>
 
                           {/* Nota IVA */}
