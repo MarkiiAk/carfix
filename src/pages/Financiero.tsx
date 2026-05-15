@@ -925,22 +925,6 @@ export const Financiero = () => {
         />
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Gráfica de distribución del ingreso                                  */}
-      {/* ------------------------------------------------------------------ */}
-      {ordTotales.costo_venta > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
-            Distribución del ingreso
-          </h2>
-          <GraficaDistribucion
-            gananciaReal={ordTotales.ganancia - totalSueldosActivos - totalPagosFijosActivos}
-            totalSueldos={totalSueldosActivos}
-            costoRefacciones={ordTotales.costo_refacciones}
-            totalPagosFijos={totalPagosFijosActivos}
-          />
-        </div>
-      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* Sección: Equipo y sueldos (solo admin)                               */}
@@ -1539,104 +1523,177 @@ export const Financiero = () => {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Bloque B — Balance del mes (desglose completo)                       */}
+      {/* Bloque B — Balance del período (desglose completo)                   */}
       {/* ------------------------------------------------------------------ */}
-      {gastosAdmin !== null && !loadingAdmin && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-5">
-            Balance &mdash; {MESES[mesSel - 1]} {anioSel}
-          </h2>
+      {gastosAdmin !== null && !loadingAdmin && (() => {
+        // Valores del período activo (datos?.resumen), no del mes completo (gastosAdmin)
+        const totalFacturado      = datos?.resumen.total_facturado ?? 0;
+        const costoRefas          = datos?.refacciones.costo ?? 0;
+        const ivaDelPeriodo       = datos?.resumen.total_iva ?? 0;
+        const ingresoNeto         = totalFacturado - costoRefas;
+        const gastosVarsRaw       = Number(gastosAdmin.total_admin ?? 0);
+        const gastosOrdenesVal    = Number(gastosAdmin.gastos_ordenes_mes ?? 0);
+        const gananciaNetaFinal   =
+          ingresoNeto - totalSueldosActivos - totalPagosFijosActivos - gastosVarsRaw - gastosOrdenesVal;
+        const porSocioFinal       = gananciaNetaFinal / 2;
 
-          {/* Grupo 1: del total facturado al ingreso neto */}
-          <div className="space-y-2 mb-2">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Total facturado</span>
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-300 tabular-nums">
-                {formatMoneda(Number(gastosAdmin.total_facturado))}
-              </span>
+        const tituloPeriodo =
+          tipoPeriodo === 'semana'
+            ? labelPeriodoActivo
+            : `${MESES[mesSel - 1]} ${anioSel}`;
+
+        return (
+          <>
+            {/* ---- Estado de resultados ---- */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-5">
+                Balance &mdash; {tituloPeriodo}
+              </h2>
+
+              {/* Grupo 1: de facturado a ingreso neto operativo */}
+              <div className="space-y-2 mb-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Total facturado</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300 tabular-nums">
+                    {formatMoneda(totalFacturado)}
+                  </span>
+                </div>
+
+                {costoRefas !== 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-gray-400 dark:text-gray-500">
+                      &minus; Costo refacciones
+                    </span>
+                    <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">
+                      &minus;{formatMoneda(costoRefas)}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-700 pt-2">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    Ingreso neto operativo
+                  </span>
+                  <span className="text-sm font-bold text-gray-800 dark:text-white tabular-nums">
+                    {formatMoneda(ingresoNeto)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Divisor */}
+              <div className="my-4 border-t border-dashed border-gray-200 dark:border-gray-700" />
+
+              {/* Grupo 2: deducciones */}
+              <div className="space-y-2">
+                {totalSueldosActivos > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      &minus; Sueldos del equipo
+                    </span>
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400 tabular-nums">
+                      &minus;{formatMoneda(totalSueldosActivos)}
+                    </span>
+                  </div>
+                )}
+
+                {totalPagosFijosActivos > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      &minus; Costos fijos
+                    </span>
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400 tabular-nums">
+                      &minus;{formatMoneda(totalPagosFijosActivos)}
+                    </span>
+                  </div>
+                )}
+
+                {gastosVarsRaw > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      &minus; Gastos variables
+                    </span>
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400 tabular-nums">
+                      &minus;{formatMoneda(gastosVarsRaw)}
+                    </span>
+                  </div>
+                )}
+
+                {gastosOrdenesVal > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      &minus; Costos internos de órdenes
+                    </span>
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400 tabular-nums">
+                      &minus;{formatMoneda(gastosOrdenesVal)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Ganancia neta */}
+                <div className="flex items-baseline justify-between border-t border-gray-200 dark:border-gray-700 pt-3 mt-1">
+                  <span className="text-base font-bold text-gray-800 dark:text-gray-100">
+                    Ganancia neta
+                  </span>
+                  <span
+                    className={`text-2xl font-bold tabular-nums ${
+                      gananciaNetaFinal >= 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}
+                  >
+                    {formatMoneda(gananciaNetaFinal)}
+                  </span>
+                </div>
+
+                {/* Por socio */}
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    Por socio (&divide;&thinsp;2)
+                  </span>
+                  <span
+                    className={`text-xs font-semibold tabular-nums ${
+                      porSocioFinal >= 0
+                        ? 'text-gray-500 dark:text-gray-400'
+                        : 'text-red-500 dark:text-red-400'
+                    }`}
+                  >
+                    {formatMoneda(porSocioFinal)}
+                  </span>
+                </div>
+
+                {/* Nota IVA */}
+                {ivaDelPeriodo > 0 && (
+                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-3 leading-relaxed border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2">
+                    IVA recaudado este período: {formatMoneda(ivaDelPeriodo)} — no es ganancia, va al SAT.
+                  </p>
+                )}
+
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
+                  Utilidad estimada. No incluye otros impuestos ni deducciones fiscales.
+                </p>
+              </div>
             </div>
 
-            {Number(gastosAdmin.total_iva) !== 0 && (
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-gray-400 dark:text-gray-500">
-                  &minus; IVA cobrado <span className="text-xs">(va al SAT)</span>
-                </span>
-                <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">
-                  &minus;{formatMoneda(Number(gastosAdmin.total_iva))}
-                </span>
+            {/* ------------------------------------------------------------------ */}
+            {/* Gráfica de distribución — aparece DESPUÉS del balance               */}
+            {/* ------------------------------------------------------------------ */}
+            {totalFacturado > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
+                  ¿A dónde fue cada peso?
+                </h2>
+                <GraficaDistribucion
+                  gananciaReal={gananciaNetaFinal}
+                  totalSueldos={totalSueldosActivos}
+                  costoRefacciones={costoRefas}
+                  totalPagosFijos={totalPagosFijosActivos}
+                  gastosVariables={gastosVarsRaw}
+                />
               </div>
             )}
-
-            {Number(gastosAdmin.costo_refacciones) !== 0 && (
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-gray-400 dark:text-gray-500">
-                  &minus; Costo refacciones <span className="text-xs">(material comprado)</span>
-                </span>
-                <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">
-                  &minus;{formatMoneda(Number(gastosAdmin.costo_refacciones))}
-                </span>
-              </div>
-            )}
-
-            <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-700 pt-2">
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Ingresos netos</span>
-              <span className="text-sm font-bold text-gray-800 dark:text-white tabular-nums">
-                {formatMoneda(Number(gastosAdmin.ingresos_netos))}
-              </span>
-            </div>
-            {Number(gastosAdmin.margen_refacciones) !== 0 && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 pl-1">
-                Incluye {formatMoneda(Number(gastosAdmin.margen_refacciones))} de margen en refacciones (30%)
-              </p>
-            )}
-          </div>
-
-          {/* Divisor */}
-          <div className="my-4 border-t border-dashed border-gray-200 dark:border-gray-700" />
-
-          {/* Grupo 2: del ingreso neto a la utilidad */}
-          <div className="space-y-2">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm text-red-500 dark:text-red-400">
-                {Number(gastosAdmin.total_admin) > 0 ? '− ' : ''}Gastos del taller
-              </span>
-              <span className="text-sm font-medium text-red-500 dark:text-red-400 tabular-nums">
-                {Number(gastosAdmin.total_admin) > 0 ? '−' : ''}{formatMoneda(Number(gastosAdmin.total_admin))}
-              </span>
-            </div>
-
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm text-orange-500 dark:text-orange-400">
-                {Number(gastosAdmin.gastos_ordenes_mes) > 0 ? '− ' : ''}Costos de órdenes
-              </span>
-              <span className="text-sm font-medium text-orange-500 dark:text-orange-400 tabular-nums">
-                {Number(gastosAdmin.gastos_ordenes_mes) > 0 ? '−' : ''}{formatMoneda(Number(gastosAdmin.gastos_ordenes_mes))}
-              </span>
-            </div>
-
-            <div className="flex items-baseline justify-between border-t border-gray-200 dark:border-gray-700 pt-3 mt-1">
-              <span className="text-base font-bold text-gray-800 dark:text-gray-100">Utilidad neta</span>
-              <span
-                className={`text-2xl font-bold tabular-nums ${
-                  Number(gastosAdmin.utilidad_neta) >= 0
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
-                }`}
-              >
-                {formatMoneda(Number(gastosAdmin.utilidad_neta))}
-              </span>
-            </div>
-
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">
-              Utilidad estimada. No incluye otros impuestos ni deducciones fiscales.
-            </p>
-          </div>
-
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 leading-relaxed">
-            Los costos de ordenes son los gastos internos registrados en cada orden de trabajo (envios, consumibles, etc.)
-          </p>
-        </div>
-      )}
+          </>
+        );
+      })()}
 
     </div>
   );

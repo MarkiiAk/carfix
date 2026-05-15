@@ -5,6 +5,7 @@ interface Props {
   totalSueldos: number;
   costoRefacciones: number;
   totalPagosFijos: number;
+  gastosVariables: number;
 }
 
 const formatMoneda = (monto: number): string =>
@@ -43,12 +44,18 @@ export const GraficaDistribucion = ({
   totalSueldos,
   costoRefacciones,
   totalPagosFijos,
+  gastosVariables,
 }: Props) => {
   const datos = [
-    { name: 'Ganancia neta', value: Math.max(0, gananciaReal), color: '#CBF518' },
-    { name: 'Sueldos',       value: Math.max(0, totalSueldos), color: '#6366f1' },
-    { name: 'Refacciones',   value: Math.max(0, costoRefacciones), color: '#f59e0b' },
-    { name: 'Pagos fijos',   value: Math.max(0, totalPagosFijos), color: '#ef4444' },
+    { name: 'Sueldos',           value: Math.max(0, totalSueldos),      color: '#6366f1' },
+    { name: 'Costo refacciones', value: Math.max(0, costoRefacciones),  color: '#f59e0b' },
+    { name: 'Pagos fijos',       value: Math.max(0, totalPagosFijos),   color: '#ec4899' },
+    { name: 'Gastos variables',  value: Math.max(0, gastosVariables),   color: '#14b8a6' },
+    {
+      name: gananciaReal >= 0 ? 'Ganancia neta' : 'Déficit',
+      value: Math.abs(gananciaReal),
+      color: gananciaReal >= 0 ? '#CBF518' : '#ef4444',
+    },
   ].filter(d => d.value > 0);
 
   if (datos.length === 0) {
