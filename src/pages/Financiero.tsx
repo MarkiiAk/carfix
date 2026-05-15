@@ -304,76 +304,7 @@ const MargenRefaccionesCard = ({ datos }: MargenRefaccionesCardProps) => {
   );
 };
 
-// ---------------------------------------------------------------------------
-// Selector de período
-// ---------------------------------------------------------------------------
-
-type TipoPeriodo = 'semana' | 'quincena' | 'mes';
-
-interface SelectorPeriodoProps {
-  tipo: TipoPeriodo;
-  offset: number;
-  label: string;
-  onTipoChange: (t: TipoPeriodo) => void;
-  onOffsetChange: (delta: number) => void;
-}
-
-const SelectorPeriodo = ({ tipo, offset, label, onTipoChange, onOffsetChange }: SelectorPeriodoProps) => {
-  const opciones: { key: TipoPeriodo; label: string }[] = [
-    { key: 'semana',   label: 'Esta semana'    },
-    { key: 'quincena', label: 'Esta quincena'  },
-    { key: 'mes',      label: 'Este mes'       },
-  ];
-
-  const pillBase = 'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors';
-  const pillActive = 'bg-sag-500 text-gray-900';
-  const pillInactive = 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600';
-
-  return (
-    <div className="flex flex-col items-center gap-3">
-      {/* Pills de tipo — scroll horizontal en mobile si no caben */}
-      <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-x-auto max-w-full">
-        {opciones.map((o) => (
-          <button
-            key={o.key}
-            onClick={() => onTipoChange(o.key)}
-            className={`${pillBase} whitespace-nowrap flex-shrink-0 ${tipo === o.key ? pillActive : pillInactive}`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Navegación anterior/siguiente */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        <button
-          onClick={() => onOffsetChange(1)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          title="Periodo anterior"
-        >
-          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-
-        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[120px] sm:min-w-[160px] text-center">
-          {label}
-        </span>
-
-        <button
-          onClick={() => onOffsetChange(-1)}
-          disabled={offset === 0}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Periodo siguiente"
-        >
-          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  );
-};
+// (SelectorPeriodo eliminado — el módulo financiero usa solo mes)
 
 // ---------------------------------------------------------------------------
 // Estado vacío
@@ -411,8 +342,6 @@ const CATEGORIA_LABELS: Record<GastoAdmin['categoria'], string> = {
 
 const CATEGORIA_OPTIONS: GastoAdmin['categoria'][] = ['renta', 'salario', 'servicio', 'insumo', 'otro'];
 
-const ANIOS_DISPONIBLES = [2024, 2025, 2026, 2027];
-
 // ---------------------------------------------------------------------------
 // Página principal
 // ---------------------------------------------------------------------------
@@ -421,15 +350,18 @@ export const Financiero = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [tipo, setTipo]     = useState<TipoPeriodo>('mes');
   const [offset, setOffset] = useState(0);
   const [datos, setDatos]   = useState<ResumenFinancieroResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
 
+  // mes/año derivados del offset — siempre sincronizados con la sección de ingresos
+  const hoy = new Date();
+  const fechaPeriodo = new Date(hoy.getFullYear(), hoy.getMonth() - offset, 1);
+  const mesSel  = fechaPeriodo.getMonth() + 1;
+  const anioSel = fechaPeriodo.getFullYear();
+
   // Estado para gastos administrativos
-  const [mesSel, setMesSel]   = useState(() => new Date().getMonth() + 1);
-  const [anioSel, setAnioSel] = useState(() => new Date().getFullYear());
   const [gastosAdmin, setGastosAdmin]           = useState<GastosAdminResponse | null>(null);
   const [loadingAdmin, setLoadingAdmin]         = useState(true);
   const [confirmandoAdminId, setConfirmandoAdminId] = useState<number | null>(null);
@@ -453,14 +385,14 @@ export const Financiero = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const resultado = await financieroAPI.resumen(tipo, offset);
+      const resultado = await financieroAPI.resumen('mes', offset);
       setDatos(resultado);
     } catch {
       setError('No se pudo cargar la informacion de ingresos.');
     } finally {
       setIsLoading(false);
     }
-  }, [tipo, offset]);
+  }, [offset]);
 
   useEffect(() => {
     cargar();
@@ -495,15 +427,6 @@ export const Financiero = () => {
   useEffect(() => {
     cargarAdmin();
   }, [cargarAdmin]);
-
-  const handleTipoChange = (nuevoTipo: TipoPeriodo) => {
-    setTipo(nuevoTipo);
-    setOffset(0);
-  };
-
-  const handleOffsetChange = (delta: number) => {
-    setOffset((prev) => Math.max(0, prev + delta));
-  };
 
   // --- Loading ---
   if (isLoading) {
@@ -547,13 +470,30 @@ export const Financiero = () => {
         <h1 className="text-lg font-bold text-gray-900 dark:text-white mb-4 text-center">
           Ingresos
         </h1>
-        <SelectorPeriodo
-          tipo={tipo}
-          offset={offset}
-          label={periodo.label}
-          onTipoChange={handleTipoChange}
-          onOffsetChange={handleOffsetChange}
-        />
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => setOffset(o => o + 1)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="Mes anterior"
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[120px] text-center capitalize">
+            {new Date(anioSel, mesSel - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase())}
+          </span>
+          <button
+            onClick={() => setOffset(o => Math.max(0, o - 1))}
+            disabled={offset === 0}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Mes siguiente"
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -639,34 +579,11 @@ export const Financiero = () => {
       {/* ------------------------------------------------------------------ */}
       <section className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-2xl shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-amber-200 dark:border-amber-700/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <p className="font-semibold text-gray-800 dark:text-gray-100">Gastos del taller</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Renta, salarios y gastos fijos &middot; Por mes calendario
-            </p>
-          </div>
-          {/* Selector mes/año */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <select
-              value={mesSel}
-              onChange={e => { setMesSel(Number(e.target.value)); setConfirmandoAdminId(null); }}
-              className="text-sm border border-amber-300 dark:border-amber-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
-            >
-              {MESES.map((m, i) => (
-                <option key={i + 1} value={i + 1}>{m}</option>
-              ))}
-            </select>
-            <select
-              value={anioSel}
-              onChange={e => { setAnioSel(Number(e.target.value)); setConfirmandoAdminId(null); }}
-              className="text-sm border border-amber-300 dark:border-amber-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
-            >
-              {ANIOS_DISPONIBLES.map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
-          </div>
+        <div className="px-6 py-4 border-b border-amber-200 dark:border-amber-700/40">
+          <p className="font-semibold text-gray-800 dark:text-gray-100">Gastos del taller</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Renta, salarios y gastos fijos &middot; Por mes calendario
+          </p>
         </div>
 
         <div className="px-6 py-4 space-y-4">
