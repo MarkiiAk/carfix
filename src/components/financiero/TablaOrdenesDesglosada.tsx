@@ -31,10 +31,23 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
     );
   }
 
+  const ESTADOS_ABIERTOS = ['en_proceso', 'en_revision', 'pendiente', 'cotizacion', 'en_espera'];
+
+  const etiquetaEstado = (estado: string) => {
+    if (ESTADOS_ABIERTOS.some(e => estado?.toLowerCase().includes(e.split('_')[0]))) {
+      return (
+        <span className="ml-1.5 text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full px-1.5 py-0.5 font-medium whitespace-nowrap">
+          anticipo
+        </span>
+      );
+    }
+    return null;
+  };
+
   if (ordenes.length === 0) {
     return (
       <p className="text-sm text-gray-400 dark:text-gray-500 py-4">
-        Sin órdenes cerradas en este período.
+        Sin órdenes registradas en este período.
       </p>
     );
   }
@@ -47,7 +60,7 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
             <th className="pb-2 pr-3 font-medium w-12">Fecha</th>
             <th className="pb-2 pr-3 font-medium">Cliente</th>
             <th className="pb-2 pr-3 font-medium hidden sm:table-cell">Vehículo</th>
-            <th className="pb-2 pr-3 font-medium text-right">Venta</th>
+            <th className="pb-2 pr-3 font-medium text-right">Recibido</th>
             <th className="pb-2 pr-3 font-medium text-right hidden md:table-cell">Refacciones</th>
             <th className="pb-2 font-medium text-right">Ganancia</th>
           </tr>
@@ -61,8 +74,9 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
               <td className="py-2 pr-3 text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">
                 {formatFecha(o.fecha)}
               </td>
-              <td className="py-2 pr-3 text-gray-800 dark:text-gray-200 max-w-[140px] truncate">
-                {o.cliente_nombre}
+              <td className="py-2 pr-3 text-gray-800 dark:text-gray-200 max-w-[160px] truncate">
+                <span>{o.cliente_nombre}</span>
+                {etiquetaEstado(o.estado)}
               </td>
               <td className="py-2 pr-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell max-w-[120px] truncate">
                 {o.vehiculo}

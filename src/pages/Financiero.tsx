@@ -883,9 +883,9 @@ export const Financiero = () => {
         <section className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700/40 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-indigo-200 dark:border-indigo-700/40 flex items-center justify-between">
             <div>
-              <p className="font-semibold text-gray-800 dark:text-gray-100">Equipo y sueldos</p>
+              <p className="font-semibold text-gray-800 dark:text-gray-100">Equipo — sueldos base</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Sueldo diario · Se estima {tipoPeriodo === 'semana' ? '5 días' : '22 días'} para este período
+                Tarifa diaria por empleado — configúrala una vez, se aplica a cada período ({tipoPeriodo === 'semana' ? '5 días hábiles' : '22 días hábiles'})
               </p>
             </div>
             <button
@@ -1010,9 +1010,9 @@ export const Financiero = () => {
         <section className="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-700/40 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-rose-200 dark:border-rose-700/40 flex items-center justify-between">
             <div>
-              <p className="font-semibold text-gray-800 dark:text-gray-100">Gastos fijos del taller</p>
+              <p className="font-semibold text-gray-800 dark:text-gray-100">Costos fijos recurrentes</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Renta, servicios y pagos recurrentes configurados
+                Renta, internet, proveedores — configúralos una vez, se prorratean solos cada semana
               </p>
             </div>
             <button
@@ -1152,9 +1152,9 @@ export const Financiero = () => {
       <section className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-2xl shadow-sm overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-amber-200 dark:border-amber-700/40">
-          <p className="font-semibold text-gray-800 dark:text-gray-100">Gastos del taller</p>
+          <p className="font-semibold text-gray-800 dark:text-gray-100">Gastos variables del período</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Renta, salarios y gastos fijos &middot; Por mes calendario
+            Gasolina, materiales, imprevistos y otros gastos que cambian semana a semana
           </p>
         </div>
 

@@ -902,24 +902,34 @@ class FinancieroController {
 
             [$fechaInicio, $fechaFin] = $this->calcularPeriodo($tipo, $offset);
 
+            // Base caja: filtrar por fecha_ingreso (cuando llegó el coche),
+            // incluir todos los estados porque puede haber anticipos o gastos
+            // en órdenes aún abiertas. Ingreso mostrado = anticipo para
+            // órdenes en proceso, total para órdenes completadas/entregadas.
             $sql = "
                 SELECT
                     os.id,
                     os.numero_orden,
-                    COALESCE(os.fecha_completada, os.fecha_entregada, os.fecha_ingreso) AS fecha,
-                    c.nombre                                                           AS cliente_nombre,
+                    os.fecha_ingreso                                                    AS fecha,
+                    c.nombre                                                            AS cliente_nombre,
                     CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
-                    os.total                                                            AS costo_venta,
+                    CASE
+                        WHEN os.estado IN ('completado','completada','entregado','entregada','cerrada')
+                        THEN os.total
+                        ELSE COALESCE(os.anticipo, 0)
+                    END                                                                 AS costo_venta,
                     COALESCE(os.subtotal_refacciones, 0) / 1.30                        AS costo_refacciones,
-                    (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30)           AS ganancia,
+                    CASE
+                        WHEN os.estado IN ('completado','completada','entregado','entregada','cerrada')
+                        THEN (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30)
+                        ELSE (COALESCE(os.anticipo, 0) - COALESCE(os.subtotal_refacciones, 0) / 1.30)
+                    END                                                                 AS ganancia,
                     os.estado
                 FROM ordenes_servicio os
                 LEFT JOIN clientes c  ON os.cliente_id  = c.id
                 LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
-                WHERE COALESCE(os.fecha_completada, os.fecha_entregada, os.fecha_ingreso)
-                      BETWEEN :fecha_inicio AND :fecha_fin
-                  AND os.estado IN ('completado', 'entregado', 'completada', 'entregada', 'cerrada')
-                ORDER BY COALESCE(os.fecha_completada, os.fecha_entregada, os.fecha_ingreso) ASC
+                WHERE os.fecha_ingreso BETWEEN :fecha_inicio AND :fecha_fin
+                ORDER BY os.fecha_ingreso ASC
             ";
             $stmt = $this->db->prepare($sql);
             $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
