@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTrash, faSpinner, faPencil, faCheck, faXmark, faDownload } from '@fortawesome/free-solid-svg-icons';
-import { financieroAPI, gastosAdminAPI, empleadosFinancieroAPI, pagosFijosAPI } from '../services/api';
+import { financieroAPI, gastosAdminAPI, empleadosFinancieroAPI, pagosFijosAPI, cajaChicaAPI } from '../services/api';
 import { generarReporteFinanciero } from '../utils/reporteFinanciero';
 import { useAuth } from '../contexts/AuthContext';
 import { TablaOrdenesDesglosada } from '../components/financiero/TablaOrdenesDesglosada';
@@ -27,6 +27,7 @@ import type {
   OrdenFinanciero,
   EmpleadoSueldo,
   PagoFijo,
+  CajaChicaResponse,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -429,6 +430,15 @@ export const Financiero = () => {
   const [pagoError, setPagoError]           = useState<string | null>(null);
   const [mostrarFormPago, setMostrarFormPago] = useState(false);
 
+  // Estado caja chica
+  const [cajaChica, setCajaChica]         = useState<CajaChicaResponse | null>(null);
+  const [cargandoCaja, setCargandoCaja]   = useState(false);
+  const [cajaTipo, setCajaTipo]           = useState<'ingreso' | 'egreso'>('egreso');
+  const [cajaConcepto, setCajaConcepto]   = useState('');
+  const [cajaMonto, setCajaMonto]         = useState('');
+  const [cajaFecha, setCajaFecha]         = useState(() => new Date().toISOString().split('T')[0]);
+  const [cajaError, setCajaError]         = useState('');
+
   // Redirigir si no es admin
   useEffect(() => {
     if (user && user.rol !== 'admin') {
@@ -520,10 +530,26 @@ export const Financiero = () => {
     }
   }, []);
 
+  const cargarCajaChica = useCallback(async () => {
+    setCargandoCaja(true);
+    try {
+      const res = await cajaChicaAPI.resumen(tipoPeriodo === 'semana' ? 'semana' : 'mes', offset);
+      setCajaChica(res);
+    } catch {
+      // silencioso
+    } finally {
+      setCargandoCaja(false);
+    }
+  }, [tipoPeriodo, offset]);
+
   useEffect(() => {
     cargarEmpleados();
     cargarPagosFijos();
   }, [cargarEmpleados, cargarPagosFijos]);
+
+  useEffect(() => {
+    cargarCajaChica();
+  }, [cargarCajaChica]);
 
   useEffect(() => {
     cargarAdmin();
@@ -632,6 +658,35 @@ export const Financiero = () => {
     try {
       const res = await pagosFijosAPI.toggle(id);
       setPagosFijos(prev => prev.map(p => p.id === id ? { ...p, activo: res.activo } : p));
+    } catch { /* silencioso */ }
+  };
+
+  const handleAgregarCaja = async () => {
+    if (!cajaConcepto.trim() || !cajaMonto || parseFloat(cajaMonto) <= 0) {
+      setCajaError('Completa todos los campos.');
+      return;
+    }
+    try {
+      await cajaChicaAPI.crear({
+        fecha: cajaFecha,
+        tipo: cajaTipo,
+        concepto: cajaConcepto.trim(),
+        monto: parseFloat(cajaMonto),
+        notas: null,
+      });
+      setCajaConcepto('');
+      setCajaMonto('');
+      setCajaError('');
+      await cargarCajaChica();
+    } catch {
+      setCajaError('Error al guardar. Intenta de nuevo.');
+    }
+  };
+
+  const handleEliminarCaja = async (id: number) => {
+    try {
+      await cajaChicaAPI.eliminar(id);
+      await cargarCajaChica();
     } catch { /* silencioso */ }
   };
 
@@ -1141,6 +1196,147 @@ export const Financiero = () => {
                   </span>
                 </div>
               </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Sección: Caja chica (solo admin)                                     */}
+      {/* ------------------------------------------------------------------ */}
+      {user?.rol === 'admin' && (
+        <section className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/40 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-green-200 dark:border-green-700/40">
+            <p className="font-semibold text-gray-800 dark:text-gray-100">Caja chica — Mayte</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Efectivo físico en caja · El saldo se arrastra semana a semana
+            </p>
+          </div>
+
+          <div className="px-6 py-4 space-y-4">
+            {cargandoCaja && !cajaChica && (
+              <div className="flex items-center gap-2 text-gray-500 py-4">
+                <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 16, height: 16 }} />
+                <span className="text-sm">Cargando...</span>
+              </div>
+            )}
+
+            {cajaChica && (
+              <>
+                {/* Mini-KPIs */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-xl border border-green-200 dark:border-green-700/40">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Saldo anterior</p>
+                    <p className="font-bold text-gray-800 dark:text-gray-100 tabular-nums">{formatMoneda(cajaChica.saldo_anterior)}</p>
+                  </div>
+                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-xl border border-green-200 dark:border-green-700/40">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Entradas</p>
+                    <p className="font-bold text-green-700 dark:text-green-400 tabular-nums">{formatMoneda(cajaChica.ingresos_semana)}</p>
+                  </div>
+                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-xl border border-green-200 dark:border-green-700/40">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Salidas</p>
+                    <p className="font-bold text-red-600 dark:text-red-400 tabular-nums">{formatMoneda(cajaChica.egresos_semana)}</p>
+                  </div>
+                </div>
+
+                {/* Saldo actual */}
+                <div className={`px-4 py-3 rounded-xl border ${cajaChica.saldo_actual < 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700/40' : 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700/40'}`}>
+                  {cajaChica.saldo_actual < 0 ? (
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                      Déficit — {formatMoneda(Math.abs(cajaChica.saldo_actual))} · Se descuenta del siguiente fondo
+                    </p>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Saldo actual</span>
+                      <span className="font-bold text-green-800 dark:text-green-300 tabular-nums text-lg">{formatMoneda(cajaChica.saldo_actual)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Lista de movimientos */}
+                {cajaChica.movimientos.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-green-200 dark:border-green-700/40">
+                          <th className="pb-2 pr-3 font-medium">Fecha</th>
+                          <th className="pb-2 pr-3 font-medium">Tipo</th>
+                          <th className="pb-2 pr-3 font-medium">Concepto</th>
+                          <th className="pb-2 pr-3 font-medium text-right">Monto</th>
+                          <th className="pb-2 font-medium"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-green-100 dark:divide-green-900/30">
+                        {cajaChica.movimientos.map(m => (
+                          <tr key={m.id} className="text-gray-700 dark:text-gray-300">
+                            <td className="py-2 pr-3 text-xs text-gray-500">{m.fecha}</td>
+                            <td className="py-2 pr-3">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${m.tipo === 'ingreso' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'}`}>
+                                {m.tipo}
+                              </span>
+                            </td>
+                            <td className="py-2 pr-3">{m.concepto}</td>
+                            <td className="py-2 pr-3 text-right tabular-nums font-medium">{formatMoneda(m.monto)}</td>
+                            <td className="py-2">
+                              <button
+                                onClick={() => handleEliminarCaja(m.id)}
+                                className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                              >
+                                <FontAwesomeIcon icon={faTrash} style={{ width: 12, height: 12 }} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Formulario agregar */}
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-green-200 dark:border-green-700/40">
+                  <select
+                    value={cajaTipo}
+                    onChange={e => setCajaTipo(e.target.value as 'ingreso' | 'egreso')}
+                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+                  >
+                    <option value="egreso">Egreso</option>
+                    <option value="ingreso">Ingreso</option>
+                  </select>
+                  <input
+                    type="date"
+                    value={cajaFecha}
+                    onChange={e => setCajaFecha(e.target.value)}
+                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Concepto"
+                    value={cajaConcepto}
+                    onChange={e => setCajaConcepto(e.target.value)}
+                    className="flex-1 min-w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Monto"
+                    value={cajaMonto}
+                    onChange={e => setCajaMonto(e.target.value)}
+                    min="0"
+                    step="0.01"
+                    className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                  <button
+                    onClick={handleAgregarCaja}
+                    className="flex items-center gap-1 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg px-3 py-2 transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faPlus} style={{ width: 12, height: 12 }} />
+                    Agregar
+                  </button>
+                </div>
+
+                {cajaError && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{cajaError}</p>
+                )}
+              </>
             )}
           </div>
         </section>

@@ -5,8 +5,10 @@ import { Card, Input } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 
 export const ResumenSection: React.FC = () => {
-  const { presupuesto, updateAnticipo, toggleIVA } = usePresupuestoStore();
+  const { presupuesto, updateAnticipo, updateFechaAnticipo, toggleIVA } = usePresupuestoStore();
   const { resumen } = presupuesto;
+  const anticipoValue = resumen.anticipo;
+  const fechaAnticipo = resumen.fecha_anticipo ?? null;
   const [anticipoDisplay, setAnticipoDisplay] = React.useState('');
 
   const formatCurrency = (value: number) => {
@@ -186,7 +188,7 @@ export const ResumenSection: React.FC = () => {
           />
           
           {resumen.anticipo > 0 && (
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">
                   Porcentaje del anticipo:
@@ -195,6 +197,19 @@ export const ResumenSection: React.FC = () => {
                   {((resumen.anticipo / (resumen.incluirIVA ? resumen.total : resumen.subtotal)) * 100).toFixed(1)}%
                 </span>
               </div>
+              {anticipoValue > 0 && (
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Fecha de pago del anticipo
+                  </label>
+                  <input
+                    type="date"
+                    value={fechaAnticipo ?? ''}
+                    onChange={e => updateFechaAnticipo(e.target.value || null)}
+                    className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-sag-500"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

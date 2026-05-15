@@ -261,6 +261,7 @@ CREATE TABLE `ordenes_servicio` (
   `iva` decimal(10,2) DEFAULT 0.00,
   `total` decimal(10,2) DEFAULT 0.00,
   `anticipo` decimal(10,2) DEFAULT 0.00,
+  `fecha_anticipo` date DEFAULT NULL,
   `estado` varchar(20) DEFAULT 'abierta',
   `fecha_ingreso` timestamp NULL DEFAULT current_timestamp(),
   `fecha_promesa_entrega` timestamp NULL DEFAULT NULL,
@@ -1000,6 +1001,18 @@ CREATE TABLE IF NOT EXISTS `pagos_fijos` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `caja_chica` (
+  `id`           INT(11)                  NOT NULL AUTO_INCREMENT,
+  `fecha`        DATE                     NOT NULL,
+  `tipo`         ENUM('ingreso','egreso') NOT NULL,
+  `concepto`     VARCHAR(150)             NOT NULL,
+  `monto`        DECIMAL(10,2)            NOT NULL DEFAULT 0.00,
+  `notas`        TEXT                     NULL,
+  `created_at`   TIMESTAMP                NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_caja_chica_fecha` (`fecha`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 COMMIT;

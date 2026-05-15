@@ -902,38 +902,57 @@ class FinancieroController {
 
             [$fechaInicio, $fechaFin] = $this->calcularPeriodo($tipo, $offset);
 
-            // Base caja: filtrar por fecha_ingreso (cuando llegó el coche),
-            // incluir todos los estados porque puede haber anticipos o gastos
-            // en órdenes aún abiertas. Ingreso mostrado = anticipo para
-            // órdenes en proceso, total para órdenes completadas/entregadas.
+            // UNION de dos lógicas:
+            // 1. Órdenes EN PROCESO → aparecen en la semana que ingresó el coche.
+            //    Ingreso = anticipo recibido (puede ser 0). Costo = refacciones ya compradas.
+            //    Muestra la "inversión" de esta semana aunque no se haya cobrado.
+            // 2. Órdenes CERRADAS → aparecen en la semana en que se entregaron/cobraron.
+            //    Ingreso = total cobrado. Costo = refacciones (deducción en el cierre).
+            //    Así si el coche entró la semana pasada y se cobró esta semana, el ingreso
+            //    aparece aquí, no la semana pasada.
             $sql = "
                 SELECT
                     os.id,
                     os.numero_orden,
-                    os.fecha_ingreso                                                    AS fecha,
-                    c.nombre                                                            AS cliente_nombre,
+                    os.fecha_ingreso                                                        AS fecha,
+                    c.nombre                                                                AS cliente_nombre,
                     CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
-                    CASE
-                        WHEN os.estado IN ('completado','completada','entregado','entregada','cerrada')
-                        THEN os.total
-                        ELSE COALESCE(os.anticipo, 0)
-                    END                                                                 AS costo_venta,
-                    COALESCE(os.subtotal_refacciones, 0) / 1.30                        AS costo_refacciones,
-                    CASE
-                        WHEN os.estado IN ('completado','completada','entregado','entregada','cerrada')
-                        THEN (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30)
-                        ELSE (COALESCE(os.anticipo, 0) - COALESCE(os.subtotal_refacciones, 0) / 1.30)
-                    END                                                                 AS ganancia,
+                    COALESCE(os.anticipo, 0)                                                AS costo_venta,
+                    COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
+                    (COALESCE(os.anticipo, 0) - COALESCE(os.subtotal_refacciones, 0) / 1.30) AS ganancia,
                     os.estado
                 FROM ordenes_servicio os
                 LEFT JOIN clientes c  ON os.cliente_id  = c.id
                 LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
-                WHERE os.fecha_ingreso BETWEEN :fecha_inicio AND :fecha_fin
-                ORDER BY os.fecha_ingreso ASC
+                WHERE os.fecha_ingreso BETWEEN :fecha_inicio_a AND :fecha_fin_a
+                  AND os.estado NOT IN ('completado','completada','entregado','entregada','cerrada')
+
+                UNION ALL
+
+                SELECT
+                    os.id,
+                    os.numero_orden,
+                    COALESCE(os.fecha_entregada, os.fecha_completada, os.fecha_ingreso)    AS fecha,
+                    c.nombre                                                                AS cliente_nombre,
+                    CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
+                    os.total                                                                AS costo_venta,
+                    COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
+                    (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30)               AS ganancia,
+                    os.estado
+                FROM ordenes_servicio os
+                LEFT JOIN clientes c  ON os.cliente_id  = c.id
+                LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
+                WHERE COALESCE(os.fecha_entregada, os.fecha_completada, os.fecha_ingreso)
+                      BETWEEN :fecha_inicio_b AND :fecha_fin_b
+                  AND os.estado IN ('completado','completada','entregado','entregada','cerrada')
+
+                ORDER BY fecha ASC
             ";
             $stmt = $this->db->prepare($sql);
-            $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
-            $stmt->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmt->bindParam(':fecha_inicio_a', $fechaInicio, PDO::PARAM_STR);
+            $stmt->bindParam(':fecha_fin_a',    $fechaFin,    PDO::PARAM_STR);
+            $stmt->bindParam(':fecha_inicio_b', $fechaInicio, PDO::PARAM_STR);
+            $stmt->bindParam(':fecha_fin_b',    $fechaFin,    PDO::PARAM_STR);
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1499,6 +1518,196 @@ class FinancieroController {
             error_log('[FinancieroController::togglePagoFijo] ERROR: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Error al cambiar estado del pago fijo']);
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    // CAJA CHICA
+    // ──────────────────────────────────────────────
+
+    public function cajaChica(): void {
+        try {
+            $userData = requireAuth();
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $tipo   = isset($_GET['tipo'])   ? trim($_GET['tipo'])   : 'semana';
+            $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
+
+            if (!in_array($tipo, ['semana', 'mes'], true)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'tipo debe ser semana o mes']);
+                return;
+            }
+
+            [$fechaInicio, $fechaFin] = $this->calcularPeriodo($tipo, $offset);
+
+            $stmtAnterior = $this->db->prepare(
+                'SELECT COALESCE(SUM(CASE WHEN tipo = :ing THEN monto ELSE -monto END), 0) AS saldo_anterior
+                 FROM caja_chica WHERE fecha < :fecha_inicio'
+            );
+            $stmtAnterior->bindValue(':ing',          'ingreso',    PDO::PARAM_STR);
+            $stmtAnterior->bindValue(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+            $stmtAnterior->execute();
+            $saldoAnterior = (float) $stmtAnterior->fetchColumn();
+
+            $stmtMov = $this->db->prepare(
+                'SELECT id, fecha, tipo, concepto, monto, notas
+                 FROM caja_chica
+                 WHERE fecha BETWEEN :fecha_inicio AND :fecha_fin
+                 ORDER BY fecha ASC, id ASC'
+            );
+            $stmtMov->bindValue(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
+            $stmtMov->bindValue(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmtMov->execute();
+            $rows = $stmtMov->fetchAll(PDO::FETCH_ASSOC);
+
+            $movimientos    = [];
+            $ingresosSemana = 0.0;
+            $egresosSemana  = 0.0;
+
+            foreach ($rows as $r) {
+                $monto = (float) $r['monto'];
+                if ($r['tipo'] === 'ingreso') {
+                    $ingresosSemana += $monto;
+                } else {
+                    $egresosSemana += $monto;
+                }
+                $movimientos[] = [
+                    'id'      => (int) $r['id'],
+                    'fecha'   => $r['fecha'],
+                    'tipo'    => $r['tipo'],
+                    'concepto'=> $r['concepto'],
+                    'monto'   => round($monto, 2),
+                    'notas'   => $r['notas'],
+                ];
+            }
+
+            $saldoActual = round($saldoAnterior + $ingresosSemana - $egresosSemana, 2);
+
+            http_response_code(200);
+            echo json_encode([
+                'success'         => true,
+                'movimientos'     => $movimientos,
+                'saldo_anterior'  => round($saldoAnterior, 2),
+                'ingresos_semana' => round($ingresosSemana, 2),
+                'egresos_semana'  => round($egresosSemana, 2),
+                'saldo_actual'    => $saldoActual,
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::cajaChica] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al obtener caja chica']);
+        }
+    }
+
+    public function crearMovimientoCajaChica(): void {
+        try {
+            $userData = requireAuth();
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $body = json_decode(file_get_contents('php://input'), true) ?? [];
+
+            $fecha    = trim($body['fecha']    ?? '');
+            $tipo     = trim($body['tipo']     ?? '');
+            $concepto = trim($body['concepto'] ?? '');
+            $monto    = isset($body['monto']) ? (float) $body['monto'] : 0.0;
+            $notas    = isset($body['notas']) && $body['notas'] !== '' ? trim($body['notas']) : null;
+
+            if (!in_array($tipo, ['ingreso', 'egreso'], true)) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'error' => 'tipo debe ser ingreso o egreso']);
+                return;
+            }
+            if ($monto <= 0) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'error' => 'monto debe ser mayor a cero']);
+                return;
+            }
+            if ($concepto === '') {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'error' => 'concepto no puede estar vacío']);
+                return;
+            }
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !strtotime($fecha)) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'error' => 'fecha inválida']);
+                return;
+            }
+
+            $stmt = $this->db->prepare(
+                'INSERT INTO caja_chica (fecha, tipo, concepto, monto, notas)
+                 VALUES (:fecha, :tipo, :concepto, :monto, :notas)'
+            );
+            $stmt->bindValue(':fecha',    $fecha,    PDO::PARAM_STR);
+            $stmt->bindValue(':tipo',     $tipo,     PDO::PARAM_STR);
+            $stmt->bindValue(':concepto', $concepto, PDO::PARAM_STR);
+            $stmt->bindValue(':monto',    $monto);
+            $stmt->bindValue(':notas',    $notas,    $notas === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+            $stmt->execute();
+
+            $nuevoId = (int) $this->db->lastInsertId();
+
+            http_response_code(201);
+            echo json_encode([
+                'success'     => true,
+                'movimiento'  => [
+                    'id'       => $nuevoId,
+                    'fecha'    => $fecha,
+                    'tipo'     => $tipo,
+                    'concepto' => $concepto,
+                    'monto'    => round($monto, 2),
+                    'notas'    => $notas,
+                ],
+            ]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::crearMovimientoCajaChica] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al crear movimiento de caja chica']);
+        }
+    }
+
+    public function eliminarMovimientoCajaChica(int $id): void {
+        try {
+            $userData = requireAuth();
+
+            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
+                return;
+            }
+
+            $stmtCheck = $this->db->prepare('SELECT id FROM caja_chica WHERE id = :id LIMIT 1');
+            $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtCheck->execute();
+            if (!$stmtCheck->fetch()) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Movimiento no encontrado']);
+                return;
+            }
+
+            $stmtDel = $this->db->prepare('DELETE FROM caja_chica WHERE id = :id');
+            $stmtDel->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtDel->execute();
+
+            http_response_code(200);
+            echo json_encode(['success' => true]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::eliminarMovimientoCajaChica] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al eliminar movimiento de caja chica']);
         }
     }
 }

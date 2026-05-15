@@ -324,6 +324,20 @@ try {
         $controller->actualizarPagoFijo((int) $matches[1], $body, $userData);
     }
 
+    // Caja chica
+    elseif ($path === 'financiero/caja-chica' && $request_method === 'GET') {
+        $controller = new FinancieroController();
+        $controller->cajaChica();
+    }
+    elseif ($path === 'financiero/caja-chica' && $request_method === 'POST') {
+        $controller = new FinancieroController();
+        $controller->crearMovimientoCajaChica();
+    }
+    elseif (preg_match('#^financiero/caja-chica/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new FinancieroController();
+        $controller->eliminarMovimientoCajaChica((int) $matches[1]);
+    }
+
     // Ruta de salud
     elseif ($path === 'health' && $request_method === 'GET') {
         echo json_encode([

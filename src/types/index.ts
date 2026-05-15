@@ -97,6 +97,7 @@ export interface ResumenFinanciero {
   iva: number;
   total: number;
   anticipo: number;
+  fecha_anticipo?: string | null;
   restante: number;
 }
 
@@ -418,4 +419,22 @@ export interface PagoFijo {
   frecuencia: 'semanal' | 'mensual';
   categoria: 'renta' | 'servicio' | 'proveedor' | 'marketing' | 'otro';
   activo: boolean;
+}
+
+export interface MovimientoCajaChica {
+  id: number;
+  fecha: string;
+  tipo: 'ingreso' | 'egreso';
+  concepto: string;
+  monto: number;
+  notas: string | null;
+}
+
+export interface CajaChicaResponse {
+  success: boolean;
+  movimientos: MovimientoCajaChica[];
+  saldo_anterior: number;
+  ingresos_semana: number;
+  egresos_semana: number;
+  saldo_actual: number;
 }

@@ -173,11 +173,11 @@ class OrdenesController {
                     tiene_botonia_general, tiene_manijas, tiene_tapetes,
                     tiene_vestiduras, tiene_otros,
                     tiene_radio, tiene_encendedor, tiene_documentos,
-                    subtotal_servicios, subtotal_mano_obra, subtotal_refacciones, 
-                    incluir_iva, iva, total, anticipo,
+                    subtotal_servicios, subtotal_mano_obra, subtotal_refacciones,
+                    incluir_iva, iva, total, anticipo, fecha_anticipo,
                     fecha_promesa_entrega,
                     estado
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ');
             
             $vehiculoData = $data['vehiculo'] ?? [];
@@ -242,6 +242,7 @@ class OrdenesController {
                 $resumenData['iva'] ?? 0,
                 $resumenData['total'] ?? 0,
                 $resumenData['anticipo'] ?? 0,
+                $resumenData['fecha_anticipo'] ?? null,
                 $fechaSalida,
                 'abierta' // Estado inicial siempre es 'abierta'
             ]);
@@ -460,6 +461,10 @@ class OrdenesController {
                     $updateFields[] = 'anticipo = ?';
                     $updateValues[] = $data['resumen']['anticipo'];
                     error_log('Anticipo a actualizar: ' . $data['resumen']['anticipo']);
+                }
+                if (array_key_exists('fecha_anticipo', $data['resumen'] ?? [])) {
+                    $updateFields[] = 'fecha_anticipo = ?';
+                    $updateValues[] = $data['resumen']['fecha_anticipo'] ?: null;
                 }
             }
             
@@ -917,6 +922,7 @@ class OrdenesController {
             'iva' => (float)($orden['iva'] ?? 0),
             'total' => $total,
             'anticipo' => $anticipo,
+            'fecha_anticipo' => $orden['fecha_anticipo'] ?? null,
             'restante' => $total - $anticipo
         ];
         
