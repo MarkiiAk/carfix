@@ -12,7 +12,7 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTrash, faSpinner, faPencil, faCheck, faXmark, faDownload } from '@fortawesome/free-solid-svg-icons';
 import { financieroAPI, gastosAdminAPI, empleadosFinancieroAPI, pagosFijosAPI, cajaChicaAPI } from '../services/api';
-import { generarReporteFinanciero } from '../utils/reporteFinanciero';
+import { abrirReporteFinanciero } from '../utils/reporteFinancieroHTML';
 import { useAuth } from '../contexts/AuthContext';
 import { TablaOrdenesDesglosada } from '../components/financiero/TablaOrdenesDesglosada';
 import { GraficaDistribucion } from '../components/financiero/GraficaDistribucion';
@@ -712,10 +712,10 @@ export const Financiero = () => {
       return acc + p.monto;
     }, 0);
 
-  // Handler para descargar el reporte PDF
+  // Handler para descargar el reporte (abre HTML en nueva ventana + print)
   const handleDescargarReporte = () => {
     if (!datos || !gastosAdmin) return;
-    generarReporteFinanciero({
+    abrirReporteFinanciero({
       resumen: datos,
       ordenes: {
         success: true,
@@ -725,6 +725,7 @@ export const Financiero = () => {
       empleados,
       pagosFijos,
       gastos: gastosAdmin,
+      cajaChica,
       labelPeriodo: labelPeriodoActivo,
       tipoPeriodo,
     });

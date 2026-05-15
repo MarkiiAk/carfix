@@ -30,7 +30,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- VARIABLES DE APOYO (usuario admin de referencia)
 -- ============================================================
 -- Usamos una variable para el usuario_id admin
-SET @admin_id = (SELECT id FROM usuarios WHERE rol = 'admin' OR role = 'admin' LIMIT 1);
+SET @admin_id = (SELECT id FROM usuarios WHERE rol = 'admin' LIMIT 1);
 -- Fallback por si la columna se llama diferente
 SET @admin_id = COALESCE(@admin_id, (SELECT id FROM usuarios LIMIT 1));
 
