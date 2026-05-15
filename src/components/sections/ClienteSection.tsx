@@ -41,13 +41,42 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
   const [seleccionado, setSeleccionado] = useState<ClienteMatch | null>(null);
   const [mostrarForm, setMostrarForm]   = useState(false);
   const [vehiculoSel, setVehiculoSel]   = useState<VehiculoMatch | null>(null);
+  const [busquedaQuery, setBusquedaQuery] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleChange = (field: keyof typeof cliente) => (value: string) => {
     updateCliente({ [field]: value });
   };
 
-  // Búsqueda por teléfono con debounce
+  // Búsqueda unificada por nombre o teléfono con debounce
+  const handleBusquedaChange = (value: string) => {
+    setBusquedaQuery(value);
+    setSeleccionado(null);
+    setMostrarForm(false);
+    setMatches([]);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.trim().length < 2) return;
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        setBuscando(true);
+        const result = await clientesAPI.buscar(value.trim()) as any;
+        if (result?.matches?.length > 0) {
+          setMatches(result.matches);
+        } else {
+          setMatches([]);
+          setMostrarForm(true);
+        }
+      } catch {
+        setMostrarForm(true);
+      } finally {
+        setBuscando(false);
+      }
+    }, 350);
+  };
+
+  // Búsqueda por teléfono con debounce (campo teléfono existente)
   const handleTelefonoChange = (value: string) => {
     updateCliente({ telefono: value });
     setSeleccionado(null);
@@ -110,6 +139,7 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
     setMatches([]);
     setMostrarForm(true);
     setVehiculoSel(null);
+    setBusquedaQuery('');
     updateCliente({ nombreCompleto: '', email: '', domicilio: '', cliente_id: null });
   };
 
@@ -130,7 +160,29 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
     >
       <div className="space-y-5">
 
-        {/* TELÉFONO — siempre primero */}
+        {/* CAMPO DE BÚSQUEDA UNIFICADO — oculto en modo lectura o cuando ya hay seleccionado */}
+        {!disabled && !seleccionado && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Buscar cliente
+            </label>
+            <input
+              type="text"
+              placeholder="Nombre o teléfono..."
+              value={busquedaQuery}
+              onChange={(e) => handleBusquedaChange(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-sag-500 focus:border-transparent"
+            />
+            {buscando && (
+              <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 border-2 border-sag-500 border-t-transparent rounded-full animate-spin" />
+                Buscando...
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* TELÉFONO */}
         <div>
           <FormField
             name="telefono"
@@ -151,8 +203,8 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
             </p>
           )}
 
-          {/* Spinner buscando */}
-          {buscando && (
+          {/* Spinner cuando la búsqueda fue disparada por el campo de teléfono */}
+          {buscando && !busquedaQuery && (
             <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
               <span className="inline-block w-3 h-3 border-2 border-sag-500 border-t-transparent rounded-full animate-spin" />
               Buscando cliente...
@@ -164,7 +216,7 @@ export const ClienteSection: React.FC<ClienteSectionProps> = ({ disabled = false
         {matches.length > 0 && !disabled && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-              {matches.length === 1 ? 'Cliente encontrado' : `${matches.length} clientes con este número`}
+              {matches.length === 1 ? 'Cliente encontrado' : `${matches.length} clientes encontrados`}
             </p>
 
             {matches.map((match) => (

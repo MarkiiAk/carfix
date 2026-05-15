@@ -55,7 +55,7 @@ class AuthController {
                 'userId' => $user['id'],
                 'email' => $user['email'],
                 'username' => $user['username'] ?? $user['email'],
-                'role' => $user['rol'], // El campo es 'rol' en la tabla usuarios
+                'rol' => $user['rol'],
                 'iat' => time(),
                 'exp' => time() + (24 * 60 * 60) // 24 horas
             ];
@@ -69,8 +69,8 @@ class AuthController {
                     'id' => $user['id'],
                     'email' => $user['email'],
                     'username' => $user['username'] ?? $user['email'],
-                    'name' => $user['nombre_completo'] ?? $user['username'] ?? $user['email'],
-                    'role' => $user['rol'] // El campo es 'rol' en la tabla usuarios
+                    'nombre' => $user['nombre_completo'] ?? $user['username'] ?? $user['email'],
+                    'rol' => $user['rol']
                 ]
             ];
             

@@ -205,7 +205,11 @@ try {
     */
     
     // Rutas de Clientes
-    // IMPORTANTE: buscar-por-telefono debe ir ANTES del patrón /:id
+    // IMPORTANTE: las rutas literales (buscar, buscar-por-telefono) deben ir ANTES del patrón /:id
+    elseif ($path === 'clientes/buscar' && $request_method === 'GET') {
+        $controller = new ClientesController();
+        $controller->buscar();
+    }
     elseif ($path === 'clientes/buscar-por-telefono' && $request_method === 'GET') {
         $controller = new ClientesController();
         $controller->buscarPorTelefono();
@@ -217,6 +221,10 @@ try {
     elseif (preg_match('#^clientes/([0-9]+)$#', $path, $matches) && $request_method === 'GET') {
         $controller = new ClientesController();
         $controller->perfil($matches[1]);
+    }
+    elseif (preg_match('#^clientes/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $controller = new ClientesController();
+        $controller->update($matches[1]);
     }
 
     // Módulo Financiero / Ingresos

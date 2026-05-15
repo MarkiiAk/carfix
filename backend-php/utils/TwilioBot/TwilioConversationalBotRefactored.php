@@ -578,6 +578,60 @@ class TwilioConversationalBotRefactored
         }
     }
     
+    /**
+     * Los slots guardados vencieron (cliente respondió días después).
+     * Obtiene fechas frescas y reenvía el calendario sin cambiar el estado.
+     */
+    private function reenviarCalendarioActualizado(int $alertaId, array $alerta, string $telefonoLimpio): array
+    {
+        try {
+            $maxSlots    = (int)($this->config->getConfig('slots_maximo_mostrar') ?? 8);
+            $diasMinimo  = (int)($this->config->getConfig('dias_minimo_agenda') ?? 1);
+            $diasFestivos = json_decode($this->config->getConfig('dias_festivos_2026') ?? '[]', true) ?: [];
+            $horarios = $this->alertRepo->getHorariosDisponibles($maxSlots, $diasFestivos, $diasMinimo);
+
+            if (empty($horarios)) {
+                $this->logger->logConversationFlow($alertaId, 'reenviar_calendario', 'sin_horarios');
+                return $this->enviarContactoDirectoFallback($alertaId);
+            }
+
+            // Avisar al cliente que la fecha ya pasó antes de mandar el nuevo calendario
+            $this->messageSender->sendTextMessage(
+                $telefonoLimpio,
+                "Ups, parece que esa fecha ya pasó 😅 No hay problema, aquí te van nuevas opciones disponibles:"
+            );
+
+            $resultado = $this->messageSender->sendTemplateMessage(
+                $telefonoLimpio,
+                $this->config->getConfig('template_agendar_sid'),
+                $this->formatearVariablesHorarios($alerta['cliente_nombre'], $horarios)
+            );
+
+            if ($resultado['success']) {
+                $this->alertRepo->guardarSlotsOfrecidos($alertaId, $horarios);
+                // Actualizar conversation_sid al nuevo mensaje; estado sigue esperando_fecha
+                $this->alertRepo->updateEstadoWhatsApp($alertaId, 'esperando_fecha', $resultado['message_sid']);
+
+                $this->logger->logConversationFlow($alertaId, 'reenviar_calendario', 'completado', [
+                    'slots' => count($horarios)
+                ]);
+
+                return [
+                    'success' => true,
+                    'message_sid' => $resultado['message_sid'],
+                    'accion' => 'calendario_actualizado',
+                    'slots_disponibles' => count($horarios)
+                ];
+            }
+
+            return $this->enviarContactoDirectoFallback($alertaId);
+
+        } catch (Exception $e) {
+            $this->logger->logError("Error en reenviarCalendarioActualizado", $e, ['alerta_id' => $alertaId]);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
     // ============================================================================
     // PASO 3: SELECCIÓN DE HORARIO
     // ============================================================================
@@ -680,6 +734,15 @@ class TwilioConversationalBotRefactored
             if (!$slot) {
                 $this->logger->logConversationFlow($alertaId, 'procesar_seleccion_slot', 'slot_no_encontrado');
                 return $this->enviarContactoDirectoFallback($alertaId);
+            }
+
+            // Si el slot guardado ya venció (cliente respondió días/semanas después),
+            // limpiar el JSON y reenviar el calendario con fechas frescas
+            if (!empty($slot['fecha']) && $slot['fecha'] < date('Y-m-d')) {
+                $this->logger->logConversationFlow($alertaId, 'procesar_seleccion_slot', 'slot_vencido', [
+                    'fecha_slot' => $slot['fecha']
+                ]);
+                return $this->reenviarCalendarioActualizado($alertaId, $alerta, $telefonoLimpio);
             }
 
             $tipoServicio = is_array($alerta['servicios_que_dispararon'])

@@ -248,7 +248,7 @@ export const Dashboard = () => {
                 <tr>
                   <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Folio</th>
                   <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cliente</th>
-                  <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Vehiculo</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Vehiculo</th>
                   <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Placas</th>
                   <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
                   <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fecha</th>
@@ -272,7 +272,7 @@ export const Dashboard = () => {
                       <td className="px-4 sm:px-6 py-4">
                         <span className="text-sm text-gray-900 dark:text-white leading-tight">{clienteNombre}</span>
                       </td>
-                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-900 dark:text-white">{marca} {modelo}</span>
                       </td>
                       <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">

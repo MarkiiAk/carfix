@@ -305,13 +305,15 @@ function buscarAlertaActivaCliente($db, $telefono, $originalRepliedMessageSid = 
         // ESTRATEGIA 2: Fallback por teléfono (método original)
         logWebhook("Buscando alerta por teléfono: {$telefono}");
         
-        $sql = "SELECT 
+        // Comparar los últimos 10 dígitos para tolerar formatos 10-dígitos (5517295626)
+        // vs 13-dígitos con prefijo +521 (5215517295626) que envía Twilio
+        $sql = "SELECT
                     a.*,
                     c.nombre as cliente_nombre,
                     c.telefono as cliente_telefono
                 FROM alertas_servicio a
                 INNER JOIN clientes c ON a.cliente_id = c.id
-                WHERE c.telefono = ?
+                WHERE RIGHT(c.telefono, 10) = RIGHT(?, 10)
                   AND (a.estado_whatsapp IN ('enviado', 'esperando_respuesta', 'esperando_fecha', 'pre_agendado')
                        OR a.estado_whatsapp IS NULL OR a.estado_whatsapp = '')
                 ORDER BY a.ultima_actividad DESC
