@@ -614,7 +614,7 @@ export const Financiero = () => {
     .filter(p => p.activo)
     .reduce((acc, p) => {
       if (p.frecuencia === 'semanal') return acc + p.monto * (tipoPeriodo === 'semana' ? 1 : 4);
-      return acc + p.monto;
+      return acc + (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
     }, 0);
 
   // Handler para descargar el reporte (abre HTML en nueva ventana + print)
@@ -791,7 +791,9 @@ export const Financiero = () => {
                 const costoRefas        = datos?.refacciones.costo ?? 0;
                 const ivaDelPeriodo     = datos?.resumen.total_iva ?? 0;
                 const ingresoNeto       = totalFacturado - costoRefas;
-                const gastosVarsRaw     = Number(gastosAdmin.total_admin ?? 0);
+                const gastosVarsMes     = Number(gastosAdmin.total_admin ?? 0);
+                // En semana: prorratear gastos mensuales entre 4 (son registros mensuales)
+                const gastosVarsRaw     = tipoPeriodo === 'semana' ? gastosVarsMes / 4 : gastosVarsMes;
                 const gastosOrdenesVal  = Number(gastosAdmin.gastos_ordenes_mes ?? 0);
                 const gananciaNetaFinal =
                   ingresoNeto - totalSueldosActivos - totalPagosFijosActivos - gastosVarsRaw - gastosOrdenesVal;
@@ -880,7 +882,12 @@ export const Financiero = () => {
                           )}
                           {gastosVarsRaw > 0 && (
                             <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Gastos variables</span>
+                              <span className="text-sm text-gray-400 dark:text-gray-500">
+                                &minus; Gastos variables
+                                {tipoPeriodo === 'semana' && (
+                                  <span className="text-xs text-gray-400 dark:text-gray-600 ml-1">(1/4 del mes)</span>
+                                )}
+                              </span>
                               <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosVarsRaw)}</span>
                             </div>
                           )}
@@ -890,6 +897,18 @@ export const Financiero = () => {
                               <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosOrdenesVal)}</span>
                             </div>
                           )}
+
+                          {/* Línea final — Ganancia neta */}
+                          <div className="flex items-baseline justify-between border-t-2 border-gray-300 dark:border-gray-600 pt-3 mt-2">
+                            <span className="text-sm font-bold text-gray-800 dark:text-gray-100">Ganancia neta</span>
+                            <span className={`text-lg font-black tabular-nums ${gananciaNetaFinal >= 0 ? 'text-sag-500' : 'text-red-500 dark:text-red-400'}`}>
+                              {formatMoneda(gananciaNetaFinal)}
+                            </span>
+                          </div>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-xs text-gray-400 dark:text-gray-500">Por socio (÷ 2)</span>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 tabular-nums">{formatMoneda(porSocioFinal)}</span>
+                          </div>
 
                           {/* Nota IVA */}
                           {ivaDelPeriodo > 0 && (
