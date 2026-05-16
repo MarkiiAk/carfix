@@ -352,6 +352,7 @@ export const Financiero = () => {
   const [pagoMonto, setPagoMonto]                       = useState('');
   const [pagoMontoOriginal, setPagoMontoOriginal]       = useState('');  // para detectar si cambió
   const [pagoFechaInicioCambio, setPagoFechaInicioCambio] = useState(() => new Date().toISOString().split('T')[0]);
+  const [pagoFechaFinCambio, setPagoFechaFinCambio]       = useState('');
   const [pagoFrecuencia, setPagoFrecuencia]             = useState<PagoFijo['frecuencia']>('mensual');
   const [pagoCategoria, setPagoCategoria]               = useState<PagoFijo['categoria']>('otro');
   const [pagoGuardando, setPagoGuardando]               = useState(false);
@@ -581,6 +582,7 @@ export const Financiero = () => {
       setPagoCategoria('otro');
     }
     setPagoFechaInicioCambio(hoy);
+    setPagoFechaFinCambio(pago?.fecha_fin ?? '');
     setPagoError(null);
     setMostrarFormPago(true);
   };
@@ -609,6 +611,9 @@ export const Financiero = () => {
         };
         if (montoCambio) {
           payload.fecha_inicio_cambio = pagoFechaInicioCambio;
+        }
+        if (pagoFechaFinCambio) {
+          payload.fecha_fin = pagoFechaFinCambio;
         }
         await pagosFijosAPI.actualizar(pagoEditId, payload);
       } else {
@@ -1285,20 +1290,30 @@ export const Financiero = () => {
                         <FontAwesomeIcon icon={faXmark} style={{ width: 14, height: 14 }} />
                       </button>
                     </div>
-                    {pagoEditId !== null && parseFloat(pagoMonto) !== parseFloat(pagoMontoOriginal) && (
-                      <div className="flex items-center gap-2 pt-1 border-t border-rose-100 dark:border-rose-700/30">
-                        <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                          Aplica desde:
-                        </label>
-                        <input
-                          type="date"
-                          value={pagoFechaInicioCambio}
-                          onChange={e => setPagoFechaInicioCambio(e.target.value)}
-                          className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                        />
-                        <p className="text-xs text-gray-400 dark:text-gray-500">
-                          El registro anterior se conserva para el historial.
-                        </p>
+                    {pagoEditId !== null && (
+                      <div className="space-y-1.5 pt-1 border-t border-rose-100 dark:border-rose-700/30">
+                        {parseFloat(pagoMonto) !== parseFloat(pagoMontoOriginal) && (
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 w-24">Aplica desde:</label>
+                            <input
+                              type="date"
+                              value={pagoFechaInicioCambio}
+                              onChange={e => setPagoFechaInicioCambio(e.target.value)}
+                              className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                            />
+                            <p className="text-xs text-gray-400 dark:text-gray-500">El historial anterior se conserva.</p>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 w-24">Termina en:</label>
+                          <input
+                            type="date"
+                            value={pagoFechaFinCambio}
+                            onChange={e => setPagoFechaFinCambio(e.target.value)}
+                            className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                          />
+                          <p className="text-xs text-gray-400 dark:text-gray-500">Dejar vacío si sigue activo.</p>
+                        </div>
                       </div>
                     )}
                   </div>
