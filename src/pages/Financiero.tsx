@@ -76,12 +76,13 @@ interface BarraDistribucionProps {
 
 const BarraDistribucion = ({ totalSueldos, costoRefacciones, totalFijos, gastosVariables, gananciaNeta, totalBase }: BarraDistribucionProps) => {
   if (totalBase <= 0) return null;
-  const pct = (v: number) => `${Math.max(0, (v / totalBase) * 100).toFixed(1)}%`;
+  const widthPct = (v: number) => `${Math.max(0, (v / totalBase) * 100).toFixed(1)}%`;
+  const fmt = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(v);
   const segmentos = [
-    { label: 'Sueldos',       valor: totalSueldos,       color: 'bg-indigo-500',  textColor: 'text-indigo-500' },
-    { label: 'Refacciones',   valor: costoRefacciones,   color: 'bg-amber-500',   textColor: 'text-amber-500' },
-    { label: 'Costos fijos',  valor: totalFijos,         color: 'bg-rose-500',    textColor: 'text-rose-500' },
-    { label: 'Gastos varios', valor: gastosVariables,    color: 'bg-teal-500',    textColor: 'text-teal-500' },
+    { label: 'Sueldos',       valor: totalSueldos,       color: 'bg-indigo-500',  textColor: 'text-indigo-600 dark:text-indigo-400' },
+    { label: 'Refacciones',   valor: costoRefacciones,   color: 'bg-amber-500',   textColor: 'text-amber-600 dark:text-amber-400' },
+    { label: 'Costos fijos',  valor: totalFijos,         color: 'bg-rose-500',    textColor: 'text-rose-600 dark:text-rose-400' },
+    { label: 'Gastos varios', valor: gastosVariables,    color: 'bg-teal-500',    textColor: 'text-teal-600 dark:text-teal-400' },
     {
       label: gananciaNeta >= 0 ? 'Ganancia' : 'Déficit',
       valor: Math.abs(gananciaNeta),
@@ -95,22 +96,25 @@ const BarraDistribucion = ({ totalSueldos, costoRefacciones, totalFijos, gastosV
       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
         ¿A dónde fue cada peso?
       </p>
-      <div className="w-full h-4 rounded-full overflow-hidden flex bg-gray-100 dark:bg-gray-700 mb-3">
+      <div className="w-full h-4 rounded-full overflow-hidden flex bg-gray-100 dark:bg-gray-700 mb-4">
         {segmentos.map(s => (
           <div
             key={s.label}
             className={`h-full ${s.color} transition-all duration-500`}
-            style={{ width: pct(s.valor) }}
-            title={`${s.label}: ${pct(s.valor)}`}
+            style={{ width: widthPct(s.valor) }}
+            title={`${s.label}: ${fmt(s.valor)}`}
           />
         ))}
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
         {segmentos.map(s => (
-          <span key={s.label} className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-            <span className={`w-2.5 h-2.5 rounded-sm ${s.color}`} />
-            {s.label} <span className={`font-medium ${s.textColor}`}>{pct(s.valor)}</span>
-          </span>
+          <div key={s.label} className="flex items-center gap-2">
+            <span className={`w-2.5 h-2.5 rounded-sm flex-shrink-0 ${s.color}`} />
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{s.label}</p>
+              <p className={`text-sm font-semibold tabular-nums ${s.textColor}`}>{fmt(s.valor)}</p>
+            </div>
+          </div>
         ))}
       </div>
     </div>
