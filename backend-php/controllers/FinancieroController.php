@@ -1057,14 +1057,15 @@ class FinancieroController {
             $fechaConsultaInicio = isset($_GET['fecha_inicio']) ? trim($_GET['fecha_inicio']) : date('Y-m-d');
             $fechaConsultaFin    = isset($_GET['fecha_fin'])    ? trim($_GET['fecha_fin'])    : date('Y-m-d');
 
+            // Muestra activos E inactivos vigentes en el período.
+            // El frontend filtra activo=true para los cálculos y muestra inactivos en gris.
             $sql = "
                 SELECT id, usuario_id, nombre, puesto, sueldo_diario,
                        fecha_inicio, fecha_fin, activo
                 FROM empleados_sueldos
-                WHERE activo = 1
-                  AND fecha_inicio <= :fecha_consulta_fin
+                WHERE fecha_inicio <= :fecha_consulta_fin
                   AND (fecha_fin IS NULL OR fecha_fin >= :fecha_consulta_inicio)
-                ORDER BY nombre ASC
+                ORDER BY activo DESC, nombre ASC
             ";
             $stmt = $this->db->prepare($sql);
             $stmt->bindParam(':fecha_consulta_inicio', $fechaConsultaInicio, PDO::PARAM_STR);
@@ -1420,13 +1421,14 @@ class FinancieroController {
             $fechaConsultaInicio = isset($_GET['fecha_inicio']) ? trim($_GET['fecha_inicio']) : date('Y-m-d');
             $fechaConsultaFin    = isset($_GET['fecha_fin'])    ? trim($_GET['fecha_fin'])    : date('Y-m-d');
 
+            // Muestra activos E inactivos vigentes en el período.
+            // El frontend filtra activo=true para los cálculos y muestra inactivos en gris.
             $sql = "
                 SELECT id, concepto, monto, fecha_inicio, fecha_fin, frecuencia, categoria, activo
                 FROM pagos_fijos
-                WHERE activo = 1
-                  AND fecha_inicio <= :fecha_consulta_fin
+                WHERE fecha_inicio <= :fecha_consulta_fin
                   AND (fecha_fin IS NULL OR fecha_fin >= :fecha_consulta_inicio)
-                ORDER BY concepto ASC
+                ORDER BY activo DESC, concepto ASC
             ";
             $stmt = $this->db->prepare($sql);
             $stmt->bindParam(':fecha_consulta_inicio', $fechaConsultaInicio, PDO::PARAM_STR);
