@@ -393,7 +393,8 @@ class FinancieroController {
             $ultimo->modify('last day of this month');
 
             $fechaInicio = $base->format('Y-m-d');
-            $fechaFin    = $ultimo->format('Y-m-d');
+            // Incluir todo el último día del mes (BETWEEN '2026-04-30' excluye entradas con hora > 00:00:00)
+            $fechaFin    = $ultimo->format('Y-m-d') . ' 23:59:59';
             $label       = $this->nombreMes((int) $base->format('n')) . ' ' . $base->format('Y');
         }
 
