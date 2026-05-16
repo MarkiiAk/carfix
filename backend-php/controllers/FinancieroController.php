@@ -429,21 +429,46 @@ class FinancieroController {
     // Queries
     // -----------------------------------------------------------------------
     private function queryResumen(string $fechaInicio, string $fechaFin): array {
+        // UNION igual que ordenesDesglosadas():
+        // - Órdenes en proceso: fecha_ingreso en el período, ingreso = anticipo
+        // - Órdenes cerradas: fecha_entregada en el período, ingreso = total
         $sql = "
             SELECT
-                COALESCE(SUM(o.subtotal_servicios), 0)   AS ingresos_servicios,
-                COALESCE(SUM(o.subtotal_mano_obra), 0)   AS ingresos_mano_obra,
-                COALESCE(SUM(o.subtotal_refacciones), 0) AS ingresos_refacciones,
-                COALESCE(SUM(o.iva), 0)                  AS total_iva,
-                COALESCE(SUM(o.total), 0)                AS total_facturado,
-                COUNT(o.id)                              AS num_ordenes
-            FROM ordenes_servicio o
-            WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
+                COALESCE(SUM(q.total_facturado), 0)      AS total_facturado,
+                COALESCE(SUM(q.ingresos_servicios), 0)   AS ingresos_servicios,
+                COALESCE(SUM(q.ingresos_mano_obra), 0)   AS ingresos_mano_obra,
+                COALESCE(SUM(q.ingresos_refacciones), 0) AS ingresos_refacciones,
+                COALESCE(SUM(q.total_iva), 0)            AS total_iva,
+                COUNT(q.id)                              AS num_ordenes
+            FROM (
+                SELECT id,
+                    COALESCE(anticipo, 0)            AS total_facturado,
+                    0                                AS ingresos_servicios,
+                    0                                AS ingresos_mano_obra,
+                    0                                AS ingresos_refacciones,
+                    0                                AS total_iva
+                FROM ordenes_servicio
+                WHERE fecha_ingreso BETWEEN :fi_a AND :ff_a
+                  AND estado NOT IN ('completado','completada','entregado','entregada','cerrada')
+
+                UNION ALL
+
+                SELECT id,
+                    COALESCE(total, 0)               AS total_facturado,
+                    COALESCE(subtotal_servicios, 0)  AS ingresos_servicios,
+                    COALESCE(subtotal_mano_obra, 0)  AS ingresos_mano_obra,
+                    COALESCE(subtotal_refacciones, 0) AS ingresos_refacciones,
+                    COALESCE(iva, 0)                 AS total_iva
+                FROM ordenes_servicio
+                WHERE COALESCE(fecha_entregada, fecha_completada, fecha_ingreso) BETWEEN :fi_b AND :ff_b
+                  AND estado IN ('completado','completada','entregado','entregada','cerrada')
+            ) q
         ";
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
-        $stmt->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindParam(':fi_a', $fechaInicio, PDO::PARAM_STR);
+        $stmt->bindParam(':ff_a', $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindParam(':fi_b', $fechaInicio, PDO::PARAM_STR);
+        $stmt->bindParam(':ff_b', $fechaFin,    PDO::PARAM_STR);
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -468,12 +493,21 @@ class FinancieroController {
                 COUNT(r.id)                                      AS num_items
             FROM refacciones_orden r
             INNER JOIN ordenes_servicio o ON r.orden_id = o.id
-            WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
+            WHERE (
+                -- Órdenes en proceso: por fecha_ingreso (costo real ya salió)
+                (o.fecha_ingreso BETWEEN :fi_a AND :ff_a
+                 AND o.estado NOT IN ('completado','completada','entregado','entregada','cerrada'))
+                OR
+                -- Órdenes cerradas: por fecha_entregada
+                (COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fi_b AND :ff_b
+                 AND o.estado IN ('completado','completada','entregado','entregada','cerrada'))
+            )
         ";
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
-        $stmt->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindParam(':fi_a', $fechaInicio, PDO::PARAM_STR);
+        $stmt->bindParam(':ff_a', $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindParam(':fi_b', $fechaInicio, PDO::PARAM_STR);
+        $stmt->bindParam(':ff_b', $fechaFin,    PDO::PARAM_STR);
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -498,8 +532,8 @@ class FinancieroController {
                 SUM(s.subtotal)   AS total_generado
             FROM servicios_orden s
             INNER JOIN ordenes_servicio o ON s.orden_id = o.id
-            WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
+            WHERE o.estado IN ('completado','completada','entregado','entregada','cerrada')
+              AND COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
               AND s.tipo != 'mano_obra'
             GROUP BY s.descripcion
             ORDER BY total_generado DESC
@@ -526,9 +560,9 @@ class FinancieroController {
                 DATE(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)) AS dia,
                 COALESCE(SUM(o.total), 0)                                              AS total
             FROM ordenes_servicio o
-            WHERE o.estado IN ('cerrada', 'entregada', 'completada')
-              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
-            GROUP BY DATE(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso))
+            WHERE o.estado IN ('completado','completada','entregado','entregada','cerrada')
+              AND COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
+            GROUP BY DATE(COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso))
             ORDER BY dia ASC
         ";
         $stmt = $this->db->prepare($sql);
@@ -555,9 +589,9 @@ class FinancieroController {
                 SUM(o.total)           AS total_gastado
             FROM ordenes_servicio o
             INNER JOIN clientes c ON c.id = o.cliente_id
-            WHERE o.estado IN ('cerrada', 'entregada', 'completada')
+            WHERE o.estado IN ('completado','completada','entregado','entregada','cerrada')
               AND c.activo = 1
-              AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
+              AND COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
             GROUP BY c.id
             ORDER BY total_gastado DESC
             LIMIT 5
