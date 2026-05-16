@@ -39,10 +39,11 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
       return acc + (p.frecuencia === 'semanal' ? p.monto : tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
     }, 0);
 
-  const totalVariables = (gastos?.gastos ?? []).reduce((acc, g) => acc + g.monto, 0);
+  const totalVariablesMes = (gastos?.gastos ?? []).reduce((acc, g) => acc + g.monto, 0);
+  // Mismo criterio que la pantalla: prorratear entre 4 en vista semanal
+  const totalVariables = tipoPeriodo === 'semana' ? totalVariablesMes / 4 : totalVariablesMes;
   const totalGastos = totalSueldos + totalFijos + totalVariables;
   const gananciaNeta = ingresoNeto - totalSueldos - totalFijos - totalVariables;
-  const porSocio = gananciaNeta / 2;
   const ivaCobrado = resumen?.resumen?.total_iva ?? 0;
 
   // Porcentajes para barra de distribución (base = ingresosBrutos)
@@ -367,7 +368,6 @@ tr.fila-total td.lime { color: var(--lime); text-align: right; }
       <div class="kpi-valor" style="color:${gananciaNeta >= 0 ? '#CBF518' : 'var(--negativo)'}">
         ${fmt(gananciaNeta)}
       </div>
-      <div class="kpi-sub">${fmt(porSocio)} por socio</div>
     </div>
   </div>
 
