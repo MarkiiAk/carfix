@@ -36,7 +36,9 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   const totalFijos = pagosFijos
     .filter(p => p.activo)
     .reduce((acc, p) => {
-      return acc + (p.frecuencia === 'semanal' ? p.monto : tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
+      // Igual que pantalla: semanal×4 en mes, mensual/4 en semana
+      if (p.frecuencia === 'semanal') return acc + p.monto * (tipoPeriodo === 'semana' ? 1 : 4);
+      return acc + (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
     }, 0);
 
   const totalVariablesMes = (gastos?.gastos ?? []).reduce((acc, g) => acc + g.monto, 0);
@@ -158,7 +160,9 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   const filasFixos = fijosActivos.length === 0
     ? '<p style="font-size:12px;color:#8a9e90">Sin pagos fijos registrados.</p>'
     : fijosActivos.map(p => {
-        const montoPeriodo = p.frecuencia === 'semanal' ? p.monto : tipoPeriodo === 'semana' ? p.monto / 4 : p.monto;
+        const montoPeriodo = p.frecuencia === 'semanal'
+          ? p.monto * (tipoPeriodo === 'semana' ? 1 : 4)
+          : (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
         return `
           <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e3e8e0;font-size:12px">
             <span style="color:#111a13">${escapeHtml(p.concepto)}</span>
