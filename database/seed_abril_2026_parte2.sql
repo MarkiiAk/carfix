@@ -1,18 +1,80 @@
 -- =============================================================================
--- SEED ABRIL 2026 — PARTE 2: Vehículos + Órdenes
--- Corre este script DESPUÉS de haber corrido la parte 1 exitosamente
--- Lee los IDs de clientes directamente por RFC (robusto, no asume consecutivos)
+-- SEED ABRIL 2026 — AUTÓNOMO: Clientes + Vehículos + Órdenes
+-- Corre DESPUÉS de limpiar_abril_2026.sql
+-- Se auto-contiene: inserta clientes, lee IDs por RFC, inserta vehiculos y ordenes
 -- =============================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
 
--- Limpiar vehículos y órdenes por si quedaron a medias
+-- Limpiar residuos por si quedaron a medias
 DELETE FROM refacciones_orden WHERE orden_id IN (SELECT id FROM ordenes_servicio WHERE numero_orden LIKE 'ABRIL-%');
 DELETE FROM servicios_orden   WHERE orden_id IN (SELECT id FROM ordenes_servicio WHERE numero_orden LIKE 'ABRIL-%');
 DELETE FROM ordenes_servicio  WHERE numero_orden LIKE 'ABRIL-%';
 DELETE FROM vehiculos         WHERE numero_serie LIKE 'ABRIL-%';
+DELETE FROM clientes          WHERE rfc LIKE 'ABR%';
+
+-- Sueldos y pagos fijos (también autónomo)
+DELETE FROM empleados_sueldos WHERE nombre IN ('Mayte Macías','Carlos Castillo','Markus Fabela','Roberto Zamora','Karla Betzbae','Jorge Marín');
+DELETE FROM pagos_fijos       WHERE concepto IN ('Renta + Agua','Internet Telmex','Publicación Facebook','Préstamo Taller','Pago iPhone Taller','AkLabs - Marco');
+
+INSERT INTO empleados_sueldos (usuario_id, nombre, puesto, sueldo_diario, activo, fecha_inicio) VALUES
+  (NULL,'Mayte Macías','Administrativa',780.00,1,'2026-01-01'),
+  (NULL,'Carlos Castillo','Mecánico Senior',800.00,1,'2026-01-01'),
+  (NULL,'Markus Fabela','Mecánico',500.00,1,'2026-01-01'),
+  (NULL,'Roberto Zamora','Mecánico Junior',400.00,1,'2026-01-01'),
+  (NULL,'Karla Betzbae','Marketing',200.00,1,'2026-01-01'),
+  (NULL,'Jorge Marín','Contador',100.00,1,'2026-01-01');
+
+INSERT INTO pagos_fijos (concepto, monto, frecuencia, categoria, activo, fecha_inicio) VALUES
+  ('Renta + Agua',4575.00,'semanal','renta',1,'2026-01-01'),
+  ('Préstamo Taller',1650.00,'semanal','otro',1,'2026-01-01'),
+  ('Pago iPhone Taller',1000.00,'semanal','servicio',1,'2026-01-01'),
+  ('Internet Telmex',135.00,'mensual','servicio',1,'2026-01-01'),
+  ('AkLabs - Marco',1000.00,'semanal','servicio',1,'2026-05-01');
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================
+-- CLIENTES ABRIL 2026 (inserta aquí para que los IDs existan)
+-- ============================================================
+INSERT INTO clientes (nombre, telefono, rfc, notas, activo) VALUES
+  ('Edwin Rubio','+5215581110001','ABRER1','Mazda CX5 2019 — afinación ATF',1),
+  ('Dorian Rico','+5215581110002','ABRDR2','Varios vehículos',1),
+  ('Fernando Díaz','+5215581110003','ABRFD3','Kia Sorrento 2016 + Chrysler C200',1),
+  ('Nico Urrieta','+5215581110004','ABRNU4','Transit 2024 + Sunray Cargo',1),
+  ('Manuel Rivera','+5215581110005','ABRMR5','Focus 2013 — marcha',1),
+  ('Carlos Ángeles Q.','+5215581110006','ABRCAQ','Jeep Compass 2010 — alternador',1),
+  ('Miguel Pérez','+5215581110007','ABRMP7','NP300 2014 — afinación + clutch',1),
+  ('Juan Armenta','+5215581110008','ABRJA8','Minicooper — bobinas + inyectores',1),
+  ('Luis Fernando','+5215581110009','ABRLF9','Beatle Negro — cuerpo aceleración',1),
+  ('Espejos Doctores','+5215581110010','ABRSD0','Concha espejo',1),
+  ('Adrián Ríos','+5215581110011','ABRARI','Vento 2018 — servicio + verificación',1),
+  ('Raúl Barrios','+5215581110012','ABRRB2','HRV 2018 — verificación',1),
+  ('Dulce María Anguiano','+5215581110013','ABRDMA','Mercedes Blanco — $20k bomba',1),
+  ('Elsa Kia','+5215581110014','ABREKA','Kia Sportage — servicio domicilio',1),
+  ('Bety Calderón','+5215581110015','ABRBCG','Gol 2010 — batería',1),
+  ('Dulce Razo','+5215581110016','ABRDRZ','Tida 2011 — clutch',1),
+  ('Antonio Vargas','+5215581110017','ABRAVR','Ertiga 2022 — soportes',1),
+  ('Maestra Rocío','+5215581110018','ABRMRC','Captiva — servicio menor',1),
+  ('Vecino Tlapalería','+5215581110019','ABRVTL','Pointer — sensor',1),
+  ('Horte Calderón','+5215581110020','ABRHCS','Spark 2017 — motor rectificado',1),
+  ('Eduardo Jetta','+5215581110021','ABREJT','Jetta 2016 — servicio',1),
+  ('Ilse Flores','+5215581110022','ABRIFS','Fusion Negro — aceite',1),
+  ('Diana García','+5215581110023','ABRDGM','Mazda CX5 2018 — servicio + frenos',1),
+  ('Dali CRV','+5215581110024','ABRDCR','CRV — bases amortiguadores',1),
+  ('Leslie Miranda','+5215581110025','ABRLMI','Mazda 2 — servicio',1),
+  ('Sr Tlapalería','+5215581110026','ABRSTL','Pointer — bujías + inyectores',1),
+  ('Cesar Cruz','+5215581110027','ABRCCM','Mazda CX5 2016 — servicio + soporte',1),
+  ('Dante Beristain','+5215581110028','ABRDBM','March 2019 — acumulador',1),
+  ('Uma Anguiano','+5215581110029','ABRUAM','Mercedes Negro — soporte',1),
+  ('Dorian Minicooper','+5215581110030','ABRDMC','Minicooper — frenos traseros',1),
+  ('José Eduardo Pérez','+5215581110031','ABRJEP','Ibiza 2013 — dirección',1),
+  ('Jorge Villafaña','+5215581110032','ABRJVB','Bocanegra 2013 — servicio',1),
+  ('Antonio Paniagua','+5215581110033','ABRAPA','Audi — termostato',1),
+  ('Tío Fernando','+5215581110034','ABRTFA','Ford Azul — verificación',1),
+  ('Erick Minicooper','+5215581110035','ABREMB','Minicooper 2016 — soportes',1),
+  ('Diana Polo 2015','+5215581110036','ABRDPL','Polo 2015 — servicio + frenos',1),
+  ('Fernando Díaz Chrysler','+5215581110037','ABRFDC','Chrysler C200 2015',1);
 
 SET @admin_id = (SELECT id FROM usuarios WHERE rol = 'admin' LIMIT 1);
 SET @admin_id = COALESCE(@admin_id, (SELECT id FROM usuarios LIMIT 1));
