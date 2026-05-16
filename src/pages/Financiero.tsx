@@ -1138,6 +1138,7 @@ export const Financiero = () => {
                           <th className="pb-2 pr-4 font-medium">Puesto</th>
                           <th className="pb-2 pr-4 font-medium text-right">Sueldo/día</th>
                           <th className="pb-2 pr-4 font-medium text-right">Est. período</th>
+                          <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Vigente desde</th>
                           <th className="pb-2 font-medium w-16 text-center">Activo</th>
                           <th className="pb-2 w-8"></th>
                         </tr>
@@ -1152,6 +1153,14 @@ export const Financiero = () => {
                             </td>
                             <td className="py-2 pr-4 text-right tabular-nums text-gray-600 dark:text-gray-400">
                               {formatMoneda(e.sueldo_diario * (tipoPeriodo === 'semana' ? 5 : 22))}
+                            </td>
+                            <td className="py-2 pr-4 hidden sm:table-cell">
+                              <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                                {e.fecha_inicio ? new Date(e.fecha_inicio + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                              </span>
+                              {e.fecha_fin && (
+                                <span className="text-xs text-orange-500 dark:text-orange-400 block">hasta {new Date(e.fecha_fin + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
+                              )}
                             </td>
                             <td className="py-2 text-center">
                               <button
@@ -1307,6 +1316,7 @@ export const Financiero = () => {
                           <th className="pb-2 pr-4 font-medium">Categoría</th>
                           <th className="pb-2 pr-4 font-medium">Frecuencia</th>
                           <th className="pb-2 pr-4 font-medium text-right">Monto</th>
+                          <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Vigente desde</th>
                           <th className="pb-2 font-medium w-16 text-center">Activo</th>
                           <th className="pb-2 w-8"></th>
                         </tr>
@@ -1325,6 +1335,14 @@ export const Financiero = () => {
                             </td>
                             <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
                               {formatMoneda(p.monto)}
+                            </td>
+                            <td className="py-2 pr-4 hidden sm:table-cell">
+                              <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                                {p.fecha_inicio ? new Date(p.fecha_inicio + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                              </span>
+                              {p.fecha_fin && (
+                                <span className="text-xs text-orange-500 dark:text-orange-400 block">hasta {new Date(p.fecha_fin + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
+                              )}
                             </td>
                             <td className="py-2 text-center">
                               <button
