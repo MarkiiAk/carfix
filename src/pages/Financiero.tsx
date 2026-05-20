@@ -79,10 +79,10 @@ const BarraDistribucion = ({ totalSueldos, costoRefacciones, totalFijos, gastosV
   const widthPct = (v: number) => `${Math.max(0, (v / totalBase) * 100).toFixed(1)}%`;
   const fmt = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(v);
   const segmentos = [
-    { label: 'Sueldos',       valor: totalSueldos,       color: 'bg-indigo-500',  textColor: 'text-indigo-600 dark:text-indigo-400' },
+    { label: 'Sueldos',       valor: totalSueldos,       color: 'bg-sag-500',  textColor: 'text-sag-600 dark:text-sag-400' },
     { label: 'Refacciones',   valor: costoRefacciones,   color: 'bg-amber-500',   textColor: 'text-amber-600 dark:text-amber-400' },
     { label: 'Costos fijos',  valor: totalFijos,         color: 'bg-rose-500',    textColor: 'text-rose-600 dark:text-rose-400' },
-    { label: 'Gastos varios', valor: gastosVariables,    color: 'bg-teal-500',    textColor: 'text-teal-600 dark:text-teal-400' },
+    { label: 'Gastos varios', valor: gastosVariables,    color: 'bg-gray-500',    textColor: 'text-gray-500 dark:text-gray-400' },
     {
       label: gananciaNeta >= 0 ? 'Ganancia' : 'Déficit',
       valor: Math.abs(gananciaNeta),
@@ -1061,7 +1061,7 @@ export const Financiero = () => {
                 <div className="flex justify-end">
                   <button
                     onClick={() => abrirFormEmp()}
-                    className="flex items-center gap-1.5 text-sm font-medium bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg px-3 py-1.5 transition-colors"
+                    className="flex items-center gap-1.5 text-sm font-medium bg-sag-600 hover:bg-sag-700 text-white rounded-lg px-3 py-1.5 transition-colors"
                   >
                     <FontAwesomeIcon icon={faPlus} style={{ width: 12, height: 12 }} />
                     Agregar
@@ -1103,7 +1103,7 @@ export const Financiero = () => {
                       <button
                         onClick={guardarEmpleado}
                         disabled={empGuardando}
-                        className="flex items-center gap-1 text-sm font-medium bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white rounded-lg px-3 py-2 transition-colors"
+                        className="flex items-center gap-1 text-sm font-medium bg-sag-600 hover:bg-sag-700 disabled:bg-indigo-300 text-white rounded-lg px-3 py-2 transition-colors"
                       >
                         {empGuardando ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} /> : <FontAwesomeIcon icon={faCheck} style={{ width: 14, height: 14 }} />}
                         {empEditId !== null && parseFloat(empSueldo) !== parseFloat(empSueldoOriginal) ? 'Guardar cambio' : 'Guardar'}
@@ -1174,7 +1174,7 @@ export const Financiero = () => {
                             <td className="py-2 text-center">
                               <button
                                 onClick={() => toggleEmpleado(e.id)}
-                                className={`w-10 h-5 rounded-full transition-colors ${e.activo ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                className={`w-10 h-5 rounded-full transition-colors ${e.activo ? 'bg-sag-500' : 'bg-gray-300 dark:bg-gray-600'}`}
                               >
                                 <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${e.activo ? 'translate-x-5' : 'translate-x-0'}`} />
                               </button>
@@ -1480,7 +1480,7 @@ export const Financiero = () => {
                                     {m.tipo}
                                   </span>
                                   {m.tipo === 'egreso' && m.gasto_admin_id !== null && (
-                                    <span className="text-[10px] text-teal-600 dark:text-teal-400 ml-1">→ P&L</span>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-1">→ P&L</span>
                                   )}
                                 </td>
                                 <td className="py-2 pr-3">{m.concepto}</td>
@@ -1504,7 +1504,7 @@ export const Financiero = () => {
                   <select
                     value={cajaTipo}
                     onChange={e => setCajaTipo(e.target.value as 'ingreso' | 'egreso')}
-                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-sag-400"
                   >
                     <option value="egreso">Egreso (salida)</option>
                     <option value="ingreso">Ingreso (entrada)</option>
@@ -1513,14 +1513,14 @@ export const Financiero = () => {
                     type="date"
                     value={cajaFecha}
                     onChange={e => setCajaFecha(e.target.value)}
-                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-sag-400"
                   />
                   <input
                     type="text"
                     placeholder="Concepto (ej: gasolina, propina Autozone)"
                     value={cajaConcepto}
                     onChange={e => setCajaConcepto(e.target.value)}
-                    className="flex-1 min-w-40 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400"
+                    className="flex-1 min-w-40 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sag-400"
                   />
                   <input
                     type="number"
@@ -1529,11 +1529,11 @@ export const Financiero = () => {
                     onChange={e => setCajaMonto(e.target.value)}
                     min="0"
                     step="1"
-                    className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400"
+                    className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sag-400"
                   />
                   <button
                     onClick={handleAgregarCaja}
-                    className="flex items-center gap-1 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 transition-colors"
+                    className="flex items-center gap-1 text-sm font-medium bg-sag-600 hover:bg-sag-700 text-white rounded-lg px-4 py-2 transition-colors"
                   >
                     <FontAwesomeIcon icon={faPlus} style={{ width: 12, height: 12 }} />
                     Agregar

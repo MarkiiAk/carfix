@@ -61,7 +61,7 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
   const DesktopSidebar = () => (
     <aside
       className="hidden md:flex flex-col w-[220px] min-h-screen bg-gray-900 border-r border-gray-800 fixed top-0 left-0 z-30"
-      style={{ backgroundColor: 'var(--sidebar-bg, #161b27)' }}
+      style={{ backgroundColor: 'var(--sidebar-bg, #1a1a1a)' }}
     >
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-5 border-b border-gray-800">
@@ -127,7 +127,7 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
   // --- Mobile Bottom Nav ---
   const MobileNav = () => (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-gray-800 flex justify-around items-center h-16"
-      style={{ backgroundColor: '#161b27' }}>
+      style={{ backgroundColor: 'var(--sidebar-bg, #1a1a1a)' }}>
       <button
         onClick={() => navigate('/dashboard')}
         className={`flex flex-col items-center gap-0.5 px-4 py-2 transition-colors ${isActive('/dashboard') ? 'text-sag-500' : 'text-gray-500'}`}
