@@ -87,7 +87,7 @@ export const Dashboard = () => {
   const getEstadoBadge = (estado: string) => {
     const normalizedEstado = (estado === 'pendiente' ? 'abierta' : estado) as 'abierta' | 'cerrada';
     const badges = {
-      abierta: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      abierta: 'bg-sag-100 text-sag-800 dark:bg-sag-900/30 dark:text-sag-400',
       cerrada: 'bg-sag-100 text-sag-800 dark:bg-sag-900/30 dark:text-sag-400',
     };
     const labels = {

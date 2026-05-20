@@ -13,10 +13,12 @@ html.dark[data-theme="demo"] .dark\:bg-gray-700           { background-color: #3
 html.dark[data-theme="demo"] .dark\:border-gray-800       { border-color: #2a2a2a !important; }
 html.dark[data-theme="demo"] .dark\:border-gray-700       { border-color: #383838 !important; }
 
-/* Gradientes del Login — Tailwind usa CSS vars internas para from/via/to */
+/* Gradientes — Tailwind usa CSS vars internas para from/via/to */
 html.dark[data-theme="demo"] .dark\:from-gray-900 { --tw-gradient-from: #1a1a1a var(--tw-gradient-from-position); }
+html.dark[data-theme="demo"] .dark\:from-gray-800 { --tw-gradient-from: #242424 var(--tw-gradient-from-position); }
 html.dark[data-theme="demo"] .dark\:via-gray-800  { --tw-gradient-stops: var(--tw-gradient-from), #242424 var(--tw-gradient-via-position), var(--tw-gradient-to); }
 html.dark[data-theme="demo"] .dark\:to-gray-900   { --tw-gradient-to: #1a1a1a var(--tw-gradient-to-position); }
+html.dark[data-theme="demo"] .dark\:to-gray-800   { --tw-gradient-to: #242424 var(--tw-gradient-to-position); }
 
 /* ── SAG Brand color tokens ───────────────────────────────────── */
 /* Default: verde lima del logo. Override con [data-theme="demo"] */

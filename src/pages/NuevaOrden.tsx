@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSun, faMoon, faFileLines, faDownload, faFloppyDisk, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import { pdf } from '@react-pdf/renderer';
+import { faSun, faMoon, faFileLines, faPrint, faFloppyDisk, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate } from 'react-router-dom';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { ordenesAPI } from '../services/api';
 import { GarageLoader } from '../components/ui/GarageLoader';
 import { useToastContext } from '../contexts/ToastContext';
 import { handleAPIError } from '../utils/errorHandler';
+import { generarOrdenHTML } from '../utils/generarOrdenHTML';
 import {
   ClienteSection,
   VehiculoSection,
@@ -21,7 +21,6 @@ import {
   PuntosSeguridadSection,
 } from '../components/sections';
 import { Button } from '../components/ui';
-import { PDFDocument } from '../components/PDFDocument';
 
 export const NuevaOrden = () => {
   const navigate = useNavigate();
@@ -48,31 +47,19 @@ export const NuevaOrden = () => {
     usePresupuestoStore.getState().calcularResumen();
   }, []);
 
-  const handleGeneratePDF = async () => {
-    try {
-      const blob = await pdf(<PDFDocument presupuesto={presupuesto} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const nombreCliente = presupuesto.cliente.nombreCompleto.replace(/\s+/g, '_').toUpperCase();
-      const modelo = presupuesto.vehiculo.modelo.replace(/\s+/g, '_').toUpperCase();
-      link.download = `SAG_Garage_${presupuesto.folio}_${modelo}_${nombreCliente}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      showSuccess(
-        'PDF Generado',
-        'El archivo PDF se ha descargado correctamente'
-      );
-    } catch (error) {
-      console.error('Error al generar PDF:', error);
-      showError(
-        'Error al generar PDF',
-        'No se pudo generar el archivo PDF. Intenta de nuevo.'
-      );
+  const handlePrint = () => {
+    const logoUrl = `${window.location.origin}${import.meta.env.BASE_URL}logo.png`;
+    const html = generarOrdenHTML(presupuesto, logoUrl);
+    const ventana = window.open('', '_blank', 'width=900,height=700');
+    if (!ventana) {
+      showError('Ventana bloqueada', 'El navegador bloqueó la ventana emergente. Permite popups para este sitio.');
+      return;
     }
+    ventana.document.write(html);
+    ventana.document.close();
+    ventana.onload = () => {
+      setTimeout(() => ventana.print(), 500);
+    };
   };
 
   // Función para validar campos requeridos del cliente
@@ -254,14 +241,14 @@ export const NuevaOrden = () => {
                 Guardar Orden
               </Button>
 
-              {/* Generar PDF */}
+              {/* Imprimir / PDF */}
               <Button
                 variant="success"
-                onClick={handleGeneratePDF}
-                icon={<FontAwesomeIcon icon={faDownload} style={{ width: 20, height: 20 }} />}
+                onClick={handlePrint}
+                icon={<FontAwesomeIcon icon={faPrint} style={{ width: 20, height: 20 }} />}
                 className="hidden md:flex"
               >
-                Generar PDF
+                Imprimir / PDF
               </Button>
             </div>
           </div>
@@ -279,11 +266,11 @@ export const NuevaOrden = () => {
             </Button>
             <Button
               variant="success"
-              onClick={handleGeneratePDF}
-              icon={<FontAwesomeIcon icon={faDownload} style={{ width: 18, height: 18 }} />}
+              onClick={handlePrint}
+              icon={<FontAwesomeIcon icon={faPrint} style={{ width: 18, height: 18 }} />}
               className="flex-1 !text-sm"
             >
-              PDF
+              Imprimir
             </Button>
           </div>
         </div>

@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSun, faMoon, faFileLines, faDownload, faFloppyDisk, faArrowLeft, faXmark } from '@fortawesome/free-solid-svg-icons';
-import { pdf } from '@react-pdf/renderer';
+import { faSun, faMoon, faFileLines, faPrint, faFloppyDisk, faArrowLeft, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { ordenesAPI } from '../services/api';
 import { GarageLoader } from '../components/ui/GarageLoader';
-import { mergePDFWithGarantia } from '../utils/pdfMerger';
+import { generarOrdenHTML } from '../utils/generarOrdenHTML';
 import {
   ClienteSection,
   VehiculoSection,
@@ -21,7 +20,6 @@ import {
 } from '../components/sections';
 import { GastosInternosOrden } from '../components/sections/GastosInternosOrden';
 import { Button } from '../components/ui';
-import { PDFDocument } from '../components/PDFDocument';
 import { useAuth } from '../contexts/AuthContext';
 import type { Orden } from '../types';
 
@@ -81,28 +79,19 @@ export const DetalleOrden = () => {
     cargarOrden();
   }, [id, navigate, loadFromOrden]);
 
-  const handleGeneratePDF = async () => {
-    try {
-      // Generar el PDF del presupuesto
-      const presupuestoBlob = await pdf(<PDFDocument presupuesto={presupuesto} />).toBlob();
-      
-      // Fusionar con el PDF de garantía
-      const mergedBlob = await mergePDFWithGarantia(presupuestoBlob);
-      
-      // Descargar el PDF fusionado
-      const url = URL.createObjectURL(mergedBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      const nombreCliente = presupuesto.cliente.nombreCompleto.replace(/\s+/g, '_').toUpperCase();
-      const modelo = presupuesto.vehiculo.modelo.replace(/\s+/g, '_').toUpperCase();
-      link.download = `SAG_Garage_${presupuesto.folio}_${modelo}_${nombreCliente}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      alert('Hubo un error al generar el PDF. Por favor intenta de nuevo.');
+  const handlePrint = () => {
+    const logoUrl = `${window.location.origin}${import.meta.env.BASE_URL}logo.png`;
+    const html = generarOrdenHTML(presupuesto, logoUrl);
+    const ventana = window.open('', '_blank', 'width=900,height=700');
+    if (!ventana) {
+      alert('El navegador bloqueó la ventana emergente. Permite popups para este sitio.');
+      return;
     }
+    ventana.document.write(html);
+    ventana.document.close();
+    ventana.onload = () => {
+      setTimeout(() => ventana.print(), 500);
+    };
   };
 
   const handleSaveChanges = async () => {
@@ -261,14 +250,14 @@ export const DetalleOrden = () => {
                 </Button>
               )}
 
-              {/* Generar PDF */}
+              {/* Imprimir / PDF */}
               <Button
                 variant="success"
-                onClick={handleGeneratePDF}
-                icon={<FontAwesomeIcon icon={faDownload} style={{ width: 20, height: 20 }} />}
+                onClick={handlePrint}
+                icon={<FontAwesomeIcon icon={faPrint} style={{ width: 20, height: 20 }} />}
                 className="hidden md:flex"
               >
-                Generar PDF
+                Imprimir / PDF
               </Button>
             </div>
           </div>
@@ -299,11 +288,11 @@ export const DetalleOrden = () => {
             )}
             <Button
               variant="success"
-              onClick={handleGeneratePDF}
-              icon={<FontAwesomeIcon icon={faDownload} style={{ width: 18, height: 18 }} />}
+              onClick={handlePrint}
+              icon={<FontAwesomeIcon icon={faPrint} style={{ width: 18, height: 18 }} />}
               className="flex-1 !text-sm"
             >
-              PDF
+              Imprimir
             </Button>
           </div>
         </div>
