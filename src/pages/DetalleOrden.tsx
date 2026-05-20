@@ -215,14 +215,6 @@ export const DetalleOrden = () => {
 
             {/* Acciones */}
             <div className="flex items-center gap-3">
-              {/* Toggle tema */}
-              <Button
-                variant="secondary"
-                onClick={toggleTheme}
-                icon={themeMode === 'light' ? <FontAwesomeIcon icon={faMoon} style={{ width: 20, height: 20 }} /> : <FontAwesomeIcon icon={faSun} style={{ width: 20, height: 20 }} />}
-                className="!p-3"
-                title={`Cambiar a modo ${themeMode === 'light' ? 'oscuro' : 'claro'}`}
-              />
 
               {/* Guardar Cambios - Solo si está abierta */}
               {estadoNormalizado === 'abierta' && (
