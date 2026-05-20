@@ -212,7 +212,7 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reporte SAG Garage &mdash; ${escapeHtml(labelPeriodo)}</title>
+<title>Reporte Servicio Gudiño &mdash; ${escapeHtml(labelPeriodo)}</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -492,7 +492,7 @@ tr.fila-total td.lime { color: var(--lime); text-align: right; }
 
   <!-- PIE -->
   <div class="footer">
-    SAG Garage &times; AkLabs &nbsp;&middot;&nbsp; Reporte confidencial &nbsp;&middot;&nbsp; saggarage.com.mx
+    Servicio Gudiño × AkLabs &nbsp;&middot;&nbsp; Reporte confidencial &nbsp;&middot;&nbsp; serviciogudino.com.mx
   </div>
 
 </div><!-- /page -->
@@ -507,7 +507,7 @@ tr.fila-total td.lime { color: var(--lime); text-align: right; }
   if (!win) return;
   win.document.write(htmlCompleto);
   win.document.close();
-  win.document.title = `Reporte SAG Garage — ${params.labelPeriodo}`;
+  win.document.title = `Reporte Servicio Gudiño — ${params.labelPeriodo}`;
   setTimeout(() => win.print(), 500);
 }
 

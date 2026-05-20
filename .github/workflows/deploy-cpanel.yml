@@ -1,229 +1,126 @@
-name: Deploy to cPanel
+name: Deploy to Servicio Gudiño
 
-# Se ejecuta automáticamente cuando haces push a la rama main
 on:
   push:
     branches:
       - main
-  # También puedes ejecutarlo manualmente desde GitHub
   workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-      # 1. Descargar el código del repositorio
-      - name: 📥 Checkout código
+      - name: Checkout código
         uses: actions/checkout@v4
 
-      # 2. Configurar Node.js
-      - name: ⚙️ Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
 
-      # 3. Instalar dependencias
-      - name: 📦 Instalar dependencias
+      - name: Instalar dependencias
         run: npm ci
 
-      # 4. Compilar el proyecto React (crear carpeta dist/ con subfolder gestion/)
-      - name: 🏗️ Build proyecto React
+      - name: Build React (base /gestion/ → serviciogudino.com.mx)
         run: npm run build
         env:
           NODE_ENV: production
+          VITE_BASE_PATH: /gestion/
+          VITE_API_URL: https://serviciogudino.com.mx/gestion/backend-php
+          VITE_APP_NAME: Servicio Gudiño
+          VITE_THEME: demo
+          VITE_LOGO_PATH: logo.png
 
-      # 5. Verificar que el build se creó correctamente
-      - name: ✅ Verificar build
+      - name: Verificar build
         run: |
           if [ ! -d "dist" ]; then
-            echo "❌ Error: La carpeta dist no se generó"
+            echo "Error: dist no generado"
             exit 1
           fi
-          echo "✅ Build generado correctamente"
+          echo "Build OK"
           ls -la dist/
 
-      # 6. Preparar estructura de deploy con sitio público
-      - name: 📦 Preparar estructura de deploy
-        run: |
-          echo "📁 Creando estructura de deploy..."
-          mkdir -p deploy-temp
-          
-          # Copiar TODO el sitio público (index.html + carpetas css, js, img + logos) a la raíz
-          echo "📄 Copiando sitio público completo..."
-          cp public-site/index.html deploy-temp/
-          cp public-site/logo.jpg deploy-temp/
-          cp public-site/logo.png deploy-temp/
-          cp -r public-site/css deploy-temp/
-          cp -r public-site/js deploy-temp/
-          cp -r public-site/img deploy-temp/
-          
-          # Copiar .htaccess de la raíz
-          echo "⚙️ Copiando .htaccess raíz..."
-          cp .htaccess deploy-temp/
-          
-          # Copiar la aplicación React a la carpeta gestion/
-          echo "⚛️  Copiando aplicación React..."
-          cp -r dist deploy-temp/gestion
-          
-          echo "✅ Estructura preparada:"
-          ls -la deploy-temp/
-          echo ""
-          echo "📂 Carpetas CSS, JS e IMG:"
-          ls -la deploy-temp/css/
-          ls -la deploy-temp/js/
-          ls -la deploy-temp/img/
-          echo ""
-          echo "📂 Contenido de gestion/:"
-          ls -la deploy-temp/gestion/
-
-      # 7. Subir sitio público (index.html + logo) a raíz de cPanel
-      - name: 🚀 Deploy sitio público a raíz
+      - name: Deploy React → /gestion/
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT || 21 }}
-          
-          # Subir solo el sitio público a la raíz
-          local-dir: deploy-temp/
-          server-dir: ./
-          
-          # NO usar dangerous-clean-slate aquí porque solo queremos actualizar archivos específicos
-          dangerous-clean-slate: false
-          
-          exclude: |
-            **/gestion/**
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            **/.vscode/**
-            **/.DS_Store
-          
-          security: strict
-          timeout: 600000
-
-      # 8. Subir aplicación React a carpeta /gestion/
-      - name: 🚀 Deploy aplicación React a /gestion/
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT || 21 }}
-          
-          # Subir contenido de gestion/ a la carpeta remota /gestion/
-          local-dir: deploy-temp/gestion/
+          server: ${{ secrets.FTP_SERVER_SG }}
+          username: ${{ secrets.FTP_USERNAME_SG }}
+          password: ${{ secrets.FTP_PASSWORD_SG }}
+          port: 21
+          local-dir: dist/
           server-dir: ./gestion/
-          
-          # NO limpiar para preservar archivos existentes (backend-php, .htaccess)
           dangerous-clean-slate: false
-          
           exclude: |
             **/.git*
             **/.git*/**
             **/node_modules/**
-            **/.vscode/**
             **/.DS_Store
             **/backend-php/**
-          
-          security: strict
+          security: loose
           timeout: 600000
 
-      # 9. Subir Backend PHP a /gestion/backend-php/
-      - name: 🐘 Deploy Backend PHP a /gestion/backend-php/
+      - name: Deploy Backend PHP → /gestion/backend-php/
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT || 21 }}
-          
-          # Subir backend PHP
+          server: ${{ secrets.FTP_SERVER_SG }}
+          username: ${{ secrets.FTP_USERNAME_SG }}
+          password: ${{ secrets.FTP_PASSWORD_SG }}
+          port: 21
           local-dir: backend-php/
           server-dir: ./gestion/backend-php/
-          
-          # NO LIMPIAR para preservar archivos críticos como .env
           dangerous-clean-slate: false
-          
           exclude: |
             **/.git
             **/.github/**
-            **/.gitignore
             **/node_modules/**
-            **/.vscode/**
             **/.DS_Store
             **/.env
             **/.env.local
             **/.env.example
-            **/INSTALACION-BACKEND-PHP.md
-          
-          # Configuración de reintentos y timeouts más agresiva
           log-level: verbose
           security: loose
           timeout: 900000
 
-      # 10. Subir .htaccess del backend (workaround para archivos con punto)
-      - name: 📄 Upload backend .htaccess
+      - name: Deploy backend .htaccess
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT || 21 }}
-          
-          # Subir SOLO el .htaccess del backend
+          server: ${{ secrets.FTP_SERVER_SG }}
+          username: ${{ secrets.FTP_USERNAME_SG }}
+          password: ${{ secrets.FTP_PASSWORD_SG }}
+          port: 21
           local-dir: backend-php/
           server-dir: ./gestion/backend-php/
-          
           dangerous-clean-slate: false
-          
-          # Incluir SOLO .htaccess, excluir todo lo demás
           exclude: |
             **/*
             !**/.htaccess
-          
-          log-level: verbose
           security: loose
           timeout: 300000
 
-      # 11. Subir .htaccess del frontend para manejar rutas React Router
-      - name: 📄 Upload frontend .htaccess (React Router)
+      - name: Deploy frontend .htaccess (React Router /gestion/)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT || 21 }}
-          
-          # Subir .htaccess del frontend a /gestion/
+          server: ${{ secrets.FTP_SERVER_SG }}
+          username: ${{ secrets.FTP_USERNAME_SG }}
+          password: ${{ secrets.FTP_PASSWORD_SG }}
+          port: 21
           local-dir: frontend-htaccess/
           server-dir: ./gestion/
-          
           dangerous-clean-slate: false
-          
-          # Incluir SOLO .htaccess
           exclude: |
             **/*
             !**/.htaccess
-          
-          log-level: verbose
           security: loose
           timeout: 300000
 
-      # 12. Notificación de éxito
-      - name: ✅ Deploy completado
+      - name: Deploy completado
         if: success()
         run: |
-          echo "🎉 ¡Deploy exitoso a cPanel!"
-          echo "🌐 Tu sitio está actualizado"
-          echo "⏰ Fecha: $(date)"
+          echo "Deploy exitoso a serviciogudino.com.mx/gestion/"
+          echo "Fecha: $(date)"
 
-      # 13. Notificación de error
-      - name: ❌ Deploy falló
+      - name: Deploy falló
         if: failure()
-        run: |
-          echo "❌ Hubo un error en el deploy"
-          echo "Revisa los logs arriba para más detalles"
+        run: echo "Error en el deploy — revisa los logs"

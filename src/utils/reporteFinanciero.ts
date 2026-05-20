@@ -416,7 +416,7 @@ export function generarReporteFinanciero(params: ReporteFinancieroParams): void 
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
   setTextColor(doc, C.textoSecundario);
-  doc.text('SAG Garage × AkLabs  ·  Reporte confidencial  ·  Página 1 de 2', 105, 291, { align: 'center' });
+  doc.text('Servicio Gudiño × AkLabs  ·  Reporte confidencial  ·  Página 1 de 2', 105, 291, { align: 'center' });
 
   // =========================================================================
   // PÁGINA 2
@@ -599,7 +599,7 @@ export function generarReporteFinanciero(params: ReporteFinancieroParams): void 
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
   setTextColor(doc, C.textoSecundario);
-  doc.text('SAG Garage × AkLabs  ·  Reporte confidencial  ·  Página 2 de 2', 105, 291, { align: 'center' });
+  doc.text('Servicio Gudiño × AkLabs  ·  Reporte confidencial  ·  Página 2 de 2', 105, 291, { align: 'center' });
 
   // =========================================================================
   // Guardar

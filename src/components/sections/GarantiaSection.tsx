@@ -26,7 +26,7 @@ export const GarantiaSection: React.FC = () => {
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Esta póliza de garantía se incluirá automáticamente en el PDF generado. 
-                Los términos cubren todas las reparaciones realizadas en SAG Garage con una garantía de 30 días naturales.
+                Los términos cubren todas las reparaciones realizadas en Servicio Gudiño con una garantía de 30 días naturales.
               </p>
             </div>
           </div>

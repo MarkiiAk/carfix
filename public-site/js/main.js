@@ -1,48 +1,123 @@
-// SAG Garage - Main JavaScript
-// Autor: SAG Garage Development Team
-// Versión: 1.0.0
+// Servicio Gudiño — main.js
+// Identidad: Racing / Rojo agresivo
+// Versión: 2026-05-20
 
 'use strict';
 
-// ===================================
-// INITIALIZE AOS (Animate On Scroll)
-// ===================================
+// ============================================================
+// 1. LOADER
+//    - Aplica delays a las letras del nombre
+//    - Desaparece a los 2.5s
+// ============================================================
+(function initLoader() {
+    // Delays escalonados para las letras
+    const letters = document.querySelectorAll('.loader-name span');
+    letters.forEach(function (letter, i) {
+        // Saltar el span del espacio (clase loader-space)
+        if (letter.classList.contains('loader-space')) return;
+        letter.style.animationDelay = (i * 0.06) + 's';
+    });
+
+    // Ocultar loader a los 2.5s
+    window.addEventListener('load', function () {
+        setTimeout(function () {
+            var wrapper = document.getElementById('loaderWrapper');
+            if (wrapper) {
+                wrapper.classList.add('hidden');
+            }
+        }, 2500);
+    });
+})();
+
+// ============================================================
+// 2. AOS — Animate On Scroll
+// ============================================================
 AOS.init({
-    duration: 800,
+    duration: 750,
     easing: 'ease-in-out',
     once: true,
-    offset: 100
+    offset: 80
 });
 
-// ===================================
-// LOADING SCREEN
-// ===================================
-window.addEventListener('load', function() {
-    setTimeout(function() {
-        const loaderWrapper = document.querySelector('.loader-wrapper');
-        if (loaderWrapper) {
-            loaderWrapper.classList.add('hidden');
+// ============================================================
+// 3. NAVBAR — scroll effect + hamburger menu
+// ============================================================
+(function initNavbar() {
+    var navbar    = document.getElementById('navbar');
+    var hamburger = document.getElementById('navHamburger');
+    var navLinks  = document.getElementById('navLinks');
+
+    // Scroll: añadir clase 'scrolled' a partir de 50px
+    window.addEventListener('scroll', function () {
+        if (navbar) {
+            if (window.pageYOffset > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
         }
-    }, 1500);
+    }, { passive: true });
+
+    // Hamburger toggle
+    if (hamburger && navLinks) {
+        hamburger.addEventListener('click', function () {
+            hamburger.classList.toggle('open');
+            navLinks.classList.toggle('open');
+        });
+
+        // Cerrar menú al hacer click en un link
+        navLinks.querySelectorAll('.nav-link').forEach(function (link) {
+            link.addEventListener('click', function () {
+                hamburger.classList.remove('open');
+                navLinks.classList.remove('open');
+            });
+        });
+
+        // Cerrar menú al hacer click fuera
+        document.addEventListener('click', function (e) {
+            if (!navbar.contains(e.target)) {
+                hamburger.classList.remove('open');
+                navLinks.classList.remove('open');
+            }
+        });
+    }
+})();
+
+// ============================================================
+// 4. SMOOTH SCROLL para links de ancla
+// ============================================================
+document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+        var targetId = this.getAttribute('href');
+        if (targetId === '#') return;
+        var target = document.querySelector(targetId);
+        if (target) {
+            e.preventDefault();
+            // Compensar la altura del navbar (64px)
+            var navbarH = 64;
+            var targetY = target.getBoundingClientRect().top + window.pageYOffset - navbarH;
+            window.scrollTo({ top: targetY, behavior: 'smooth' });
+        }
+    });
 });
 
-// ===================================
-// SWIPER SLIDER INITIALIZATION
-// ===================================
-const swiper = new Swiper('.swiper', {
+// ============================================================
+// 5. SWIPER — slider de trabajos con autoplay
+// ============================================================
+var sgSwiper = new Swiper('.sg-swiper', {
     loop: true,
-    speed: 800,
+    speed: 700,
     autoplay: {
-        delay: 4000,
-        disableOnInteraction: false,
+        delay: 4500,
+        disableOnInteraction: false
     },
     pagination: {
         el: '.swiper-pagination',
-        clickable: true,
+        clickable: true
     },
     navigation: {
         nextEl: '.swiper-button-next',
-        prevEl: '.swiper-button-prev',
+        prevEl: '.swiper-button-prev'
     },
     effect: 'fade',
     fadeEffect: {
@@ -50,333 +125,149 @@ const swiper = new Swiper('.swiper', {
     }
 });
 
-// ===================================
-// SMOOTH SCROLL FOR ANCHOR LINKS
-// ===================================
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
+// ============================================================
+// 6. COUNTER ANIMATION para stats
+//    IntersectionObserver + easing cuadrático
+// ============================================================
+(function initCounters() {
+    var statNumbers = document.querySelectorAll('.stat-number');
+    if (!statNumbers.length) return;
+
+    // Duración total de la animación en ms
+    var DURATION = 2000;
+
+    function easeOutQuad(t) {
+        return t * (2 - t);
+    }
+
+    function animateCounter(el, target) {
+        var start = null;
+
+        function step(timestamp) {
+            if (!start) start = timestamp;
+            var elapsed = timestamp - start;
+            var progress = Math.min(elapsed / DURATION, 1);
+            var easedProgress = easeOutQuad(progress);
+            var current = Math.floor(easedProgress * target);
+            el.textContent = current.toLocaleString('es-MX');
+            if (progress < 1) {
+                requestAnimationFrame(step);
+            } else {
+                el.textContent = target.toLocaleString('es-MX');
+            }
         }
-    });
-});
 
-// ===================================
-// BACK TO TOP BUTTON
-// ===================================
-const backToTop = document.getElementById('backToTop');
-
-window.addEventListener('scroll', function() {
-    if (window.pageYOffset > 300) {
-        backToTop.classList.add('visible');
-    } else {
-        backToTop.classList.remove('visible');
+        requestAnimationFrame(step);
     }
-});
 
-backToTop.addEventListener('click', function() {
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
+    var observer = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+                var el     = entry.target;
+                var target = parseInt(el.getAttribute('data-target'), 10);
+                if (!isNaN(target)) {
+                    animateCounter(el, target);
+                }
+                obs.unobserve(el);
+            }
+        });
+    }, { threshold: 0.4 });
+
+    statNumbers.forEach(function (el) {
+        observer.observe(el);
     });
-});
+})();
 
-// ===================================
-// CONTACT FORM HANDLING
-// ===================================
-const contactForm = document.getElementById('contactForm');
-const formMessage = document.getElementById('formMessage');
+// ============================================================
+// 7. BACK TO TOP
+// ============================================================
+(function initBackToTop() {
+    var btn = document.getElementById('backToTop');
+    if (!btn) return;
 
-contactForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    // Get form values
-    const name = document.getElementById('name').value;
-    const email = document.getElementById('email').value;
-    const phone = document.getElementById('phone').value;
-    const message = document.getElementById('message').value;
-    
-    // Validate form fields
-    if (!name || !email || !phone || !message) {
-        showFormMessage('Por favor completa todos los campos requeridos.', 'error');
-        return;
-    }
-    
-    // Create mailto link
-    const subject = encodeURIComponent('Solicitud de Información - SAG Garage');
-    const body = encodeURIComponent(
-        `Nombre: ${name}\n` +
-        `Email: ${email}\n` +
-        `Teléfono: ${phone}\n\n` +
-        `Mensaje:\n${message}`
-    );
-    
-    const mailtoLink = `mailto:markii.candiani@live.com.mx?subject=${subject}&body=${body}`;
-    
-    // Open email client
-    window.location.href = mailtoLink;
-    
-    // Show success message
-    showFormMessage('Se abrirá tu cliente de correo para enviar el mensaje.', 'success');
-    
-    // Reset form after delay
-    setTimeout(function() {
-        contactForm.reset();
-        hideFormMessage();
-    }, 3000);
-});
-
-// Helper function to show form messages
-function showFormMessage(message, type) {
-    formMessage.textContent = message;
-    formMessage.className = `form-message ${type}`;
-    formMessage.style.display = 'block';
-}
-
-// Helper function to hide form messages
-function hideFormMessage() {
-    formMessage.style.display = 'none';
-}
-
-// ===================================
-// PARALLAX EFFECT FOR HERO SECTION
-// ===================================
-window.addEventListener('scroll', function() {
-    const scrolled = window.pageYOffset;
-    const hero = document.querySelector('.hero-content');
-    
-    if (hero && scrolled < window.innerHeight) {
-        hero.style.transform = `translateY(${scrolled * 0.5}px)`;
-        hero.style.opacity = 1 - (scrolled / window.innerHeight);
-    }
-});
-
-// ===================================
-// INFO CARDS CLICK HANDLING
-// ===================================
-const manualCard = document.getElementById('manualCard');
-const bankingCard = document.getElementById('bankingCard');
-const bankingModal = document.getElementById('bankingModal');
-const modalOverlay = document.getElementById('modalOverlay');
-const modalClose = document.getElementById('modalClose');
-
-// Manual Corporativo - SOLO DESCARGA PDF
-if (manualCard) {
-    manualCard.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Add visual feedback
-        const icon = this.querySelector('i');
-        const originalClass = icon.className;
-        
-        // Show downloading state
-        icon.className = 'fas fa-spinner fa-spin';
-        this.style.transform = 'translateY(-8px) scale(1.02)';
-        
-        // Create download link
-        const link = document.createElement('a');
-        link.href = 'ManualCorporativo.pdf';
-        link.download = 'Manual_Corporativo_SAG_Garage.pdf';
-        link.target = '_blank';
-        
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Reset visual state after delay
-        setTimeout(() => {
-            icon.className = originalClass;
-            this.style.transform = '';
-        }, 1500);
-        
-        console.log('Manual Corporativo descargado');
-    });
-}
-
-// Banking Card - Abrir Modal
-if (bankingCard && bankingModal) {
-    bankingCard.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        openBankingModal();
-    });
-}
-
-// Modal Functions
-function openBankingModal() {
-    if (bankingModal) {
-        // Guardar posición actual del scroll
-        const scrollY = window.pageYOffset;
-        
-        // Bloquear scroll del fondo completamente
-        document.body.style.position = 'fixed';
-        document.body.style.top = `-${scrollY}px`;
-        document.body.style.left = '0';
-        document.body.style.right = '0';
-        document.body.style.overflow = 'hidden';
-        
-        bankingModal.classList.add('active');
-        console.log('Modal datos bancarios abierto');
-    }
-}
-
-function closeBankingModal() {
-    if (bankingModal) {
-        // Restaurar scroll del fondo
-        const scrollY = document.body.style.top;
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.left = '';
-        document.body.style.right = '';
-        document.body.style.overflow = '';
-        
-        // Restaurar posición de scroll
-        if (scrollY) {
-            window.scrollTo(0, parseInt(scrollY || '0') * -1);
+    window.addEventListener('scroll', function () {
+        if (window.pageYOffset > 400) {
+            btn.classList.add('visible');
+        } else {
+            btn.classList.remove('visible');
         }
-        
-        bankingModal.classList.remove('active');
-        console.log('Modal datos bancarios cerrado');
-    }
-}
+    }, { passive: true });
 
-// Modal Close Events
-if (modalClose) {
-    modalClose.addEventListener('click', closeBankingModal);
-}
-
-if (modalOverlay) {
-    modalOverlay.addEventListener('click', closeBankingModal);
-}
-
-// Close modal with ESC key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && bankingModal && bankingModal.classList.contains('active')) {
-        closeBankingModal();
-    }
-});
-
-// Prevent modal close when clicking inside modal container
-const modalContainer = document.querySelector('.modal-container');
-if (modalContainer) {
-    modalContainer.addEventListener('click', function(e) {
-        e.stopPropagation();
+    btn.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     });
-}
+})();
 
-// Copy to Clipboard Function
-function copyToClipboard(text, button) {
-    navigator.clipboard.writeText(text).then(function() {
-        // Visual feedback
-        const originalText = button.textContent;
-        button.textContent = '¡Copiado!';
-        button.classList.add('copied');
-        
-        // Reset after 2 seconds
-        setTimeout(() => {
-            button.textContent = originalText;
-            button.classList.remove('copied');
-        }, 2000);
-        
-        console.log('Texto copiado:', text);
-    }).catch(function(err) {
-        console.error('Error al copiar:', err);
-        // Fallback para navegadores que no soportan clipboard API
-        fallbackCopyTextToClipboard(text, button);
-    });
-}
+// ============================================================
+// 8. FORMULARIO DE CONTACTO
+//    preventDefault + validación + apertura de mailto
+// ============================================================
+(function initContactForm() {
+    var form        = document.getElementById('contactForm');
+    var msgEl       = document.getElementById('formMessage');
+    if (!form || !msgEl) return;
 
-// Fallback copy function
-function fallbackCopyTextToClipboard(text, button) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.top = "0";
-    textArea.style.left = "0";
-    textArea.style.position = "fixed";
-    textArea.style.opacity = "0";
-    
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-        document.execCommand('copy');
-        
-        // Visual feedback
-        const originalText = button.textContent;
-        button.textContent = '¡Copiado!';
-        button.classList.add('copied');
-        
-        setTimeout(() => {
-            button.textContent = originalText;
-            button.classList.remove('copied');
-        }, 2000);
-        
-        console.log('Texto copiado (fallback):', text);
-    } catch (err) {
-        console.error('Error en fallback copy:', err);
+    function showMsg(text, type) {
+        msgEl.textContent = text;
+        msgEl.className   = 'form-message ' + type;
+        msgEl.style.display = 'block';
     }
-    
-    document.body.removeChild(textArea);
-}
 
-// Copy Button Event Listeners
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.copy-button')) {
+    function hideMsg() {
+        msgEl.style.display = 'none';
+        msgEl.className = 'form-message';
+    }
+
+    form.addEventListener('submit', function (e) {
         e.preventDefault();
-        e.stopPropagation();
-        
-        const button = e.target.closest('.copy-button');
-        const textToCopy = button.getAttribute('data-copy');
-        
-        if (textToCopy) {
-            copyToClipboard(textToCopy, button);
-        }
-    }
-});
+        hideMsg();
 
-// ===================================
-// CONSOLE BRANDING
-// ===================================
+        var name    = (document.getElementById('name').value    || '').trim();
+        var email   = (document.getElementById('email').value   || '').trim();
+        var phone   = (document.getElementById('phone').value   || '').trim();
+        var message = (document.getElementById('message').value || '').trim();
+
+        // Validación básica
+        if (!name || !email || !phone || !message) {
+            showMsg('Por favor completa todos los campos requeridos.', 'error');
+            return;
+        }
+
+        // Validación de email
+        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showMsg('Por favor ingresa un correo electrónico válido.', 'error');
+            return;
+        }
+
+        // Abrir cliente de correo
+        var subject = encodeURIComponent('Solicitud de información — Servicio Gudiño');
+        var body    = encodeURIComponent(
+            'Nombre: ' + name + '\n' +
+            'Email: ' + email + '\n' +
+            'Teléfono: ' + phone + '\n\n' +
+            'Mensaje:\n' + message
+        );
+        var mailto = 'mailto:contacto@serviciogudino.com?subject=' + subject + '&body=' + body;
+        window.location.href = mailto;
+
+        showMsg('Se abrirá tu cliente de correo para enviar el mensaje. ¡Gracias!', 'success');
+
+        setTimeout(function () {
+            form.reset();
+            hideMsg();
+        }, 4000);
+    });
+})();
+
+// ============================================================
+// 9. CONSOLE BRANDING
+// ============================================================
 console.log(
-    '%c SAG GARAGE ',
-    'background: #b7ff00; color: #0a0a0a; font-size: 20px; font-weight: bold; padding: 10px;'
+    '%c SERVICIO GUDIÑO ',
+    'background: #CC0000; color: #ffffff; font-size: 18px; font-weight: bold; padding: 10px 20px; font-family: Arial Black;'
 );
 console.log(
-    '%c Servicio Automotriz Premium ',
-    'background: #0a0a0a; color: #b7ff00; font-size: 14px; padding: 5px;'
+    '%c Mecánica de Alto Rendimiento ',
+    'background: #111111; color: #CC0000; font-size: 13px; padding: 6px 20px;'
 );
-console.log(
-    '%c Developed with ❤️ for SAG Garage ',
-    'color: #a0a0a0; font-size: 12px;'
-);
-
-// ===================================
-// PERFORMANCE MONITORING (Optional)
-// ===================================
-window.addEventListener('load', function() {
-    // Log page load time
-    const loadTime = window.performance.timing.domContentLoadedEventEnd - window.performance.timing.navigationStart;
-    console.log(`Page loaded in ${loadTime}ms`);
-});
-
-// ===================================
-// ERROR HANDLING
-// ===================================
-window.addEventListener('error', function(e) {
-    console.error('An error occurred:', e.error);
-});
-
-// ===================================
-// PREVENT FORM RESUBMISSION
-// ===================================
-if (window.history.replaceState) {
-    window.history.replaceState(null, null, window.location.href);
-}

@@ -189,7 +189,7 @@ export const PrintablePresupuesto: React.FC<PrintablePresupuestoProps> = ({ pres
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
             <img 
               src="/logo.png" 
-              alt="SAG Garage Logo" 
+              alt="Servicio Gudiño Logo" 
               style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '12px' }}
             />
             <div>
@@ -372,7 +372,7 @@ export const PrintablePresupuesto: React.FC<PrintablePresupuestoProps> = ({ pres
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={styles.firmaLine}>
-              <p style={{ fontWeight: 'bold', margin: '4px 0' }}>Firma de SAG Garage</p>
+              <p style={{ fontWeight: 'bold', margin: '4px 0' }}>Firma de Servicio Gudiño</p>
               <p style={{ fontSize: '12px', color: '#6b7280' }}>Autorización del Servicio</p>
             </div>
           </div>
@@ -385,12 +385,12 @@ export const PrintablePresupuesto: React.FC<PrintablePresupuestoProps> = ({ pres
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
             <img 
               src="/logo.png" 
-              alt="SAG Garage Logo" 
+              alt="Servicio Gudiño Logo" 
               style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '12px' }}
             />
             <div>
               <h1 style={styles.titleGarantia}>PÓLIZA DE GARANTÍA</h1>
-              <p style={styles.subtitle}>SAG Garage - Términos y Condiciones</p>
+              <p style={styles.subtitle}>Servicio Gudiño - Términos y Condiciones</p>
             </div>
           </div>
         </div>
@@ -483,7 +483,7 @@ export const PrintablePresupuesto: React.FC<PrintablePresupuestoProps> = ({ pres
 
         {/* Footer */}
         <div style={styles.footer}>
-          <p>SAG Garage - Sistema de Presupuestos</p>
+          <p>Servicio Gudiño - Sistema de Presupuestos</p>
           <p>© {new Date().getFullYear()} Todos los derechos reservados</p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 <?php
 /**
- * SAG Garage - Backend API PHP
+ * Servicio Gudiño - Backend API PHP
  * Compatible con cPanel / Hosting compartido
  */
 
@@ -21,8 +21,8 @@ function getAllowedOrigin() {
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
         return in_array($origin, $allowedOrigins) ? $origin : 'http://localhost:3000';
     } else {
-        // Producción: solo saggarage.com.mx
-        return 'https://saggarage.com.mx';
+        // Producción: solo serviciogudino.com.mx
+        return 'https://serviciogudino.com.mx';
     }
 }
 

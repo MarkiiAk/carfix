@@ -66,11 +66,11 @@ export const Login = () => {
           <div className="text-center space-y-2">
             <img
               src={`${import.meta.env.BASE_URL}${import.meta.env.VITE_LOGO_PATH ?? 'logo.png'}`}
-              alt={`${import.meta.env.VITE_APP_NAME ?? 'SAG Garage'} Logo`}
+              alt={`${import.meta.env.VITE_APP_NAME ?? 'Servicio Gudiño'} Logo`}
               className="inline-block w-20 h-20 rounded-2xl object-cover mb-4 shadow-lg"
             />
             <h1 className="text-3xl font-bold bg-gradient-to-r from-sag-600 to-sag-600 bg-clip-text text-transparent">
-              {import.meta.env.VITE_APP_NAME ?? 'SAG Garage'}
+              {import.meta.env.VITE_APP_NAME ?? 'Servicio Gudiño'}
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
               Sistema de Gestión de Órdenes
@@ -203,7 +203,7 @@ export const Login = () => {
 
         {/* Footer */}
         <p className="text-center mt-6 text-sm text-gray-600 dark:text-gray-400">
-          © 2026 {import.meta.env.VITE_APP_NAME ?? 'SAG Garage'}. Todos los derechos reservados.
+          © 2026 {import.meta.env.VITE_APP_NAME ?? 'Servicio Gudiño'}. Todos los derechos reservados.
         </p>
       </div>
     </div>

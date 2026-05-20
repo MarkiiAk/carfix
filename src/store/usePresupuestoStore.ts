@@ -105,7 +105,7 @@ const initialPresupuesto: Presupuesto = {
   fecha: new Date(),
   fechaEntrada: new Date(),
   taller: {
-    nombre: 'SAG Garage',
+    nombre: import.meta.env.VITE_APP_NAME || 'Servicio Gudiño',
     encargado: '',
     telefono: '',
     direccion: '',
@@ -539,7 +539,7 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
     } : orden.vehiculo;
     
     const taller = ordenAny.taller_encargado ? {
-      nombre: 'SAG Garage',
+      nombre: import.meta.env.VITE_APP_NAME || 'Servicio Gudiño',
       encargado: ordenAny.taller_encargado || '',
       telefono: ordenAny.taller_telefono || '',
       direccion: ordenAny.taller_direccion || '',

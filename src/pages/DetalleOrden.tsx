@@ -357,7 +357,7 @@ export const DetalleOrden = () => {
       <footer className="mt-12 py-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 no-print">
         <div className="container mx-auto px-4">
           <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-            <p className="font-semibold mb-1">SAG Garage - Sistema de Presupuestos</p>
+            <p className="font-semibold mb-1">Servicio Gudiño - Sistema de Presupuestos</p>
             <p>© {new Date().getFullYear()} Todos los derechos reservados</p>
           </div>
         </div>

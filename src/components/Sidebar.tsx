@@ -67,11 +67,11 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
       <div className="flex items-center gap-2.5 px-4 py-5 border-b border-gray-800">
         <img
           src={`${import.meta.env.BASE_URL}${import.meta.env.VITE_LOGO_PATH ?? 'logo.png'}`}
-          alt={import.meta.env.VITE_APP_NAME ?? 'SAG Garage'}
+          alt={import.meta.env.VITE_APP_NAME ?? 'Servicio Gudiño'}
           className="w-8 h-8 rounded-lg object-cover"
         />
         <div>
-          <p className="text-white font-semibold text-sm leading-tight">{import.meta.env.VITE_APP_NAME ?? 'SAG Garage'}</p>
+          <p className="text-white font-semibold text-sm leading-tight">{import.meta.env.VITE_APP_NAME ?? 'Servicio Gudiño'}</p>
           <p className="text-gray-500 text-xs leading-tight">Gestión de taller</p>
         </div>
       </div>
@@ -259,7 +259,7 @@ export const AppShell = ({ children, moduleName }: AppShellProps) => {
           className={`sticky z-20 flex items-center justify-between px-4 sm:px-6 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${isStaging ? 'top-8' : 'top-0'}`}
         >
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-            {moduleName ?? (import.meta.env.VITE_APP_NAME ?? 'SAG Garage')}
+            {moduleName ?? (import.meta.env.VITE_APP_NAME ?? 'Servicio Gudiño')}
           </span>
 
           <div className="flex items-center gap-3">
