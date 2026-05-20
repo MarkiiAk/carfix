@@ -4,14 +4,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Demo dark mode: reemplaza gris azulado Tailwind con carbón ── */
-html.dark[data-theme="demo"] body                         { background-color: #0f0f0f; }
+/* ── Demo dark mode: reemplaza gris azulado Tailwind con carbón neutral ── */
+html.dark[data-theme="demo"] body                         { background-color: #141414; }
 html.dark[data-theme="demo"] .dark\:bg-gray-950           { background-color: #0f0f0f !important; }
 html.dark[data-theme="demo"] .dark\:bg-gray-900           { background-color: #1a1a1a !important; }
 html.dark[data-theme="demo"] .dark\:bg-gray-800           { background-color: #242424 !important; }
 html.dark[data-theme="demo"] .dark\:bg-gray-700           { background-color: #303030 !important; }
 html.dark[data-theme="demo"] .dark\:border-gray-800       { border-color: #2a2a2a !important; }
 html.dark[data-theme="demo"] .dark\:border-gray-700       { border-color: #383838 !important; }
+
+/* Gradientes del Login — Tailwind usa CSS vars internas para from/via/to */
+html.dark[data-theme="demo"] .dark\:from-gray-900 { --tw-gradient-from: #1a1a1a var(--tw-gradient-from-position); }
+html.dark[data-theme="demo"] .dark\:via-gray-800  { --tw-gradient-stops: var(--tw-gradient-from), #242424 var(--tw-gradient-via-position), var(--tw-gradient-to); }
+html.dark[data-theme="demo"] .dark\:to-gray-900   { --tw-gradient-to: #1a1a1a var(--tw-gradient-to-position); }
 
 /* ── SAG Brand color tokens ───────────────────────────────────── */
 /* Default: verde lima del logo. Override con [data-theme="demo"] */
@@ -27,7 +32,7 @@ html.dark[data-theme="demo"] .dark\:border-gray-700       { border-color: #38383
   --sag-800: 101 119 13;
   --sag-900: 77  92  10;
   --sag-950: 42  51  5;
-  --sidebar-bg: #161b27;
+  --sidebar-bg: #1a1a1a;   /* Neutral — ya no azul medianoche */
 }
 
 [data-theme="demo"] {
