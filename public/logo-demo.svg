@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none">
+  <!-- Fondo oscuro -->
+  <rect width="80" height="80" rx="16" fill="#111111"/>
+
+  <!-- Patrón ajedrez de carrera (esquina superior izquierda) -->
+  <rect x="8"  y="8"  width="8" height="8" fill="#CC0000"/>
+  <rect x="16" y="8"  width="8" height="8" fill="#ffffff" opacity="0.15"/>
+  <rect x="8"  y="16" width="8" height="8" fill="#ffffff" opacity="0.15"/>
+  <rect x="16" y="16" width="8" height="8" fill="#CC0000"/>
+  <rect x="8"  y="24" width="8" height="8" fill="#CC0000"/>
+  <rect x="16" y="24" width="8" height="8" fill="#ffffff" opacity="0.15"/>
+
+  <!-- Línea roja horizontal (como el separador del logo) -->
+  <rect x="8" y="36" width="64" height="3" rx="1.5" fill="#CC0000"/>
+
+  <!-- Engrane (derecha) -->
+  <g transform="translate(48,20)" opacity="0.7">
+    <circle cx="12" cy="12" r="6" stroke="#9ca3af" stroke-width="2" fill="none"/>
+    <circle cx="12" cy="12" r="2.5" fill="#9ca3af"/>
+    <!-- Dientes del engrane -->
+    <rect x="10.5" y="2"  width="3" height="4" rx="1" fill="#9ca3af"/>
+    <rect x="10.5" y="18" width="3" height="4" rx="1" fill="#9ca3af"/>
+    <rect x="2"  y="10.5" width="4" height="3" rx="1" fill="#9ca3af"/>
+    <rect x="18" y="10.5" width="4" height="3" rx="1" fill="#9ca3af"/>
+    <rect x="4.5"  y="4.5"  width="3" height="4" rx="1" transform="rotate(45 6 6.5)"   fill="#9ca3af"/>
+    <rect x="17.5" y="4.5"  width="3" height="4" rx="1" transform="rotate(-45 19 6.5)" fill="#9ca3af"/>
+    <rect x="4.5"  y="15.5" width="3" height="4" rx="1" transform="rotate(-45 6 17.5)" fill="#9ca3af"/>
+    <rect x="17.5" y="15.5" width="3" height="4" rx="1" transform="rotate(45 19 17.5)" fill="#9ca3af"/>
+  </g>
+
+  <!-- Letra G estilizada (parte baja) -->
+  <text x="10" y="68" font-family="Arial Black, sans-serif" font-size="22" font-weight="900" fill="white" letter-spacing="-1">G</text>
+  <text x="28" y="68" font-family="Arial Black, sans-serif" font-size="14" font-weight="700" fill="#CC0000" letter-spacing="1">SG</text>
+</svg>
