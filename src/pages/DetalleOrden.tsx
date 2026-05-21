@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSun, faMoon, faFileLines, faPrint, faFloppyDisk, faArrowLeft, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faFileLines, faPrint, faFloppyDisk, faArrowLeft, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { ordenesAPI } from '../services/api';
@@ -26,7 +26,7 @@ import type { Orden } from '../types';
 export const DetalleOrden = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { presupuesto, themeMode, toggleTheme, loadFromOrden, resetPresupuesto, markAsSaved } = usePresupuestoStore();
+  const { presupuesto, themeMode, loadFromOrden, resetPresupuesto, markAsSaved } = usePresupuestoStore();
   const { user } = useAuth();
   const puedeVerGastos = user?.rol === 'admin' || user?.rol === 'recepcionista';
   const [showLoader, setShowLoader] = useState(false);

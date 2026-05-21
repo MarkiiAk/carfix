@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSun, faMoon, faFileLines, faPrint, faFloppyDisk, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faFileLines, faPrint, faFloppyDisk, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate } from 'react-router-dom';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { ordenesAPI } from '../services/api';
@@ -24,7 +24,7 @@ import { Button } from '../components/ui';
 
 export const NuevaOrden = () => {
   const navigate = useNavigate();
-  const { presupuesto, themeMode, toggleTheme, resetPresupuesto, markAsSaved } = usePresupuestoStore();
+  const { presupuesto, themeMode, resetPresupuesto, markAsSaved } = usePresupuestoStore();
   const { showSuccess, showError } = useToastContext();
   const [showLoader, setShowLoader] = useState(false);
 
