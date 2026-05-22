@@ -424,7 +424,7 @@ export const Financiero = () => {
   const cargarAdmin = useCallback(async () => {
     setLoadingAdmin(true);
     try {
-      const res = await gastosAdminAPI.listar(mesSel, anioSel);
+      const res = await gastosAdminAPI.listar(tipoPeriodo, offset);
       setGastosAdmin({
         ...res,
         total_facturado:      Number(res.total_facturado),
@@ -445,7 +445,7 @@ export const Financiero = () => {
     } finally {
       setLoadingAdmin(false);
     }
-  }, [mesSel, anioSel]);
+  }, [tipoPeriodo, offset]);
 
   const cargarEmpleados = useCallback(async (fechaInicio?: string, fechaFin?: string) => {
     setLoadingEmpleados(true);
@@ -910,9 +910,7 @@ export const Financiero = () => {
                 const costoRefas        = datos?.refacciones.costo ?? 0;
                 const ivaDelPeriodo     = datos?.resumen.total_iva ?? 0;
                 const ingresoNeto       = totalFacturado - costoRefas;
-                const gastosVarsMes     = Number(gastosAdmin.total_admin ?? 0);
-                // En semana: prorratear gastos mensuales entre 4 (son registros mensuales)
-                const gastosVarsRaw     = tipoPeriodo === 'semana' ? gastosVarsMes / 4 : gastosVarsMes;
+                const gastosVarsRaw     = Number(gastosAdmin.total_admin ?? 0);
                 const gastosOrdenesVal  = Number(gastosAdmin.gastos_ordenes_mes ?? 0);
                 const gananciaNetaFinal =
                   ingresoNeto - totalSueldosActivos - totalPagosFijosActivos - gastosVarsRaw - gastosOrdenesVal;
@@ -999,9 +997,6 @@ export const Financiero = () => {
                             <div className="flex items-baseline justify-between pl-5">
                               <span className="text-sm text-gray-400 dark:text-gray-500">
                                 &minus; Gastos variables
-                                {tipoPeriodo === 'semana' && (
-                                  <span className="text-xs text-gray-400 dark:text-gray-600 ml-1">(1/4 del mes)</span>
-                                )}
                               </span>
                               <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosVarsRaw)}</span>
                             </div>
@@ -1705,7 +1700,7 @@ export const Financiero = () => {
               <div className="flex items-center gap-3 flex-shrink-0">
                 {gastosAdmin && (
                   <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400 font-medium">
-                    {formatMoneda(Number(gastosAdmin.total_admin ?? 0))} / mes
+                    {formatMoneda(Number(gastosAdmin.total_admin ?? 0))} / {tipoPeriodo === 'semana' ? 'semana' : 'mes'}
                   </span>
                 )}
                 <FontAwesomeIcon

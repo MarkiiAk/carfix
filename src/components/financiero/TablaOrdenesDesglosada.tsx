@@ -89,11 +89,12 @@ const EstadoBadge = ({ estado }: { estado: string }) => {
 
 /* ── Fila de un ítem de la orden ─────────────────────────────────── */
 type ItemFila =
-  | { tipo: 'servicio';   descripcion: string; subtotal: number; proveedor?: null }
-  | { tipo: 'refaccion';  descripcion: string; subtotal: number; proveedor: string | null };
+  | { tipo: 'servicio';        descripcion: string; subtotal: number; proveedor?: null }
+  | { tipo: 'refaccion';       descripcion: string; subtotal: number; proveedor: string | null }
+  | { tipo: 'costo_interno';   descripcion: string; subtotal: number; proveedor?: null };
 
 function buildItems(o: OrdenFinanciero): ItemFila[] {
-  return [
+  const items: ItemFila[] = [
     ...o.servicios.map(s => ({
       tipo: 'servicio' as const,
       descripcion: s.descripcion,
@@ -106,6 +107,14 @@ function buildItems(o: OrdenFinanciero): ItemFila[] {
       proveedor: r.proveedor,
     })),
   ];
+  if ((o.costo_interno ?? 0) > 0) {
+    items.push({
+      tipo: 'costo_interno' as const,
+      descripcion: 'Costos internos',
+      subtotal: o.costo_interno!,
+    });
+  }
+  return items;
 }
 
 /* ─────────────────────────────────────────────────────────────────── */
@@ -206,7 +215,11 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
 
                     {/* Concepto */}
                     <td className="py-1.5 pr-3 align-top">
-                      <span className="text-gray-700 dark:text-gray-300">{item.descripcion}</span>
+                      {item.tipo === 'costo_interno' ? (
+                        <span className="italic text-gray-400 dark:text-gray-500">{item.descripcion}</span>
+                      ) : (
+                        <span className="text-gray-700 dark:text-gray-300">{item.descripcion}</span>
+                      )}
                       {item.tipo === 'refaccion' && item.proveedor && (
                         <span className="block text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                           {item.proveedor}
@@ -214,14 +227,19 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                       )}
                     </td>
 
-                    {/* Costo Venta (precio cobrado al cliente por este ítem) */}
+                    {/* Costo Venta — vacío para costos internos */}
                     <td className="py-1.5 pr-3 text-right tabular-nums text-gray-600 dark:text-gray-400 align-top whitespace-nowrap">
-                      {fmt(item.subtotal)}
+                      {item.tipo !== 'costo_interno' ? fmt(item.subtotal) : ''}
                     </td>
 
-                    {/* Costo Compra (solo refacciones: precio sin margen) */}
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-gray-400 dark:text-gray-500 align-top whitespace-nowrap">
-                      {item.tipo === 'refaccion' ? fmt(item.subtotal / 1.30) : ''}
+                    {/* Costo Compra — refacciones: precio sin margen; costos internos: monto en rojo */}
+                    <td className="py-1.5 pr-3 text-right tabular-nums align-top whitespace-nowrap">
+                      {item.tipo === 'refaccion' && (
+                        <span className="text-gray-400 dark:text-gray-500">{fmt(item.subtotal / 1.30)}</span>
+                      )}
+                      {item.tipo === 'costo_interno' && (
+                        <span className="text-red-400 dark:text-red-500">{fmt(item.subtotal)}</span>
+                      )}
                     </td>
 
                     {/* Ganancia — vacía en filas de ítem */}

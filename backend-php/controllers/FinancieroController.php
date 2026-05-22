@@ -1016,7 +1016,8 @@ class FinancieroController {
                     CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
                     COALESCE(os.anticipo, 0)                                                AS costo_venta,
                     COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
-                    (COALESCE(os.anticipo, 0) - COALESCE(os.subtotal_refacciones, 0) / 1.30) AS ganancia,
+                    COALESCE(os.costo_interno_total, 0)                                    AS costo_interno_total,
+                    (COALESCE(os.anticipo, 0) - COALESCE(os.subtotal_refacciones, 0) / 1.30 - COALESCE(os.costo_interno_total, 0)) AS ganancia,
                     os.estado
                 FROM ordenes_servicio os
                 LEFT JOIN clientes c  ON os.cliente_id  = c.id
@@ -1034,7 +1035,8 @@ class FinancieroController {
                     CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
                     os.total                                                                AS costo_venta,
                     COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
-                    (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30)               AS ganancia,
+                    COALESCE(os.costo_interno_total, 0)                                    AS costo_interno_total,
+                    (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30 - COALESCE(os.costo_interno_total, 0)) AS ganancia,
                     os.estado
                 FROM ordenes_servicio os
                 LEFT JOIN clientes c  ON os.cliente_id  = c.id
@@ -1101,6 +1103,7 @@ class FinancieroController {
                     'vehiculo'           => trim($r['vehiculo']),
                     'costo_venta'        => round((float) $r['costo_venta'], 2),
                     'costo_refacciones'  => round((float) $r['costo_refacciones'], 2),
+                    'costo_interno'      => round((float) ($r['costo_interno_total'] ?? 0), 2),
                     'ganancia'           => round((float) $r['ganancia'], 2),
                     'estado'             => $r['estado'],
                     'servicios'          => $serviciosPorOrden[$id]   ?? [],

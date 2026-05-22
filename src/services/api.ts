@@ -268,8 +268,17 @@ export const gastosOrdenAPI = {
 };
 
 export const gastosAdminAPI = {
-  listar: (mes: number, anio: number): Promise<GastosAdminResponse> =>
-    api.get(`/financiero/gastos-admin?mes=${mes}&anio=${anio}`).then(r => r.data),
+  listar: (
+    tipoOrMes: 'semana' | 'mes' | number,
+    offsetOrAnio: number
+  ): Promise<GastosAdminResponse> => {
+    // Sobrecarga: si tipoOrMes es string → nuevo modo tipo+offset
+    //             si tipoOrMes es number → retrocompatible mes+anio
+    if (typeof tipoOrMes === 'string') {
+      return api.get(`/financiero/gastos-admin?tipo=${tipoOrMes}&offset=${offsetOrAnio}`).then(r => r.data);
+    }
+    return api.get(`/financiero/gastos-admin?mes=${tipoOrMes}&anio=${offsetOrAnio}`).then(r => r.data);
+  },
 
   crear: (
     mes: number,
