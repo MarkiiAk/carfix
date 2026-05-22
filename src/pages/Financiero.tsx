@@ -70,19 +70,21 @@ interface BarraDistribucionProps {
   costoRefacciones: number;
   totalFijos: number;
   gastosVariables: number;
+  gastosOrdenes: number;
   gananciaNeta: number;
   totalBase: number;
 }
 
-const BarraDistribucion = ({ totalSueldos, costoRefacciones, totalFijos, gastosVariables, gananciaNeta, totalBase }: BarraDistribucionProps) => {
+const BarraDistribucion = ({ totalSueldos, costoRefacciones, totalFijos, gastosVariables, gastosOrdenes, gananciaNeta, totalBase }: BarraDistribucionProps) => {
   if (totalBase <= 0) return null;
   const widthPct = (v: number) => `${Math.max(0, (v / totalBase) * 100).toFixed(1)}%`;
   const fmt = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(v);
   const segmentos = [
-    { label: 'Sueldos',       valor: totalSueldos,       color: 'bg-indigo-500',  textColor: 'text-indigo-600 dark:text-indigo-400' },
-    { label: 'Refacciones',   valor: costoRefacciones,   color: 'bg-amber-500',   textColor: 'text-amber-600 dark:text-amber-400' },
-    { label: 'Costos fijos',  valor: totalFijos,         color: 'bg-rose-500',    textColor: 'text-rose-600 dark:text-rose-400' },
-    { label: 'Gastos varios', valor: gastosVariables,    color: 'bg-teal-500',    textColor: 'text-teal-600 dark:text-teal-400' },
+    { label: 'Sueldos',         valor: totalSueldos,       color: 'bg-indigo-500',  textColor: 'text-indigo-600 dark:text-indigo-400' },
+    { label: 'Refacciones',     valor: costoRefacciones,   color: 'bg-amber-500',   textColor: 'text-amber-600 dark:text-amber-400' },
+    { label: 'Costos fijos',    valor: totalFijos,         color: 'bg-rose-500',    textColor: 'text-rose-600 dark:text-rose-400' },
+    { label: 'Gastos varios',   valor: gastosVariables,    color: 'bg-teal-500',    textColor: 'text-teal-600 dark:text-teal-400' },
+    { label: 'Costos internos', valor: gastosOrdenes,      color: 'bg-orange-500',  textColor: 'text-orange-600 dark:text-orange-400' },
     {
       label: gananciaNeta >= 0 ? 'Ganancia' : 'Déficit',
       valor: Math.abs(gananciaNeta),
@@ -933,6 +935,7 @@ export const Financiero = () => {
                       costoRefacciones={costoRefas}
                       totalFijos={totalPagosFijosActivos}
                       gastosVariables={gastosVarsRaw}
+                      gastosOrdenes={gastosOrdenesVal}
                       gananciaNeta={gananciaNetaFinal}
                       totalBase={totalFacturado}
                     />
