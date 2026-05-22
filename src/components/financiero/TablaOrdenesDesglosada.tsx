@@ -91,6 +91,7 @@ const EstadoBadge = ({ estado }: { estado: string }) => {
 type ItemFila =
   | { tipo: 'servicio';        descripcion: string; subtotal: number; proveedor?: null }
   | { tipo: 'refaccion';       descripcion: string; subtotal: number; proveedor: string | null }
+  | { tipo: 'iva';             descripcion: string; subtotal: number; proveedor?: null }
   | { tipo: 'costo_interno';   descripcion: string; subtotal: number; proveedor?: null };
 
 function buildItems(o: OrdenFinanciero): ItemFila[] {
@@ -106,13 +107,17 @@ function buildItems(o: OrdenFinanciero): ItemFila[] {
       subtotal: r.subtotal,
       proveedor: r.proveedor,
     })),
-    // Desglose por concepto: un ítem por cada gasto interno
-    ...(o.gastos_internos ?? []).map(g => ({
-      tipo: 'costo_interno' as const,
-      descripcion: `${g.tipo} — ${g.concepto}`,
-      subtotal: g.monto,
-    })),
   ];
+  // IVA — solo si aplica (órdenes cerradas con IVA > 0)
+  if ((o.iva ?? 0) > 0) {
+    items.push({ tipo: 'iva' as const, descripcion: 'IVA (16%)', subtotal: o.iva! });
+  }
+  // Desglose por concepto: un ítem por cada gasto interno
+  items.push(...(o.gastos_internos ?? []).map(g => ({
+    tipo: 'costo_interno' as const,
+    descripcion: g.concepto,           // solo el concepto, sin el tipo
+    subtotal: g.monto,
+  })));
   // Fallback: si hay costo_interno total pero no hay detalle (datos legacy), mostrar una línea genérica
   if ((o.gastos_internos ?? []).length === 0 && (o.costo_interno ?? 0) > 0) {
     items.push({
@@ -222,9 +227,13 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
 
                     {/* Concepto */}
                     <td className="py-1.5 pr-3 align-top">
-                      {item.tipo === 'costo_interno' ? (
+                      {item.tipo === 'costo_interno' && (
                         <span className="italic text-gray-400 dark:text-gray-500">{item.descripcion}</span>
-                      ) : (
+                      )}
+                      {item.tipo === 'iva' && (
+                        <span className="italic text-gray-400 dark:text-gray-500">{item.descripcion}</span>
+                      )}
+                      {(item.tipo === 'servicio' || item.tipo === 'refaccion') && (
                         <span className="text-gray-700 dark:text-gray-300">{item.descripcion}</span>
                       )}
                       {item.tipo === 'refaccion' && item.proveedor && (
@@ -234,9 +243,14 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                       )}
                     </td>
 
-                    {/* Costo Venta — vacío para costos internos */}
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-gray-600 dark:text-gray-400 align-top whitespace-nowrap">
-                      {item.tipo !== 'costo_interno' ? fmt(item.subtotal) : ''}
+                    {/* Costo Venta — IVA aparece aquí en gris; costos internos vacío */}
+                    <td className="py-1.5 pr-3 text-right tabular-nums align-top whitespace-nowrap">
+                      {item.tipo === 'iva' && (
+                        <span className="text-gray-400 dark:text-gray-500 italic">{fmt(item.subtotal)}</span>
+                      )}
+                      {(item.tipo === 'servicio' || item.tipo === 'refaccion') && (
+                        <span className="text-gray-600 dark:text-gray-400">{fmt(item.subtotal)}</span>
+                      )}
                     </td>
 
                     {/* Costo Compra — refacciones: precio sin margen; costos internos: monto en rojo */}

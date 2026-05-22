@@ -1019,6 +1019,7 @@ class FinancieroController {
                     COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
                     COALESCE(os.costo_interno_total, 0)                                    AS costo_interno_total,
                     (COALESCE(os.anticipo, 0) - COALESCE(os.subtotal_refacciones, 0) / 1.30 - COALESCE(os.costo_interno_total, 0)) AS ganancia,
+                    0                                                                       AS iva_orden,
                     os.estado
                 FROM ordenes_servicio os
                 LEFT JOIN clientes c  ON os.cliente_id  = c.id
@@ -1038,6 +1039,7 @@ class FinancieroController {
                     COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
                     COALESCE(os.costo_interno_total, 0)                                    AS costo_interno_total,
                     (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30 - COALESCE(os.costo_interno_total, 0)) AS ganancia,
+                    COALESCE(os.iva, 0)                                                    AS iva_orden,
                     os.estado
                 FROM ordenes_servicio os
                 LEFT JOIN clientes c  ON os.cliente_id  = c.id
@@ -1122,6 +1124,7 @@ class FinancieroController {
                     'costo_refacciones'  => round((float) $r['costo_refacciones'], 2),
                     'costo_interno'      => round((float) ($r['costo_interno_total'] ?? 0), 2),
                     'gastos_internos'    => $gastosPorOrden[$id] ?? [],
+                    'iva'                => round((float) ($r['iva_orden'] ?? 0), 2),
                     'ganancia'           => round((float) $r['ganancia'], 2),
                     'estado'             => $r['estado'],
                     'servicios'          => $serviciosPorOrden[$id]   ?? [],

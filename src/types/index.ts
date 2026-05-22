@@ -405,6 +405,7 @@ export interface OrdenFinanciero {
   costo_refacciones: number;   // costo de compra (sin margen 30%)
   costo_interno?: number;      // costos internos de la orden (total, para el TOTAL row)
   gastos_internos?: Array<{ tipo: string; concepto: string; monto: number }>; // desglose por concepto
+  iva?: number;                // IVA de la orden (0 en órdenes abiertas/anticipo)
   ganancia: number;
   estado: string;
   servicios: ServicioOrdenFinanciero[];
