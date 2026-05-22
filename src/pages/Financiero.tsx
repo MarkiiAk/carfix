@@ -1043,7 +1043,24 @@ export const Financiero = () => {
               })()}
 
               {/* ----------------------------------------------------------- */}
-              {/* 4. Top servicios + Top clientes                              */}
+              {/* 4. Tabla órdenes desglosada                                  */}
+              {/* ----------------------------------------------------------- */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                  Detalle por orden
+                </h2>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                  Ganancia = total facturado − costo de refacciones (sin margen)
+                </p>
+                <TablaOrdenesDesglosada
+                  ordenes={ordenes}
+                  totales={ordTotales}
+                  loading={loadingOrdenes}
+                />
+              </div>
+
+              {/* ----------------------------------------------------------- */}
+              {/* 5. Top servicios + Top clientes                              */}
               {/* ----------------------------------------------------------- */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
@@ -1062,23 +1079,6 @@ export const Financiero = () => {
                   </h2>
                   <TopClientes clientes={top_clientes} />
                 </div>
-              </div>
-
-              {/* ----------------------------------------------------------- */}
-              {/* 5. Tabla órdenes desglosada                                  */}
-              {/* ----------------------------------------------------------- */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
-                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
-                  Detalle por orden
-                </h2>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                  Ganancia = total facturado − costo de refacciones (sin margen)
-                </p>
-                <TablaOrdenesDesglosada
-                  ordenes={ordenes}
-                  totales={ordTotales}
-                  loading={loadingOrdenes}
-                />
               </div>
             </>
           )}
