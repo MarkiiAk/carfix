@@ -403,7 +403,8 @@ export interface OrdenFinanciero {
   vehiculo: string;
   costo_venta: number;
   costo_refacciones: number;   // costo de compra (sin margen 30%)
-  costo_interno?: number;      // costos internos de la orden (gastos_orden)
+  costo_interno?: number;      // costos internos de la orden (total, para el TOTAL row)
+  gastos_internos?: Array<{ tipo: string; concepto: string; monto: number }>; // desglose por concepto
   ganancia: number;
   estado: string;
   servicios: ServicioOrdenFinanciero[];

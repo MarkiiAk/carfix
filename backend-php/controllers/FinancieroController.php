@@ -720,14 +720,15 @@ class FinancieroController {
 
             $ingresosNetos = round($ingresosServicios + $ingresosManoObra + $margenRefacc, 2);
 
-            // Gastos internos de órdenes del período
+            // Gastos internos de órdenes del período (todas, incluyendo abiertas)
+            // Se incluyen órdenes abiertas para que el balance coincida con la tabla de detalle,
+            // que también muestra costos de órdenes en proceso (anticipo).
             $sqlGastosOrdenes = "
                 SELECT COALESCE(SUM(costo_interno_total), 0) AS gastos_ordenes_mes
                 FROM ordenes_servicio
                 WHERE COALESCE(fecha_completada, fecha_entregada, fecha_ingreso)
                       BETWEEN :fecha_inicio AND :fecha_fin
                   AND costo_interno_total > 0
-                  AND estado IN ('cerrada', 'entregada')
             ";
             $stmtGO = $this->db->prepare($sqlGastosOrdenes);
             $stmtGO->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
@@ -1055,9 +1056,10 @@ class FinancieroController {
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // ── Cargar servicios y refacciones por orden ───────────────────
+            // ── Cargar servicios, refacciones y gastos internos por orden ──
             $serviciosPorOrden   = [];
             $refaccionesPorOrden = [];
+            $gastosPorOrden      = [];
 
             if (!empty($rows)) {
                 $orderIds    = array_map(fn($r) => (int) $r['id'], $rows);
@@ -1091,9 +1093,24 @@ class FinancieroController {
                         'subtotal'    => round((float)$ref['subtotal'], 2),
                     ];
                 }
+
+                $stmtGastos = $this->db->prepare("
+                    SELECT go.orden_id, go.tipo, go.concepto, go.monto
+                    FROM gastos_orden go
+                    WHERE go.orden_id IN ($placeholders)
+                    ORDER BY go.orden_id ASC, go.id ASC
+                ");
+                $stmtGastos->execute($orderIds);
+                foreach ($stmtGastos->fetchAll(PDO::FETCH_ASSOC) as $g) {
+                    $gastosPorOrden[(int)$g['orden_id']][] = [
+                        'tipo'     => $g['tipo'],
+                        'concepto' => $g['concepto'],
+                        'monto'    => round((float)$g['monto'], 2),
+                    ];
+                }
             }
 
-            $ordenes = array_map(function ($r) use ($serviciosPorOrden, $refaccionesPorOrden) {
+            $ordenes = array_map(function ($r) use ($serviciosPorOrden, $refaccionesPorOrden, $gastosPorOrden) {
                 $id = (int) $r['id'];
                 return [
                     'id'                 => $id,
@@ -1104,6 +1121,7 @@ class FinancieroController {
                     'costo_venta'        => round((float) $r['costo_venta'], 2),
                     'costo_refacciones'  => round((float) $r['costo_refacciones'], 2),
                     'costo_interno'      => round((float) ($r['costo_interno_total'] ?? 0), 2),
+                    'gastos_internos'    => $gastosPorOrden[$id] ?? [],
                     'ganancia'           => round((float) $r['ganancia'], 2),
                     'estado'             => $r['estado'],
                     'servicios'          => $serviciosPorOrden[$id]   ?? [],

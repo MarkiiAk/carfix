@@ -106,8 +106,15 @@ function buildItems(o: OrdenFinanciero): ItemFila[] {
       subtotal: r.subtotal,
       proveedor: r.proveedor,
     })),
+    // Desglose por concepto: un ítem por cada gasto interno
+    ...(o.gastos_internos ?? []).map(g => ({
+      tipo: 'costo_interno' as const,
+      descripcion: `${g.tipo} — ${g.concepto}`,
+      subtotal: g.monto,
+    })),
   ];
-  if ((o.costo_interno ?? 0) > 0) {
+  // Fallback: si hay costo_interno total pero no hay detalle (datos legacy), mostrar una línea genérica
+  if ((o.gastos_internos ?? []).length === 0 && (o.costo_interno ?? 0) > 0) {
     items.push({
       tipo: 'costo_interno' as const,
       descripcion: 'Costos internos',
