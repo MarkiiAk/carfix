@@ -16,6 +16,7 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
   const [nombre, setNombre] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [precioCosto, setPrecioCosto] = useState('');
+  const [proveedor, setProveedor] = useState('');
   const [margenGanancia] = useState(30); // 30% fijo de ganancia
 
   const handleAddRefaccion = () => {
@@ -29,12 +30,14 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
         precioCosto: precioCostoNum,
         precioVenta: 0, // Se calcula automáticamente en el store
         margenGanancia,
+        proveedor: proveedor.trim() || undefined,
       });
-      
+
       // Reset form
       setNombre('');
       setCantidad('');
       setPrecioCosto('');
+      setProveedor('');
       setShowForm(false);
     }
   };
@@ -68,6 +71,9 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
                   </p>
                   <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
                     <span>Cant: {refaccion.cantidad}</span>
+                    {refaccion.proveedor && (
+                      <span className="text-gray-400 dark:text-gray-500">· {refaccion.proveedor}</span>
+                    )}
                     <span>Precio Unit: {formatCurrency(refaccion.precioVenta)}</span>
                     <span className="font-semibold text-gray-900 dark:text-gray-100">
                       Total: {formatCurrency(refaccion.total)}
@@ -111,7 +117,7 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
       {/* Formulario para agregar refacción */}
       {showForm && (
         <div className="space-y-4 p-4 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Input
               label="Refacción"
               placeholder="Ej: Filtro de aceite"
@@ -141,6 +147,14 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
               min="0"
               step="0.01"
               required
+              disabled={disabled}
+            />
+
+            <Input
+              label="Proveedor"
+              placeholder="Ej: Autozone"
+              value={proveedor}
+              onChange={(e) => setProveedor(e.target.value)}
               disabled={disabled}
             />
           </div>
@@ -207,6 +221,7 @@ export const RefaccionesSection: React.FC<RefaccionesSectionProps> = ({ disabled
                 setNombre('');
                 setCantidad('');
                 setPrecioCosto('');
+                setProveedor('');
               }}
               disabled={disabled}
             >

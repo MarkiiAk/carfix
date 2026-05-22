@@ -824,11 +824,12 @@ class OrdenesController {
         $orden['refacciones'] = [];
         foreach ($refacciones as $refaccion) {
             $orden['refacciones'][] = [
-                'id' => (string)$refaccion['id'],
-                'nombre' => $refaccion['descripcion'],
-                'cantidad' => (float)$refaccion['cantidad'],
+                'id'          => (string)$refaccion['id'],
+                'nombre'      => $refaccion['descripcion'],
+                'cantidad'    => (float)$refaccion['cantidad'],
                 'precioVenta' => (float)$refaccion['precio_unitario'],
-                'total' => (float)$refaccion['subtotal']
+                'total'       => (float)$refaccion['subtotal'],
+                'proveedor'   => $refaccion['proveedor'] ?? null,
             ];
         }
         
@@ -1104,21 +1105,22 @@ class OrdenesController {
     
     private function insertRefaccionesOrden($orden_id, $refacciones) {
         $stmt = $this->db->prepare('
-            INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor)
+            VALUES (?, ?, ?, ?, ?, ?)
         ');
-        
+
         foreach ($refacciones as $refaccion) {
             $cantidad = $refaccion['cantidad'] ?? 1;
             $precioUnitario = $refaccion['precioVenta'] ?? $refaccion['precio_unitario'] ?? 0;
             $subtotal = $refaccion['total'] ?? ($cantidad * $precioUnitario);
-            
+
             $stmt->execute([
                 $orden_id,
                 $refaccion['nombre'] ?? $refaccion['descripcion'],
                 $cantidad,
                 $precioUnitario,
-                $subtotal
+                $subtotal,
+                $refaccion['proveedor'] ?? null,
             ]);
         }
     }

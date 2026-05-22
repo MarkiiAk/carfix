@@ -144,8 +144,13 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                     )}
 
                     {/* Concepto */}
-                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300 align-top">
-                      {item.descripcion}
+                    <td className="py-1.5 pr-3 align-top">
+                      <span className="text-gray-700 dark:text-gray-300">{item.descripcion}</span>
+                      {item.tipo === 'refaccion' && item.proveedor && (
+                        <span className="block text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                          {item.proveedor}
+                        </span>
+                      )}
                     </td>
 
                     {/* Costo Venta (precio cobrado al cliente por este ítem) */}
