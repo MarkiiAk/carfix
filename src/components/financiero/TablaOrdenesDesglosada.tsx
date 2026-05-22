@@ -281,7 +281,9 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                       {fmt(o.costo_venta)}
                     </td>
                     <td className="py-2 pr-3 text-right tabular-nums font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                      {o.costo_refacciones > 0 ? fmt(o.costo_refacciones) : '—'}
+                      {(o.costo_refacciones + (o.costo_interno ?? 0)) > 0
+                        ? fmt(o.costo_refacciones + (o.costo_interno ?? 0))
+                        : '—'}
                     </td>
                     {/* Ganancia + botón Ver orden */}
                     <td className={`py-2 text-right tabular-nums font-bold whitespace-nowrap ${gananciaColor(o.ganancia)}`}>
@@ -317,7 +319,10 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
               {fmt(totales.costo_venta)}
             </td>
             <td className="py-2.5 pr-3 text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
-              {totales.costo_refacciones > 0 ? fmt(totales.costo_refacciones) : '—'}
+              {(() => {
+                const totalCompra = ordenes.reduce((acc, o) => acc + o.costo_refacciones + (o.costo_interno ?? 0), 0);
+                return totalCompra > 0 ? fmt(totalCompra) : '—';
+              })()}
             </td>
             <td className={`py-2.5 text-right tabular-nums whitespace-nowrap ${gananciaColor(totales.ganancia)}`}>
               {fmt(totales.ganancia)}
