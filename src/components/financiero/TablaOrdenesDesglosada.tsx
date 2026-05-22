@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import type { OrdenFinanciero, OrdenesFinancieroResponse } from '../../types';
 
 interface Props {
@@ -28,6 +29,64 @@ const ESTADOS_ABIERTOS = new Set([
   'en_espera', 'abierta', 'en proceso',
 ]);
 
+/* ── Badge de estado de la orden ────────────────────────────────────── */
+type EstadoBadgeConfig = {
+  label: string;
+  className: string;
+};
+
+function getEstadoBadge(estado: string): EstadoBadgeConfig {
+  switch (estado?.toLowerCase()) {
+    case 'abierta':
+    case 'en_espera':
+    case 'pendiente':
+    case 'cotizacion':
+      return {
+        label: 'Abierta',
+        className: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
+      };
+    case 'en_proceso':
+    case 'en proceso':
+    case 'en_revision':
+      return {
+        label: 'En proceso',
+        className: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+      };
+    case 'completado':
+    case 'completada':
+      return {
+        label: 'Lista',
+        className: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400',
+      };
+    case 'entregado':
+    case 'entregada':
+      return {
+        label: 'Entregada ✓',
+        className: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400',
+      };
+    case 'cerrada':
+    case 'cerrado':
+      return {
+        label: 'Cerrada',
+        className: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-400',
+      };
+    default:
+      return {
+        label: estado ?? '—',
+        className: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',
+      };
+  }
+}
+
+const EstadoBadge = ({ estado }: { estado: string }) => {
+  const cfg = getEstadoBadge(estado);
+  return (
+    <span className={`inline-block text-[9px] font-medium rounded px-1.5 py-0.5 leading-none mt-1 ${cfg.className}`}>
+      {cfg.label}
+    </span>
+  );
+};
+
 /* ── Fila de un ítem de la orden ─────────────────────────────────── */
 type ItemFila =
   | { tipo: 'servicio';   descripcion: string; subtotal: number; proveedor?: null }
@@ -51,6 +110,9 @@ function buildItems(o: OrdenFinanciero): ItemFila[] {
 
 /* ─────────────────────────────────────────────────────────────────── */
 export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => {
+  const navigate = useNavigate();
+  const basePath = import.meta.env.VITE_BASE_PATH ?? '/gestion';
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 py-6">
@@ -70,7 +132,7 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
 
   return (
     <div className="overflow-x-auto -mx-1">
-      <table className="w-full text-xs min-w-[780px] border-collapse">
+      <table className="w-full text-xs min-w-[820px] border-collapse">
 
         {/* ── Encabezados ─────────────────────────────── */}
         <thead>
@@ -103,7 +165,7 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                       {esAbierta && <AnticipoChip />}
                     </td>
                     <td className="py-2 pr-3 align-top">
-                      <UnidadCliente vehiculo={o.vehiculo} cliente={o.cliente_nombre} />
+                      <UnidadCliente vehiculo={o.vehiculo} cliente={o.cliente_nombre} estado={o.estado} />
                     </td>
                     <td className="py-2 pr-3 text-gray-400 dark:text-gray-600 align-top">—</td>
                     <td className="py-2 pr-3 text-right tabular-nums font-medium text-gray-700 dark:text-gray-300 align-top whitespace-nowrap">
@@ -138,7 +200,7 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                           rowSpan={totalRows}
                           className="py-2 pr-3 align-top border-b-2 border-gray-200 dark:border-gray-700 max-w-[140px]"
                         >
-                          <UnidadCliente vehiculo={o.vehiculo} cliente={o.cliente_nombre} />
+                          <UnidadCliente vehiculo={o.vehiculo} cliente={o.cliente_nombre} estado={o.estado} />
                         </td>
                       </>
                     )}
@@ -183,8 +245,18 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                     <td className="py-2 pr-3 text-right tabular-nums font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                       {o.costo_refacciones > 0 ? fmt(o.costo_refacciones) : '—'}
                     </td>
+                    {/* Ganancia + botón Ver orden */}
                     <td className={`py-2 text-right tabular-nums font-bold whitespace-nowrap ${gananciaColor(o.ganancia)}`}>
-                      {fmt(o.ganancia)}
+                      <span className="inline-flex items-center gap-2 justify-end">
+                        {fmt(o.ganancia)}
+                        <button
+                          onClick={() => navigate(`${basePath}/orden/${o.id}`)}
+                          title="Ver orden"
+                          className="text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors flex-shrink-0"
+                        >
+                          <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ width: 10, height: 10 }} />
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 )}
@@ -227,7 +299,7 @@ const AnticipoChip = () => (
   </span>
 );
 
-const UnidadCliente = ({ vehiculo, cliente }: { vehiculo: string; cliente: string }) => (
+const UnidadCliente = ({ vehiculo, cliente, estado }: { vehiculo: string; cliente: string; estado: string }) => (
   <div>
     <div className="font-medium text-gray-800 dark:text-gray-200 leading-tight truncate">
       {vehiculo || '—'}
@@ -235,6 +307,7 @@ const UnidadCliente = ({ vehiculo, cliente }: { vehiculo: string; cliente: strin
     <div className="text-gray-500 dark:text-gray-400 mt-0.5 truncate">
       {cliente}
     </div>
+    <EstadoBadge estado={estado} />
   </div>
 );
 

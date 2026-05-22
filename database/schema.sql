@@ -983,6 +983,7 @@ CREATE TABLE IF NOT EXISTS `empleados_sueldos` (
   `nombre` varchar(120) NOT NULL,
   `puesto` varchar(80) DEFAULT NULL,
   `sueldo_diario` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `tipo_sueldo` enum('diario','semanal') NOT NULL DEFAULT 'diario',
   `fecha_inicio` date NOT NULL DEFAULT '2026-01-01',
   `fecha_fin` date DEFAULT NULL,
   `activo` tinyint(1) NOT NULL DEFAULT 1,

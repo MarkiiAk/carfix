@@ -293,10 +293,10 @@ export const empleadosFinancieroAPI = {
     return api.get(`/financiero/empleados${qs}`).then(r => r.data);
   },
 
-  crear: (data: Omit<EmpleadoSueldo, 'id' | 'activo'>): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
+  crear: (data: Omit<EmpleadoSueldo, 'id' | 'activo'> & { tipo_sueldo?: EmpleadoSueldo['tipo_sueldo'] }): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
     api.post('/financiero/empleados', data).then(r => r.data),
 
-  actualizar: (id: number, data: Partial<Omit<EmpleadoSueldo, 'id' | 'activo'>> & { fecha_inicio_cambio?: string }): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
+  actualizar: (id: number, data: Partial<Omit<EmpleadoSueldo, 'id'>> & { fecha_inicio_cambio?: string }): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
     api.put(`/financiero/empleados/${id}`, data).then(r => r.data),
 
   toggle: (id: number): Promise<{ success: boolean; activo: boolean }> =>

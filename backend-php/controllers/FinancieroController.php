@@ -739,9 +739,11 @@ class FinancieroController {
             $utilidadNeta = round($ingresosNetos - $totalAdmin - $gastosOrdenesMes, 2);
 
             // Calcular sueldos vigentes en el período
-            // Empleados cuyo rango (fecha_inicio, fecha_fin) se solapa con (fechaInicio, fechaFin)
+            // Empleados cuyo rango (fecha_inicio, fecha_fin) se solapa con (fechaInicio, fechaFin).
+            // Para tipo_sueldo='semanal', sueldo_diario almacena el monto semanal;
+            // la tarifa diaria efectiva = sueldo_diario / 7.
             $sqlSueldos = "
-                SELECT COALESCE(SUM(sueldo_diario), 0) AS suma_diaria
+                SELECT sueldo_diario, tipo_sueldo
                 FROM empleados_sueldos
                 WHERE activo = 1
                   AND fecha_inicio <= :fecha_fin
@@ -751,10 +753,21 @@ class FinancieroController {
             $stmtSueldos->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
             $stmtSueldos->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
             $stmtSueldos->execute();
-            $sumaDiaria = (float) ($stmtSueldos->fetchColumn() ?? 0);
+            $rowsSueldos = $stmtSueldos->fetchAll(PDO::FETCH_ASSOC);
 
             // Días hábiles estimados: 5 para semana, 22 para mes
             $diasHabiles = isset($tipo) && $tipo === 'semana' ? 5 : 22;
+
+            // Sumar usando la tarifa diaria efectiva de cada empleado
+            $sumaDiaria = 0.0;
+            foreach ($rowsSueldos as $rowS) {
+                $monto = (float) $rowS['sueldo_diario'];
+                if (($rowS['tipo_sueldo'] ?? 'diario') === 'semanal') {
+                    $sumaDiaria += $monto / 7.0;
+                } else {
+                    $sumaDiaria += $monto;
+                }
+            }
             $totalSueldosPeriodo = round($sumaDiaria * $diasHabiles, 2);
 
             // Calcular pagos fijos vigentes en el período
@@ -1136,7 +1149,7 @@ class FinancieroController {
             // Muestra activos E inactivos vigentes en el período.
             // El frontend filtra activo=true para los cálculos y muestra inactivos en gris.
             $sql = "
-                SELECT id, usuario_id, nombre, puesto, sueldo_diario,
+                SELECT id, usuario_id, nombre, puesto, sueldo_diario, tipo_sueldo,
                        fecha_inicio, fecha_fin, activo
                 FROM empleados_sueldos
                 WHERE fecha_inicio <= :fecha_consulta_fin
@@ -1156,6 +1169,7 @@ class FinancieroController {
                     'nombre'       => $r['nombre'],
                     'puesto'       => $r['puesto'],
                     'sueldo_diario'=> (float)  $r['sueldo_diario'],
+                    'tipo_sueldo'  => $r['tipo_sueldo'] ?? 'diario',
                     'fecha_inicio' => $r['fecha_inicio'],
                     'fecha_fin'    => $r['fecha_fin'],
                     'activo'       => (bool)   $r['activo'],
@@ -1194,6 +1208,7 @@ class FinancieroController {
             $nombre       = isset($body['nombre'])       ? trim((string) $body['nombre'])       : '';
             $puesto       = isset($body['puesto'])       ? trim((string) $body['puesto'])       : null;
             $sueldoDiario = isset($body['sueldo_diario']) ? (float) $body['sueldo_diario']      : 0;
+            $tipoSueldo   = isset($body['tipo_sueldo'])  && $body['tipo_sueldo'] === 'semanal' ? 'semanal' : 'diario';
             $usuarioId    = isset($body['usuario_id'])   ? (int)   $body['usuario_id']         : null;
             $fechaInicio  = isset($body['fecha_inicio']) ? trim((string) $body['fecha_inicio']) : date('Y-m-d');
 
@@ -1209,13 +1224,14 @@ class FinancieroController {
             }
 
             $sql = "
-                INSERT INTO empleados_sueldos (nombre, puesto, sueldo_diario, fecha_inicio, usuario_id)
-                VALUES (:nombre, :puesto, :sueldo_diario, :fecha_inicio, :usuario_id)
+                INSERT INTO empleados_sueldos (nombre, puesto, sueldo_diario, tipo_sueldo, fecha_inicio, usuario_id)
+                VALUES (:nombre, :puesto, :sueldo_diario, :tipo_sueldo, :fecha_inicio, :usuario_id)
             ";
             $stmt = $this->db->prepare($sql);
             $stmt->bindParam(':nombre',        $nombre,       PDO::PARAM_STR);
             $stmt->bindParam(':puesto',         $puesto,       PDO::PARAM_STR);
             $stmt->bindParam(':sueldo_diario',  $sueldoDiario);
+            $stmt->bindParam(':tipo_sueldo',    $tipoSueldo,   PDO::PARAM_STR);
             $stmt->bindParam(':fecha_inicio',   $fechaInicio,  PDO::PARAM_STR);
             if ($usuarioId !== null) {
                 $stmt->bindParam(':usuario_id', $usuarioId, PDO::PARAM_INT);
@@ -1234,6 +1250,7 @@ class FinancieroController {
                     'nombre'       => $nombre,
                     'puesto'       => $puesto,
                     'sueldo_diario'=> $sueldoDiario,
+                    'tipo_sueldo'  => $tipoSueldo,
                     'fecha_inicio' => $fechaInicio,
                     'fecha_fin'    => null,
                     'activo'       => true,
@@ -1267,7 +1284,7 @@ class FinancieroController {
             }
 
             $stmtCheck = $this->db->prepare(
-                'SELECT id, nombre, puesto, sueldo_diario, usuario_id, activo FROM empleados_sueldos WHERE id = :id LIMIT 1'
+                'SELECT id, nombre, puesto, sueldo_diario, tipo_sueldo, usuario_id, activo FROM empleados_sueldos WHERE id = :id LIMIT 1'
             );
             $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
             $stmtCheck->execute();
@@ -1279,11 +1296,13 @@ class FinancieroController {
             }
 
             // Validar campos entrantes
-            $cambiaNombre  = isset($body['nombre']);
-            $cambiaPuesto  = array_key_exists('puesto', $body);
-            $cambiaSueldo  = isset($body['sueldo_diario']);
+            $cambiaNombre     = isset($body['nombre']);
+            $cambiaPuesto     = array_key_exists('puesto', $body);
+            $cambiaSueldo     = isset($body['sueldo_diario']);
+            $cambiaTipoSueldo = isset($body['tipo_sueldo']);
 
-            if (!$cambiaNombre && !$cambiaPuesto && !$cambiaSueldo) {
+            if (!$cambiaNombre && !$cambiaPuesto && !$cambiaSueldo && !$cambiaTipoSueldo
+                && !isset($body['fecha_fin']) && !array_key_exists('activo', $body)) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'No se enviaron campos a actualizar']);
                 return;
@@ -1315,6 +1334,13 @@ class FinancieroController {
                 $nuevoSueldo = (float) $existente['sueldo_diario'];
             }
 
+            $nuevoTipoSueldo = $cambiaTipoSueldo
+                ? (in_array($body['tipo_sueldo'], ['diario','semanal'], true) ? $body['tipo_sueldo'] : 'diario')
+                : ($existente['tipo_sueldo'] ?? 'diario');
+
+            // Dar de baja: si viene fecha_fin o activo=0 sin cambio de sueldo → UPDATE directo
+            $darDeBaja = isset($body['fecha_fin']) || (array_key_exists('activo', $body) && $body['activo'] == 0);
+
             if ($cambiaSueldo) {
                 // PATRÓN VERSIONAR: solo cuando cambia el monto/sueldo.
                 // 1. Cerrar el registro actual: fecha_fin = fecha_inicio_cambio - 1 día
@@ -1340,14 +1366,15 @@ class FinancieroController {
                     $usuarioId = $existente['usuario_id'] !== null ? (int) $existente['usuario_id'] : null;
                     $sqlNuevo  = "
                         INSERT INTO empleados_sueldos
-                            (nombre, puesto, sueldo_diario, fecha_inicio, usuario_id, activo)
+                            (nombre, puesto, sueldo_diario, tipo_sueldo, fecha_inicio, usuario_id, activo)
                         VALUES
-                            (:nombre, :puesto, :sueldo_diario, :fecha_inicio, :usuario_id, 1)
+                            (:nombre, :puesto, :sueldo_diario, :tipo_sueldo, :fecha_inicio, :usuario_id, 1)
                     ";
                     $stmtNuevo = $this->db->prepare($sqlNuevo);
                     $stmtNuevo->bindParam(':nombre',        $nuevoNombre,     PDO::PARAM_STR);
                     $stmtNuevo->bindParam(':puesto',         $nuevoPuesto,     PDO::PARAM_STR);
                     $stmtNuevo->bindParam(':sueldo_diario',  $nuevoSueldo);
+                    $stmtNuevo->bindParam(':tipo_sueldo',    $nuevoTipoSueldo, PDO::PARAM_STR);
                     $stmtNuevo->bindParam(':fecha_inicio',   $nuevaFechaInicio, PDO::PARAM_STR);
                     if ($usuarioId !== null) {
                         $stmtNuevo->bindParam(':usuario_id', $usuarioId, PDO::PARAM_INT);
@@ -1369,6 +1396,7 @@ class FinancieroController {
                             'nombre'       => $nuevoNombre,
                             'puesto'       => $nuevoPuesto,
                             'sueldo_diario'=> $nuevoSueldo,
+                            'tipo_sueldo'  => $nuevoTipoSueldo,
                             'fecha_inicio' => $nuevaFechaInicio,
                             'fecha_fin'    => null,
                             'activo'       => true,
@@ -1379,7 +1407,7 @@ class FinancieroController {
                     throw $e;
                 }
             } else {
-                // Solo cambió nombre o puesto — UPDATE directo, sin crear versión nueva
+                // Cambio de nombre, puesto, tipo_sueldo, fecha_fin o activo — UPDATE directo
                 $campos = [];
                 $params = [];
                 if ($cambiaNombre) {
@@ -1389,6 +1417,28 @@ class FinancieroController {
                 if ($cambiaPuesto) {
                     $campos[]         = 'puesto = :puesto';
                     $params['puesto'] = $nuevoPuesto;
+                }
+                if ($cambiaTipoSueldo) {
+                    $campos[]              = 'tipo_sueldo = :tipo_sueldo';
+                    $params['tipo_sueldo'] = $nuevoTipoSueldo;
+                }
+                if ($darDeBaja) {
+                    if (isset($body['fecha_fin'])) {
+                        $fechaFinBaja = trim((string) $body['fecha_fin']);
+                        $campos[]              = 'fecha_fin = :fecha_fin';
+                        $params['fecha_fin']   = $fechaFinBaja;
+                    }
+                    if (array_key_exists('activo', $body)) {
+                        $activoVal = $body['activo'] ? 1 : 0;
+                        $campos[]           = 'activo = :activo';
+                        $params['activo']   = $activoVal;
+                    }
+                }
+
+                if (empty($campos)) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => 'No se enviaron campos a actualizar']);
+                    return;
                 }
 
                 $sql  = 'UPDATE empleados_sueldos SET ' . implode(', ', $campos) . ' WHERE id = :id';
@@ -1405,7 +1455,7 @@ class FinancieroController {
 
                 // Re-fetch para devolver el registro actualizado
                 $stmtGet = $this->db->prepare(
-                    'SELECT id, usuario_id, nombre, puesto, sueldo_diario, fecha_inicio, fecha_fin, activo
+                    'SELECT id, usuario_id, nombre, puesto, sueldo_diario, tipo_sueldo, fecha_inicio, fecha_fin, activo
                      FROM empleados_sueldos WHERE id = :id LIMIT 1'
                 );
                 $stmtGet->bindParam(':id', $id, PDO::PARAM_INT);
@@ -1421,6 +1471,7 @@ class FinancieroController {
                         'nombre'       => $row['nombre'],
                         'puesto'       => $row['puesto'],
                         'sueldo_diario'=> (float) $row['sueldo_diario'],
+                        'tipo_sueldo'  => $row['tipo_sueldo'] ?? 'diario',
                         'fecha_inicio' => $row['fecha_inicio'],
                         'fecha_fin'    => $row['fecha_fin'],
                         'activo'       => (bool)  $row['activo'],

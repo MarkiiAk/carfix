@@ -341,9 +341,16 @@ export const Financiero = () => {
   const [empPuesto, setEmpPuesto]                   = useState('');
   const [empSueldo, setEmpSueldo]                   = useState('');
   const [empSueldoOriginal, setEmpSueldoOriginal]   = useState('');  // para detectar si cambió
+  const [empTipoSueldo, setEmpTipoSueldo]           = useState<'diario' | 'semanal'>('diario');
   const [empFechaInicioCambio, setEmpFechaInicioCambio] = useState(() => new Date().toISOString().split('T')[0]);
   const [empGuardando, setEmpGuardando]             = useState(false);
   const [empError, setEmpError]                     = useState<string | null>(null);
+  // Dar de baja
+  const [empBajaId, setEmpBajaId]                   = useState<number | null>(null);
+  const [empBajaNombre, setEmpBajaNombre]           = useState('');
+  const [empBajando, setEmpBajando]                 = useState(false);
+  // Empleados inactivos
+  const [mostrarInactivos, setMostrarInactivos]     = useState(false);
   const [mostrarFormEmp, setMostrarFormEmp]         = useState(false);
 
   // Formulario pagos fijos
@@ -500,12 +507,14 @@ export const Financiero = () => {
       setEmpPuesto(emp.puesto ?? '');
       setEmpSueldo(String(emp.sueldo_diario));
       setEmpSueldoOriginal(String(emp.sueldo_diario));
+      setEmpTipoSueldo(emp.tipo_sueldo ?? 'diario');
     } else {
       setEmpEditId(null);
       setEmpNombre('');
       setEmpPuesto('');
       setEmpSueldo('');
       setEmpSueldoOriginal('');
+      setEmpTipoSueldo('diario');
     }
     setEmpFechaInicioCambio(hoy);
     setEmpError(null);
@@ -521,8 +530,9 @@ export const Financiero = () => {
   const guardarEmpleado = async () => {
     const nombre = empNombre.trim();
     const sueldo = parseFloat(empSueldo);
+    const labelSueldo = empTipoSueldo === 'semanal' ? 'semanal' : 'diario';
     if (!nombre) { setEmpError('El nombre es obligatorio.'); return; }
-    if (isNaN(sueldo) || sueldo < 0) { setEmpError('Sueldo diario inválido.'); return; }
+    if (isNaN(sueldo) || sueldo < 0) { setEmpError(`Sueldo ${labelSueldo} inválido.`); return; }
     setEmpError(null);
     setEmpGuardando(true);
     try {
@@ -532,6 +542,7 @@ export const Financiero = () => {
           nombre,
           puesto: empPuesto || null,
           sueldo_diario: sueldo,
+          tipo_sueldo: empTipoSueldo,
         };
         if (sueldoCambio) {
           payload.fecha_inicio_cambio = empFechaInicioCambio;
@@ -542,6 +553,7 @@ export const Financiero = () => {
           nombre,
           puesto: empPuesto || null,
           sueldo_diario: sueldo,
+          tipo_sueldo: empTipoSueldo,
           usuario_id: null,
           fecha_inicio: empFechaInicioCambio,
           fecha_fin: null,
@@ -553,6 +565,28 @@ export const Financiero = () => {
       setEmpError('Error al guardar. Intenta de nuevo.');
     } finally {
       setEmpGuardando(false);
+    }
+  };
+
+  const confirmarDarDeBaja = (emp: EmpleadoSueldo) => {
+    setEmpBajaId(emp.id);
+    setEmpBajaNombre(emp.nombre);
+  };
+
+  const ejecutarDarDeBaja = async () => {
+    if (empBajaId === null) return;
+    setEmpBajando(true);
+    try {
+      const hoy = new Date().toISOString().split('T')[0];
+      await empleadosFinancieroAPI.actualizar(empBajaId, { fecha_fin: hoy, activo: false });
+      setEmpBajaId(null);
+      setEmpBajaNombre('');
+      await cargarEmpleados(periodoFechaInicio ?? undefined, periodoFechaFin ?? undefined);
+    } catch {
+      // silencioso — el error de red no debería bloquear el modal
+      setEmpBajaId(null);
+    } finally {
+      setEmpBajando(false);
     }
   };
 
@@ -672,9 +706,15 @@ export const Financiero = () => {
   };
 
   // Totales calculados para la gráfica de distribución
+  // Tarifa diaria efectiva: diario → sueldo_diario; semanal → sueldo_diario / 7
+  const tarifaDiariaEfectiva = (e: EmpleadoSueldo): number =>
+    (e.tipo_sueldo ?? 'diario') === 'semanal'
+      ? Number(e.sueldo_diario) / 7
+      : Number(e.sueldo_diario);
+
   const totalSueldosActivos = empleados
     .filter(e => e.activo)
-    .reduce((acc, e) => acc + e.sueldo_diario * (tipoPeriodo === 'semana' ? 5 : 22), 0);
+    .reduce((acc, e) => acc + tarifaDiariaEfectiva(e) * (tipoPeriodo === 'semana' ? 5 : 22), 0);
 
   const totalPagosFijosActivos = pagosFijos
     .filter(p => p.activo)
@@ -735,6 +775,7 @@ export const Financiero = () => {
   const sinDatos = resumen.num_ordenes === 0;
 
   return (
+    <>
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
       {/* ------------------------------------------------------------------ */}
@@ -1076,6 +1117,25 @@ export const Financiero = () => {
 
                 {mostrarFormEmp && (
                   <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-indigo-200 dark:border-indigo-700/40">
+                    {/* Radio: tipo de sueldo */}
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Tipo:</span>
+                      {(['diario', 'semanal'] as const).map(tipo => (
+                        <label key={tipo} className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="empTipoSueldo"
+                            value={tipo}
+                            checked={empTipoSueldo === tipo}
+                            onChange={() => setEmpTipoSueldo(tipo)}
+                            className="accent-indigo-500"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {tipo === 'diario' ? 'Por día' : 'Por semana'}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       <input
                         type="text"
@@ -1093,12 +1153,12 @@ export const Financiero = () => {
                       />
                       <input
                         type="number"
-                        placeholder="Sueldo/día"
+                        placeholder={empTipoSueldo === 'semanal' ? 'Sueldo/semana' : 'Sueldo/día'}
                         value={empSueldo}
                         onChange={e => setEmpSueldo(e.target.value)}
                         min="0"
                         step="0.01"
-                        className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                       />
                       <button
                         onClick={guardarEmpleado}
@@ -1145,23 +1205,32 @@ export const Financiero = () => {
                         <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                           <th className="pb-2 pr-4 font-medium">Nombre</th>
                           <th className="pb-2 pr-4 font-medium">Puesto</th>
-                          <th className="pb-2 pr-4 font-medium text-right">Sueldo/día</th>
+                          <th className="pb-2 pr-4 font-medium text-right">Tarifa</th>
                           <th className="pb-2 pr-4 font-medium text-right">Est. período</th>
                           <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Vigente desde</th>
                           <th className="pb-2 font-medium w-16 text-center">Activo</th>
-                          <th className="pb-2 w-8"></th>
+                          <th className="pb-2 w-16"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {empleados.map(e => (
-                          <tr key={e.id} className={`border-b border-gray-50 dark:border-gray-700/50 last:border-0 ${!e.activo ? 'opacity-50' : ''}`}>
+                        {empleados.filter(e => e.activo).map(e => (
+                          <tr key={e.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
                             <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{e.nombre}</td>
                             <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{e.puesto ?? '—'}</td>
                             <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
-                              {formatMoneda(e.sueldo_diario)}
+                              {(e.tipo_sueldo ?? 'diario') === 'semanal' ? (
+                                <div>
+                                  <span>{formatMoneda(Number(e.sueldo_diario))}/sem</span>
+                                  <span className="block text-[10px] text-gray-400 dark:text-gray-500">
+                                    ({formatMoneda(Number(e.sueldo_diario) / 7)}/día ef.)
+                                  </span>
+                                </div>
+                              ) : (
+                                <span>{formatMoneda(Number(e.sueldo_diario))}/día</span>
+                              )}
                             </td>
                             <td className="py-2 pr-4 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                              {formatMoneda(e.sueldo_diario * (tipoPeriodo === 'semana' ? 5 : 22))}
+                              {formatMoneda(tarifaDiariaEfectiva(e) * (tipoPeriodo === 'semana' ? 5 : 22))}
                             </td>
                             <td className="py-2 pr-4 hidden sm:table-cell">
                               <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
@@ -1180,9 +1249,18 @@ export const Financiero = () => {
                               </button>
                             </td>
                             <td className="py-2 text-right">
-                              <button onClick={() => abrirFormEmp(e)} className="text-gray-400 hover:text-indigo-500 transition-colors">
-                                <FontAwesomeIcon icon={faPencil} style={{ width: 13, height: 13 }} />
-                              </button>
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => abrirFormEmp(e)} className="text-gray-400 hover:text-indigo-500 transition-colors">
+                                  <FontAwesomeIcon icon={faPencil} style={{ width: 13, height: 13 }} />
+                                </button>
+                                <button
+                                  onClick={() => confirmarDarDeBaja(e)}
+                                  title="Dar de baja"
+                                  className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                >
+                                  <FontAwesomeIcon icon={faXmark} style={{ width: 13, height: 13 }} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1194,6 +1272,40 @@ export const Financiero = () => {
                         {formatMoneda(totalSueldosActivos)}
                       </span>
                     </div>
+
+                    {/* Empleados inactivos — colapsados */}
+                    {empleados.filter(e => !e.activo).length > 0 && (
+                      <div className="mt-3">
+                        <button
+                          onClick={() => setMostrarInactivos(!mostrarInactivos)}
+                          className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {mostrarInactivos ? 'Ocultar' : `Ver empleados inactivos (${empleados.filter(e => !e.activo).length})`}
+                        </button>
+                        {mostrarInactivos && (
+                          <table className="w-full text-sm mt-2 opacity-50">
+                            <tbody>
+                              {empleados.filter(e => !e.activo).map(e => (
+                                <tr key={e.id} className="border-b border-gray-100 dark:border-gray-800">
+                                  <td className="py-1.5 pr-4 text-gray-500 dark:text-gray-400">{e.nombre}</td>
+                                  <td className="py-1.5 pr-4 text-gray-400 dark:text-gray-500">{e.puesto ?? '—'}</td>
+                                  <td className="py-1.5 pr-4 text-right tabular-nums text-gray-400 dark:text-gray-500">
+                                    {(e.tipo_sueldo ?? 'diario') === 'semanal'
+                                      ? `${formatMoneda(Number(e.sueldo_diario))}/sem`
+                                      : `${formatMoneda(Number(e.sueldo_diario))}/día`}
+                                  </td>
+                                  <td className="py-1.5 text-xs text-gray-400 dark:text-gray-600">
+                                    {e.fecha_fin
+                                      ? `Baja: ${new Date(e.fecha_fin + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                                      : 'Inactivo'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1737,5 +1849,39 @@ export const Financiero = () => {
       )}
 
     </div>
+
+    {/* ── Modal: confirmar dar de baja ─────────────────────────────── */}
+    {empBajaId !== null && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-gray-200 dark:border-gray-700">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            Dar de baja a {empBajaNombre}
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+            El empleado dejará de aparecer en los cálculos a partir de hoy.
+            Su historial de sueldos se conserva para los períodos anteriores.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => { setEmpBajaId(null); setEmpBajaNombre(''); }}
+              disabled={empBajando}
+              className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={ejecutarDarDeBaja}
+              disabled={empBajando}
+              className="flex items-center gap-1.5 text-sm font-medium bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white rounded-lg px-4 py-2 transition-colors"
+            >
+              {empBajando && <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 13, height: 13 }} />}
+              Dar de baja
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    </>
   );
 };

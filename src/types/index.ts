@@ -425,6 +425,7 @@ export interface EmpleadoSueldo {
   nombre: string;
   puesto: string | null;
   sueldo_diario: number;
+  tipo_sueldo: 'diario' | 'semanal';   // 'diario' = tarifa_diaria; 'semanal' = sueldo_diario/7 tarifa efectiva
   fecha_inicio: string;    // 'YYYY-MM-DD'
   fecha_fin: string | null;
   activo: boolean;
