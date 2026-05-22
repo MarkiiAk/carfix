@@ -349,8 +349,8 @@ export const Financiero = () => {
   const [empBajaId, setEmpBajaId]                   = useState<number | null>(null);
   const [empBajaNombre, setEmpBajaNombre]           = useState('');
   const [empBajando, setEmpBajando]                 = useState(false);
-  // Empleados inactivos
-  const [mostrarInactivos, setMostrarInactivos]     = useState(false);
+  // Ex-empleados (dados de baja: fecha_fin <= hoy)
+  const [mostrarExEmpleados, setMostrarExEmpleados] = useState(false);
   const [mostrarFormEmp, setMostrarFormEmp]         = useState(false);
 
   // Formulario pagos fijos
@@ -597,6 +597,13 @@ export const Financiero = () => {
     } catch { /* silencioso */ }
   };
 
+  const reactivarEmpleado = async (id: number) => {
+    try {
+      await empleadosFinancieroAPI.actualizar(id, { fecha_fin: null, activo: true });
+      await cargarEmpleados(periodoFechaInicio ?? undefined, periodoFechaFin ?? undefined);
+    } catch { /* silencioso */ }
+  };
+
   // Handlers para pagos fijos
   const abrirFormPago = (pago?: PagoFijo) => {
     const hoy = new Date().toISOString().split('T')[0];
@@ -712,7 +719,12 @@ export const Financiero = () => {
       ? Number(e.sueldo_diario) / 7
       : Number(e.sueldo_diario);
 
-  const totalSueldosActivos = empleados
+  // Separar empleados vigentes (en plantilla) de ex-empleados (dados de baja)
+  const hoyStr = new Date().toISOString().split('T')[0];
+  const empleadosVigentes = empleados.filter(e => !e.fecha_fin || e.fecha_fin > hoyStr);
+  const exEmpleados       = empleados.filter(e => e.fecha_fin != null && e.fecha_fin <= hoyStr);
+
+  const totalSueldosActivos = empleadosVigentes
     .filter(e => e.activo)
     .reduce((acc, e) => acc + tarifaDiariaEfectiva(e) * (tipoPeriodo === 'semana' ? 5 : 22), 0);
 
@@ -1196,76 +1208,78 @@ export const Financiero = () => {
                     <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 16, height: 16 }} />
                     <span className="text-sm">Cargando...</span>
                   </div>
-                ) : empleados.length === 0 ? (
+                ) : empleadosVigentes.length === 0 && exEmpleados.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Sin empleados registrados.</p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                          <th className="pb-2 pr-4 font-medium">Nombre</th>
-                          <th className="pb-2 pr-4 font-medium">Puesto</th>
-                          <th className="pb-2 pr-4 font-medium text-right">Tarifa</th>
-                          <th className="pb-2 pr-4 font-medium text-right">Est. período</th>
-                          <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Vigente desde</th>
-                          <th className="pb-2 font-medium w-16 text-center">Activo</th>
-                          <th className="pb-2 w-16"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {empleados.filter(e => e.activo).map(e => (
-                          <tr key={e.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
-                            <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{e.nombre}</td>
-                            <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{e.puesto ?? '—'}</td>
-                            <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
-                              {(e.tipo_sueldo ?? 'diario') === 'semanal' ? (
-                                <div>
-                                  <span>{formatMoneda(Number(e.sueldo_diario))}/sem</span>
-                                  <span className="block text-[10px] text-gray-400 dark:text-gray-500">
-                                    ({formatMoneda(Number(e.sueldo_diario) / 7)}/día ef.)
-                                  </span>
-                                </div>
-                              ) : (
-                                <span>{formatMoneda(Number(e.sueldo_diario))}/día</span>
-                              )}
-                            </td>
-                            <td className="py-2 pr-4 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                              {formatMoneda(tarifaDiariaEfectiva(e) * (tipoPeriodo === 'semana' ? 5 : 22))}
-                            </td>
-                            <td className="py-2 pr-4 hidden sm:table-cell">
-                              <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
-                                {e.fecha_inicio ? new Date(e.fecha_inicio + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                              </span>
-                              {e.fecha_fin && (
-                                <span className="text-xs text-orange-500 dark:text-orange-400 block">hasta {new Date(e.fecha_fin + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
-                              )}
-                            </td>
-                            <td className="py-2 text-center">
-                              <button
-                                onClick={() => toggleEmpleado(e.id)}
-                                className={`w-10 h-5 rounded-full transition-colors ${e.activo ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                              >
-                                <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${e.activo ? 'translate-x-5' : 'translate-x-0'}`} />
-                              </button>
-                            </td>
-                            <td className="py-2 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <button onClick={() => abrirFormEmp(e)} className="text-gray-400 hover:text-indigo-500 transition-colors">
-                                  <FontAwesomeIcon icon={faPencil} style={{ width: 13, height: 13 }} />
-                                </button>
-                                <button
-                                  onClick={() => confirmarDarDeBaja(e)}
-                                  title="Dar de baja"
-                                  className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                                >
-                                  <FontAwesomeIcon icon={faXmark} style={{ width: 13, height: 13 }} />
-                                </button>
-                              </div>
-                            </td>
+                    {empleadosVigentes.length > 0 && (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                            <th className="pb-2 pr-4 font-medium">Nombre</th>
+                            <th className="pb-2 pr-4 font-medium">Puesto</th>
+                            <th className="pb-2 pr-4 font-medium text-right">Tarifa</th>
+                            <th className="pb-2 pr-4 font-medium text-right">Est. período</th>
+                            <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Vigente desde</th>
+                            <th className="pb-2 font-medium w-16 text-center">Esta semana</th>
+                            <th className="pb-2 w-16"></th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {empleadosVigentes.map(e => (
+                            <tr key={e.id} className={`border-b border-gray-50 dark:border-gray-700/50 last:border-0 ${!e.activo ? 'opacity-50' : ''}`}>
+                              <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{e.nombre}</td>
+                              <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{e.puesto ?? '—'}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                                {(e.tipo_sueldo ?? 'diario') === 'semanal' ? (
+                                  <div>
+                                    <span>{formatMoneda(Number(e.sueldo_diario))}/sem</span>
+                                    <span className="block text-[10px] text-gray-400 dark:text-gray-500">
+                                      ({formatMoneda(Number(e.sueldo_diario) / 7)}/día ef.)
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span>{formatMoneda(Number(e.sueldo_diario))}/día</span>
+                                )}
+                              </td>
+                              <td className="py-2 pr-4 text-right tabular-nums text-gray-600 dark:text-gray-400">
+                                {e.activo
+                                  ? formatMoneda(tarifaDiariaEfectiva(e) * (tipoPeriodo === 'semana' ? 5 : 22))
+                                  : '—'}
+                              </td>
+                              <td className="py-2 pr-4 hidden sm:table-cell">
+                                <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                                  {e.fecha_inicio ? new Date(e.fecha_inicio + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                </span>
+                              </td>
+                              <td className="py-2 text-center">
+                                <button
+                                  onClick={() => toggleEmpleado(e.id)}
+                                  title={e.activo ? 'Marcar como inactivo esta semana' : 'Marcar como activo'}
+                                  className={`w-10 h-5 rounded-full transition-colors ${e.activo ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${e.activo ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                              </td>
+                              <td className="py-2 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button onClick={() => abrirFormEmp(e)} className="text-gray-400 hover:text-indigo-500 transition-colors">
+                                    <FontAwesomeIcon icon={faPencil} style={{ width: 13, height: 13 }} />
+                                  </button>
+                                  <button
+                                    onClick={() => confirmarDarDeBaja(e)}
+                                    title="Dar de baja"
+                                    className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                  >
+                                    <FontAwesomeIcon icon={faXmark} style={{ width: 13, height: 13 }} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
                     <div className="flex justify-end pt-3 border-t border-gray-100 dark:border-gray-700 mt-1">
                       <span className="text-sm text-gray-500 dark:text-gray-400 mr-4">Total estimado del período:</span>
                       <span className="font-bold text-gray-900 dark:text-white tabular-nums">
@@ -1273,31 +1287,48 @@ export const Financiero = () => {
                       </span>
                     </div>
 
-                    {/* Empleados inactivos — colapsados */}
-                    {empleados.filter(e => !e.activo).length > 0 && (
-                      <div className="mt-3">
+                    {/* Ex-empleados — colapsados */}
+                    {exEmpleados.length > 0 && (
+                      <div className="mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
                         <button
-                          onClick={() => setMostrarInactivos(!mostrarInactivos)}
+                          onClick={() => setMostrarExEmpleados(!mostrarExEmpleados)}
                           className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                         >
-                          {mostrarInactivos ? 'Ocultar' : `Ver empleados inactivos (${empleados.filter(e => !e.activo).length})`}
+                          {mostrarExEmpleados ? 'Ocultar ex-empleados' : `Ex-empleados (${exEmpleados.length})`}
                         </button>
-                        {mostrarInactivos && (
-                          <table className="w-full text-sm mt-2 opacity-50">
+                        {mostrarExEmpleados && (
+                          <table className="w-full text-sm mt-2">
+                            <thead>
+                              <tr className="text-left text-gray-400 dark:text-gray-600 border-b border-gray-100 dark:border-gray-800">
+                                <th className="pb-1.5 pr-4 font-medium text-xs">Nombre</th>
+                                <th className="pb-1.5 pr-4 font-medium text-xs">Puesto</th>
+                                <th className="pb-1.5 pr-4 font-medium text-xs text-right">Tarifa</th>
+                                <th className="pb-1.5 pr-4 font-medium text-xs">Baja desde</th>
+                                <th className="pb-1.5 w-20"></th>
+                              </tr>
+                            </thead>
                             <tbody>
-                              {empleados.filter(e => !e.activo).map(e => (
-                                <tr key={e.id} className="border-b border-gray-100 dark:border-gray-800">
-                                  <td className="py-1.5 pr-4 text-gray-500 dark:text-gray-400">{e.nombre}</td>
-                                  <td className="py-1.5 pr-4 text-gray-400 dark:text-gray-500">{e.puesto ?? '—'}</td>
-                                  <td className="py-1.5 pr-4 text-right tabular-nums text-gray-400 dark:text-gray-500">
+                              {exEmpleados.map(e => (
+                                <tr key={e.id} className="border-b border-gray-50 dark:border-gray-800 last:border-0 opacity-60">
+                                  <td className="py-1.5 pr-4 text-gray-600 dark:text-gray-400 text-sm">{e.nombre}</td>
+                                  <td className="py-1.5 pr-4 text-gray-400 dark:text-gray-500 text-sm">{e.puesto ?? '—'}</td>
+                                  <td className="py-1.5 pr-4 text-right tabular-nums text-gray-400 dark:text-gray-500 text-sm">
                                     {(e.tipo_sueldo ?? 'diario') === 'semanal'
                                       ? `${formatMoneda(Number(e.sueldo_diario))}/sem`
                                       : `${formatMoneda(Number(e.sueldo_diario))}/día`}
                                   </td>
-                                  <td className="py-1.5 text-xs text-gray-400 dark:text-gray-600">
+                                  <td className="py-1.5 pr-4 text-xs text-gray-400 dark:text-gray-600">
                                     {e.fecha_fin
-                                      ? `Baja: ${new Date(e.fecha_fin + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}`
-                                      : 'Inactivo'}
+                                      ? new Date(e.fecha_fin + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+                                      : '—'}
+                                  </td>
+                                  <td className="py-1.5 text-right">
+                                    <button
+                                      onClick={() => reactivarEmpleado(e.id)}
+                                      className="text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 rounded-md px-2 py-1 transition-colors"
+                                    >
+                                      Reactivar
+                                    </button>
                                   </td>
                                 </tr>
                               ))}

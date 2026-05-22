@@ -1141,24 +1141,19 @@ class FinancieroController {
                 return;
             }
 
-            // Filtrado por vigencia. Si no se pasan fechas, se usa CURDATE() para ambas
-            // (devuelve solo los registros vigentes hoy).
-            $fechaConsultaInicio = isset($_GET['fecha_inicio']) ? trim($_GET['fecha_inicio']) : date('Y-m-d');
-            $fechaConsultaFin    = isset($_GET['fecha_fin'])    ? trim($_GET['fecha_fin'])    : date('Y-m-d');
-
-            // Muestra activos E inactivos vigentes en el período.
-            // El frontend filtra activo=true para los cálculos y muestra inactivos en gris.
+            // Sin filtro de fechas: devuelve TODOS los empleados (vigentes y ex-empleados).
+            // El frontend separa:
+            //   - empleadosVigentes: sin fecha_fin o fecha_fin > hoy → aparecen en tabla principal
+            //   - exEmpleados: fecha_fin <= hoy → aparecen en sección colapsada "Ex-empleados"
+            // Dentro de vigentes, activo=false se muestra greyed out (sin pago esa semana).
             $sql = "
                 SELECT id, usuario_id, nombre, puesto, sueldo_diario, tipo_sueldo,
                        fecha_inicio, fecha_fin, activo
                 FROM empleados_sueldos
-                WHERE fecha_inicio <= :fecha_consulta_fin
-                  AND (fecha_fin IS NULL OR fecha_fin >= :fecha_consulta_inicio)
-                ORDER BY activo DESC, nombre ASC
+                WHERE 1=1
+                ORDER BY activo DESC, (fecha_fin IS NULL) DESC, nombre ASC
             ";
             $stmt = $this->db->prepare($sql);
-            $stmt->bindParam(':fecha_consulta_inicio', $fechaConsultaInicio, PDO::PARAM_STR);
-            $stmt->bindParam(':fecha_consulta_fin',    $fechaConsultaFin,    PDO::PARAM_STR);
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1302,7 +1297,7 @@ class FinancieroController {
             $cambiaTipoSueldo = isset($body['tipo_sueldo']);
 
             if (!$cambiaNombre && !$cambiaPuesto && !$cambiaSueldo && !$cambiaTipoSueldo
-                && !isset($body['fecha_fin']) && !array_key_exists('activo', $body)) {
+                && !array_key_exists('fecha_fin', $body) && !array_key_exists('activo', $body)) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'No se enviaron campos a actualizar']);
                 return;
@@ -1338,8 +1333,10 @@ class FinancieroController {
                 ? (in_array($body['tipo_sueldo'], ['diario','semanal'], true) ? $body['tipo_sueldo'] : 'diario')
                 : ($existente['tipo_sueldo'] ?? 'diario');
 
-            // Dar de baja: si viene fecha_fin o activo=0 sin cambio de sueldo → UPDATE directo
-            $darDeBaja = isset($body['fecha_fin']) || (array_key_exists('activo', $body) && $body['activo'] == 0);
+            // Actualización directa cuando viene fecha_fin o activo (dar de baja o reactivar)
+            $cambiaFechaFin = array_key_exists('fecha_fin', $body);
+            $cambiaActivo   = array_key_exists('activo', $body);
+            $darDeBajaOReactivar = $cambiaFechaFin || $cambiaActivo;
 
             if ($cambiaSueldo) {
                 // PATRÓN VERSIONAR: solo cuando cambia el monto/sueldo.
@@ -1422,13 +1419,21 @@ class FinancieroController {
                     $campos[]              = 'tipo_sueldo = :tipo_sueldo';
                     $params['tipo_sueldo'] = $nuevoTipoSueldo;
                 }
-                if ($darDeBaja) {
-                    if (isset($body['fecha_fin'])) {
-                        $fechaFinBaja = trim((string) $body['fecha_fin']);
-                        $campos[]              = 'fecha_fin = :fecha_fin';
-                        $params['fecha_fin']   = $fechaFinBaja;
+                if ($darDeBajaOReactivar) {
+                    if ($cambiaFechaFin) {
+                        // Acepta fecha string (dar de baja) o null/"" (reactivar)
+                        $fechaFinVal = $body['fecha_fin'];
+                        if ($fechaFinVal === null || $fechaFinVal === '') {
+                            // Reactivar: poner fecha_fin a NULL
+                            $campos[]              = 'fecha_fin = :fecha_fin';
+                            $params['fecha_fin']   = null;
+                        } else {
+                            $fechaFinVal = trim((string) $fechaFinVal);
+                            $campos[]              = 'fecha_fin = :fecha_fin';
+                            $params['fecha_fin']   = $fechaFinVal;
+                        }
                     }
-                    if (array_key_exists('activo', $body)) {
+                    if ($cambiaActivo) {
                         $activoVal = $body['activo'] ? 1 : 0;
                         $campos[]           = 'activo = :activo';
                         $params['activo']   = $activoVal;
