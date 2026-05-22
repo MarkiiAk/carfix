@@ -79,6 +79,7 @@ export interface Refaccion {
   precioCosto: number; // Precio de costo (lo que paga el taller)
   precioVenta: number; // Precio de venta (con 30% de ganancia)
   margenGanancia: number; // Porcentaje de ganancia (ej: 30)
+  proveedor?: string;   // Proveedor opcional (ej: Autozone)
   total: number; // cantidad * precioVenta
 }
 
