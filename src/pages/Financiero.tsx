@@ -941,7 +941,24 @@ export const Financiero = () => {
                     />
 
                     {/* --------------------------------------------------- */}
-                    {/* 3. Balance — hero number + cascada                    */}
+                    {/* 3. Detalle por orden — justo debajo de ¿A dónde fue? */}
+                    {/* --------------------------------------------------- */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
+                      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                        Detalle por orden
+                      </h2>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                        Ganancia = total facturado − costo de refacciones (sin margen)
+                      </p>
+                      <TablaOrdenesDesglosada
+                        ordenes={ordenes}
+                        totales={ordTotales}
+                        loading={loadingOrdenes}
+                      />
+                    </div>
+
+                    {/* --------------------------------------------------- */}
+                    {/* 4. Balance — hero number + cascada                    */}
                     {/* --------------------------------------------------- */}
                     <div>
                       {/* Hero number */}
@@ -1041,23 +1058,6 @@ export const Financiero = () => {
                   </>
                 );
               })()}
-
-              {/* ----------------------------------------------------------- */}
-              {/* 4. Tabla órdenes desglosada                                  */}
-              {/* ----------------------------------------------------------- */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
-                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
-                  Detalle por orden
-                </h2>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                  Ganancia = total facturado − costo de refacciones (sin margen)
-                </p>
-                <TablaOrdenesDesglosada
-                  ordenes={ordenes}
-                  totales={ordTotales}
-                  loading={loadingOrdenes}
-                />
-              </div>
 
               {/* ----------------------------------------------------------- */}
               {/* 5. Top servicios + Top clientes                              */}
