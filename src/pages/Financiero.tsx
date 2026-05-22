@@ -948,7 +948,7 @@ export const Financiero = () => {
                         Detalle por orden
                       </h2>
                       <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                        Ganancia = total facturado − costo de refacciones (sin margen)
+                        Ganancia = total facturado − costo de refacciones (sin margen) − costos internos
                       </p>
                       <TablaOrdenesDesglosada
                         ordenes={ordenes}
