@@ -146,7 +146,6 @@ class ClientesController {
                     FROM vehiculos
                     WHERE cliente_id = :cid
                     ORDER BY id DESC
-                    LIMIT 5
                 ");
                 $stmtV->bindParam(':cid', $clienteId, PDO::PARAM_INT);
                 $stmtV->execute();
@@ -248,17 +247,15 @@ class ClientesController {
                 if (!isset($vehiculosPorCliente[$cid])) {
                     $vehiculosPorCliente[$cid] = [];
                 }
-                if (count($vehiculosPorCliente[$cid]) < 5) {
-                    $vehiculosPorCliente[$cid][] = [
-                        'id'     => (int) $v['id'],
-                        'marca'  => $v['marca'],
-                        'modelo' => $v['modelo'],
-                        'anio'   => $v['anio'],
-                        'color'  => $v['color'],
-                        'placas' => $v['placas'],
-                        'niv'    => $v['niv'],
-                    ];
-                }
+                $vehiculosPorCliente[$cid][] = [
+                    'id'     => (int) $v['id'],
+                    'marca'  => $v['marca'],
+                    'modelo' => $v['modelo'],
+                    'anio'   => $v['anio'],
+                    'color'  => $v['color'],
+                    'placas' => $v['placas'],
+                    'niv'    => $v['niv'],
+                ];
             }
 
             $matches = [];
