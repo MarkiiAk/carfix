@@ -1040,17 +1040,58 @@ class FinancieroController {
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $ordenes = array_map(function ($r) {
+            // ── Cargar servicios y refacciones por orden ───────────────────
+            $serviciosPorOrden   = [];
+            $refaccionesPorOrden = [];
+
+            if (!empty($rows)) {
+                $orderIds    = array_map(fn($r) => (int) $r['id'], $rows);
+                $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
+
+                $stmtSvc = $this->db->prepare("
+                    SELECT orden_id, descripcion, subtotal
+                    FROM servicios_orden
+                    WHERE orden_id IN ($placeholders)
+                    ORDER BY id ASC
+                ");
+                $stmtSvc->execute($orderIds);
+                foreach ($stmtSvc->fetchAll(PDO::FETCH_ASSOC) as $svc) {
+                    $serviciosPorOrden[(int)$svc['orden_id']][] = [
+                        'descripcion' => $svc['descripcion'],
+                        'subtotal'    => round((float)$svc['subtotal'], 2),
+                    ];
+                }
+
+                $stmtRef = $this->db->prepare("
+                    SELECT orden_id, descripcion, proveedor, subtotal
+                    FROM refacciones_orden
+                    WHERE orden_id IN ($placeholders)
+                    ORDER BY id ASC
+                ");
+                $stmtRef->execute($orderIds);
+                foreach ($stmtRef->fetchAll(PDO::FETCH_ASSOC) as $ref) {
+                    $refaccionesPorOrden[(int)$ref['orden_id']][] = [
+                        'descripcion' => $ref['descripcion'],
+                        'proveedor'   => $ref['proveedor'] ?: null,
+                        'subtotal'    => round((float)$ref['subtotal'], 2),
+                    ];
+                }
+            }
+
+            $ordenes = array_map(function ($r) use ($serviciosPorOrden, $refaccionesPorOrden) {
+                $id = (int) $r['id'];
                 return [
-                    'id'               => (int)   $r['id'],
-                    'numero_orden'     => $r['numero_orden'],
-                    'fecha'            => $r['fecha'],
-                    'cliente_nombre'   => trim($r['cliente_nombre']),
-                    'vehiculo'         => trim($r['vehiculo']),
-                    'costo_venta'      => round((float) $r['costo_venta'], 2),
-                    'costo_refacciones'=> round((float) $r['costo_refacciones'], 2),
-                    'ganancia'         => round((float) $r['ganancia'], 2),
-                    'estado'           => $r['estado'],
+                    'id'                 => $id,
+                    'numero_orden'       => $r['numero_orden'],
+                    'fecha'              => $r['fecha'],
+                    'cliente_nombre'     => trim($r['cliente_nombre']),
+                    'vehiculo'           => trim($r['vehiculo']),
+                    'costo_venta'        => round((float) $r['costo_venta'], 2),
+                    'costo_refacciones'  => round((float) $r['costo_refacciones'], 2),
+                    'ganancia'           => round((float) $r['ganancia'], 2),
+                    'estado'             => $r['estado'],
+                    'servicios'          => $serviciosPorOrden[$id]   ?? [],
+                    'refacciones_detalle'=> $refaccionesPorOrden[$id] ?? [],
                 ];
             }, $rows);
 

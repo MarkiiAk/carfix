@@ -383,6 +383,17 @@ export interface GastosAdminResponse {
   total_pagos_fijos_periodo: number;
 }
 
+export interface ServicioOrdenFinanciero {
+  descripcion: string;
+  subtotal: number;
+}
+
+export interface RefaccionOrdenFinanciero {
+  descripcion: string;
+  proveedor: string | null;
+  subtotal: number;
+}
+
 export interface OrdenFinanciero {
   id: number;
   numero_orden: string;
@@ -390,9 +401,11 @@ export interface OrdenFinanciero {
   cliente_nombre: string;
   vehiculo: string;
   costo_venta: number;
-  costo_refacciones: number;
+  costo_refacciones: number;   // costo de compra (sin margen 30%)
   ganancia: number;
   estado: string;
+  servicios: ServicioOrdenFinanciero[];
+  refacciones_detalle: RefaccionOrdenFinanciero[];
 }
 
 export interface OrdenesFinancieroResponse {
