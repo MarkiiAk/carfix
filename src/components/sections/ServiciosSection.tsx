@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, X, Wrench } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faXmark, faWrench } from '@fortawesome/free-solid-svg-icons';
 import { Card, Input, Button } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 import { SERVICIOS_COMUNES } from '../../constants/servicios';
@@ -57,7 +58,7 @@ export const ServiciosSection: React.FC<ServiciosSectionProps> = ({ disabled = f
               className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
             >
               <div className="flex items-center gap-3">
-                <Wrench className="text-sag-600" size={20} />
+                <FontAwesomeIcon icon={faWrench} className="text-sag-600" style={{ width: 20, height: 20 }} />
                 <div>
                   <p className="font-medium text-gray-900 dark:text-gray-100">
                     {servicio.descripcion}
@@ -70,7 +71,7 @@ export const ServiciosSection: React.FC<ServiciosSectionProps> = ({ disabled = f
               <Button
                 variant="danger"
                 onClick={() => deleteServicio(servicio.id)}
-                icon={<X size={16} />}
+                icon={<FontAwesomeIcon icon={faXmark} style={{ width: 16, height: 16 }} />}
                 className="!p-2"
                 disabled={disabled}
               >
@@ -95,7 +96,7 @@ export const ServiciosSection: React.FC<ServiciosSectionProps> = ({ disabled = f
                      transition-all duration-200
                      disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-900"
         >
-          <Plus size={20} />
+          <FontAwesomeIcon icon={faPlus} style={{ width: 20, height: 20 }} />
           <span>Agregar Servicio</span>
         </button>
       )}
@@ -148,7 +149,7 @@ export const ServiciosSection: React.FC<ServiciosSectionProps> = ({ disabled = f
             <Button
               variant="success"
               onClick={handleAddServicio}
-              icon={<Plus size={20} />}
+              icon={<FontAwesomeIcon icon={faPlus} style={{ width: 20, height: 20 }} />}
               disabled={
                 disabled ||
                 !selectedServicio ||

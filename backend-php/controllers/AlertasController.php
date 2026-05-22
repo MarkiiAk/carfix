@@ -476,6 +476,56 @@ class AlertasController {
         }
     }
 
+    // GET /alertas/{id}/conversacion - Obtener mensajes de conversación WhatsApp para una alerta
+    public function obtenerConversacion($alertaId, $userData = null) {
+        try {
+            if (!$this->verificarAutorizacionAlertas($userData)) {
+                return [
+                    'success' => false,
+                    'error' => 'No autorizado'
+                ];
+            }
+
+            // Verificar que la alerta existe
+            $checkStmt = $this->db->prepare("SELECT id FROM alertas_servicio WHERE id = ?");
+            $checkStmt->execute([(int)$alertaId]);
+            if (!$checkStmt->fetch()) {
+                return [
+                    'success' => false,
+                    'error' => 'Alerta no encontrada'
+                ];
+            }
+
+            $query = "
+                SELECT
+                    id,
+                    direction,
+                    message_body AS mensaje,
+                    message_status AS estado,
+                    conversation_step,
+                    created_at
+                FROM conversaciones_whatsapp
+                WHERE alerta_id = ?
+                ORDER BY created_at ASC
+            ";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([(int)$alertaId]);
+            $mensajes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return [
+                'success' => true,
+                'mensajes' => $mensajes
+            ];
+
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Error al obtener conversación: ' . $e->getMessage()
+            ];
+        }
+    }
+
     private function obtenerEstadoWhatsAppTracking($alerta) {
         $tracking = [
             'estado' => 'no_enviado',

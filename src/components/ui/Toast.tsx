@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCircleCheck, faCircleXmark, faCircleExclamation, faXmark } from '@fortawesome/free-solid-svg-icons';
 
 export interface ToastProps {
   id: string;
@@ -35,7 +36,7 @@ export const Toast: React.FC<ToastProps> = ({
         return {
           bg: 'bg-green-50 dark:bg-green-900',
           border: 'border-green-200 dark:border-green-700',
-          icon: <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />,
+          icon: <FontAwesomeIcon icon={faCircleCheck} className="w-5 h-5 text-green-600 dark:text-green-400" />,
           titleColor: 'text-green-800 dark:text-green-200',
           messageColor: 'text-green-600 dark:text-green-300'
         };
@@ -43,7 +44,7 @@ export const Toast: React.FC<ToastProps> = ({
         return {
           bg: 'bg-red-50 dark:bg-red-900',
           border: 'border-red-200 dark:border-red-700',
-          icon: <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />,
+          icon: <FontAwesomeIcon icon={faCircleXmark} className="w-5 h-5 text-red-600 dark:text-red-400" />,
           titleColor: 'text-red-800 dark:text-red-200',
           messageColor: 'text-red-600 dark:text-red-300'
         };
@@ -51,7 +52,7 @@ export const Toast: React.FC<ToastProps> = ({
         return {
           bg: 'bg-yellow-50 dark:bg-yellow-900',
           border: 'border-yellow-200 dark:border-yellow-700',
-          icon: <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />,
+          icon: <FontAwesomeIcon icon={faCircleExclamation} className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />,
           titleColor: 'text-yellow-800 dark:text-yellow-200',
           messageColor: 'text-yellow-600 dark:text-yellow-300'
         };
@@ -59,7 +60,7 @@ export const Toast: React.FC<ToastProps> = ({
         return {
           bg: 'bg-gray-50 dark:bg-gray-900',
           border: 'border-gray-200 dark:border-gray-700',
-          icon: <AlertCircle className="w-5 h-5 text-gray-600 dark:text-gray-400" />,
+          icon: <FontAwesomeIcon icon={faCircleExclamation} className="w-5 h-5 text-gray-600 dark:text-gray-400" />,
           titleColor: 'text-gray-800 dark:text-gray-200',
           messageColor: 'text-gray-600 dark:text-gray-300'
         };
@@ -102,7 +103,7 @@ export const Toast: React.FC<ToastProps> = ({
             className={`inline-flex rounded-md p-1.5 ${styles.messageColor} hover:bg-black/5 dark:hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:ring-current transition-colors`}
           >
             <span className="sr-only">Cerrar</span>
-            <X className="w-4 h-4" />
+            <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
           </button>
         </div>
       </div>

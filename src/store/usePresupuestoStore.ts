@@ -37,6 +37,7 @@ interface PresupuestoState {
   
   // Resumen financiero
   updateAnticipo: (anticipo: number) => void;
+  updateFechaAnticipo: (fecha: string | null) => void;
   toggleIVA: (incluir: boolean) => void;
   calcularResumen: () => void;
   
@@ -142,6 +143,7 @@ const initialPresupuesto: Presupuesto = {
     iva: 0,
     total: 0,
     anticipo: 0,
+    fecha_anticipo: null,
     restante: 0,
   },
   puntosSeguridad: [],
@@ -375,10 +377,10 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
   // Actualizar anticipo
   updateAnticipo: (anticipo) => {
     set((state) => {
-      const total = state.presupuesto.resumen.incluirIVA 
-        ? state.presupuesto.resumen.subtotal * 1.16 
+      const total = state.presupuesto.resumen.incluirIVA
+        ? state.presupuesto.resumen.subtotal * 1.16
         : state.presupuesto.resumen.subtotal;
-      
+
       return {
         presupuesto: {
           ...state.presupuesto,
@@ -391,6 +393,20 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
         hasUnsavedChanges: true,
       };
     });
+  },
+
+  // Actualizar fecha de pago del anticipo
+  updateFechaAnticipo: (fecha) => {
+    set((state) => ({
+      presupuesto: {
+        ...state.presupuesto,
+        resumen: {
+          ...state.presupuesto.resumen,
+          fecha_anticipo: fecha,
+        },
+      },
+      hasUnsavedChanges: true,
+    }));
   },
 
   // Toggle IVA
@@ -450,6 +466,7 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
             iva,
             total,
             anticipo: state.presupuesto.resumen.anticipo,
+            fecha_anticipo: state.presupuesto.resumen.fecha_anticipo ?? null,
             restante,
           },
         },
@@ -539,6 +556,7 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
       iva: parseFloat(orden.resumen.iva || '0'),
       total: parseFloat(orden.resumen.total || '0'),
       anticipo: parseFloat(orden.resumen.anticipo || '0'),
+      fecha_anticipo: orden.resumen.fecha_anticipo ?? null,
       restante: parseFloat(orden.resumen.restante || '0'),
     } : {
       servicios: 0,
@@ -549,6 +567,7 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
       iva: 0,
       total: 0,
       anticipo: 0,
+      fecha_anticipo: null,
       restante: 0,
     };
     

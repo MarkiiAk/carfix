@@ -175,6 +175,12 @@ try {
         $result = $controller->marcarComoLeida($matches[1], $userData);
         echo json_encode($result);
     }
+    elseif (preg_match('#^alertas/([0-9]+)/conversacion$#', $path, $matches) && $request_method === 'GET') {
+        $userData = requireAuth();
+        $controller = new AlertasController($db);
+        $result = $controller->obtenerConversacion($matches[1], $userData);
+        echo json_encode($result);
+    }
     elseif ($path === 'alertas/generar' && $request_method === 'GET') {
         $userData = requireAuth();
         $controller = new AlertasController($db);
@@ -225,6 +231,111 @@ try {
     elseif ($path === 'financiero' && $request_method === 'GET') {
         $controller = new FinancieroController();
         $controller->resumen();
+    }
+
+    // Gastos internos por orden
+    elseif ($path === 'financiero/gastos-orden' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $ordenId  = isset($_GET['orden_id']) ? (int) $_GET['orden_id'] : 0;
+        $controller = new FinancieroController();
+        $controller->gastosOrden($ordenId, $userData);
+    }
+    elseif ($path === 'financiero/gastos-orden' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->crearGastoOrden($body, $userData);
+    }
+    elseif (preg_match('#^financiero/gastos-orden/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $userData = requireAuth();
+        $controller = new FinancieroController();
+        $controller->eliminarGastoOrden((int) $matches[1], $userData);
+    }
+
+    // Gastos administrativos del taller (renta, salarios, etc.)
+    elseif ($path === 'financiero/gastos-admin' && $request_method === 'GET') {
+        $userData = requireAuth();
+        $mes  = isset($_GET['mes'])  ? (int) $_GET['mes']  : (int) date('n');
+        $anio = isset($_GET['anio']) ? (int) $_GET['anio'] : (int) date('Y');
+        $controller = new FinancieroController();
+        $controller->gastosAdmin($mes, $anio, $userData);
+    }
+    elseif ($path === 'financiero/gastos-admin' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->crearGastoAdmin($body, $userData);
+    }
+    elseif (preg_match('#^financiero/gastos-admin/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $userData = requireAuth();
+        $controller = new FinancieroController();
+        $controller->eliminarGastoAdmin((int) $matches[1], $userData);
+    }
+
+    // Órdenes desglosadas por período
+    elseif ($path === 'financiero/ordenes' && $request_method === 'GET') {
+        $controller = new FinancieroController();
+        $controller->ordenesDesglosadas();
+    }
+
+    // Empleados y sueldos
+    elseif ($path === 'financiero/empleados' && $request_method === 'GET') {
+        $controller = new FinancieroController();
+        $controller->empleadosSueldos();
+    }
+    elseif ($path === 'financiero/empleados' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->crearEmpleado($body, $userData);
+    }
+    elseif (preg_match('#^financiero/empleados/([0-9]+)/toggle$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $controller = new FinancieroController();
+        $controller->toggleEmpleado((int) $matches[1], $userData);
+    }
+    elseif (preg_match('#^financiero/empleados/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->actualizarEmpleado((int) $matches[1], $body, $userData);
+    }
+
+    // Pagos fijos del taller
+    elseif ($path === 'financiero/pagos-fijos' && $request_method === 'GET') {
+        $controller = new FinancieroController();
+        $controller->pagosFijos();
+    }
+    elseif ($path === 'financiero/pagos-fijos' && $request_method === 'POST') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->crearPagoFijo($body, $userData);
+    }
+    elseif (preg_match('#^financiero/pagos-fijos/([0-9]+)/toggle$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $controller = new FinancieroController();
+        $controller->togglePagoFijo((int) $matches[1], $userData);
+    }
+    elseif (preg_match('#^financiero/pagos-fijos/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->actualizarPagoFijo((int) $matches[1], $body, $userData);
+    }
+
+    // Caja chica
+    elseif ($path === 'financiero/caja-chica' && $request_method === 'GET') {
+        $controller = new FinancieroController();
+        $controller->cajaChica();
+    }
+    elseif ($path === 'financiero/caja-chica' && $request_method === 'POST') {
+        $controller = new FinancieroController();
+        $controller->crearMovimientoCajaChica();
+    }
+    elseif (preg_match('#^financiero/caja-chica/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new FinancieroController();
+        $controller->eliminarMovimientoCajaChica((int) $matches[1]);
     }
 
     // Ruta de salud

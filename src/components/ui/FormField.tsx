@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCircleExclamation, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
 
 export interface ValidationRule {
   required?: boolean;
@@ -212,10 +213,10 @@ export const FormField: React.FC<FormFieldProps> = ({
               <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
             )}
             {!isValidating && hasError && (
-              <AlertCircle className="w-5 h-5 text-red-500" />
+              <FontAwesomeIcon icon={faCircleExclamation} className="w-5 h-5 text-red-500" />
             )}
             {!isValidating && isValid && showSuccess && (
-              <CheckCircle className="w-5 h-5 text-green-500" />
+              <FontAwesomeIcon icon={faCircleCheck} className="w-5 h-5 text-green-500" />
             )}
           </div>
         )}
@@ -227,7 +228,7 @@ export const FormField: React.FC<FormFieldProps> = ({
           id={`${name}-error`}
           className="text-sm text-red-600 dark:text-red-400 flex items-start gap-1"
         >
-          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <FontAwesomeIcon icon={faCircleExclamation} className="w-4 h-4 mt-0.5 flex-shrink-0" />
           {externalError || error}
         </p>
       )}

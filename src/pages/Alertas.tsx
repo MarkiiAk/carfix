@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Sun, Moon, ArrowLeft } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import { useAlertas } from '../hooks/useAlertas';
-import { EstadisticasAlertas } from '../components/alertas';
+import { EstadisticasAlertas, VisorConversacion } from '../components/alertas';
 import { Button } from '../components/ui';
 import type { Alerta } from '../services/alertasAutoService';
-import { NotificacionesDropdown } from '../components/NotificacionesDropdown';
 
 type FiltroAlertas = 'todas' | 'pendientes' | 'leidas' | 'urgente' | 'alta' | 'media';
 
 export const Alertas: React.FC = () => {
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const { themeMode, toggleTheme } = usePresupuestoStore();
+  const { themeMode } = usePresupuestoStore();
   const {
     alertas,
     alertasPendientes,
@@ -35,6 +31,9 @@ export const Alertas: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  // Estado del visor de conversaciones
+  const [conversacionAbierta, setConversacionAbierta] = useState<{ alertaId: number; nombreCliente: string } | null>(null);
 
   // Aplicar el tema al documento
   useEffect(() => {
@@ -101,11 +100,6 @@ export const Alertas: React.FC = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [filtroActivo, searchTerm]);
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
 
   const handleMarcarLeida = async (alertaId: number) => {
     await marcarComoLeida(alertaId);
@@ -177,152 +171,23 @@ export const Alertas: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Header igual al Dashboard */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center gap-3">
-                <img 
-                  src="/logo.png" 
-                  alt="SAG Garage Logo" 
-                  className="w-10 h-10 rounded-xl object-cover shadow-lg"
-                />
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">SAG Garage</h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Sistema de Alertas</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Button
-                  onClick={() => navigate('/dashboard')}
-                  className="!p-2 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                  title="Regresar al Dashboard"
-                >
-                  <ArrowLeft size={20} />
-                </Button>
-
-                <div className="hidden sm:flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-sag-100 dark:bg-sag-900/30 rounded-full flex items-center justify-center">
-                    <span className="text-sag-600 dark:text-sag-400 font-semibold">
-                      {user?.nombre?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'U'}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900 dark:text-white">{user?.nombre || user?.username}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.rol}</p>
-                  </div>
-                </div>
-                
-              <NotificacionesDropdown 
-                alertas={alertasPendientes}
-                loading={cargando}
-                onRefresh={() => cargarAlertas()}
-              />
-                
-                <Button
-                  onClick={toggleTheme}
-                  className="!p-2 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                  title={`Cambiar a modo ${themeMode === 'light' ? 'oscuro' : 'claro'}`}
-                >
-                  {themeMode === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-                </Button>
-
-                <Button
-                  onClick={handleLogout}
-                  className="bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30"
-                >
-                  Cerrar Sesión
-                </Button>
-              </div>
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 text-center">
+          <div className="text-red-500 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
           </div>
-        </header>
-
-        {/* Error Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 text-center">
-            <div className="text-red-500 mb-4">
-              <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Error al cargar alertas</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
-            <Button onClick={cargarAlertas}>Reintentar</Button>
-          </div>
-        </main>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Error al cargar alertas</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+          <Button onClick={cargarAlertas}>Reintentar</Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header igual al Dashboard */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <img 
-                src="/logo.png" 
-                alt="SAG Garage Logo" 
-                className="w-10 h-10 rounded-xl object-cover shadow-lg"
-              />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">SAG Garage</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Sistema de Alertas</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={() => navigate('/dashboard')}
-                className="!p-2 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                title="Regresar al Dashboard"
-              >
-                <ArrowLeft size={20} />
-              </Button>
-
-              <div className="hidden sm:flex items-center gap-2 text-sm">
-                <div className="w-8 h-8 bg-sag-100 dark:bg-sag-900/30 rounded-full flex items-center justify-center">
-                  <span className="text-sag-600 dark:text-sag-400 font-semibold">
-                    {user?.nombre?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'U'}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-gray-900 dark:text-white">{user?.nombre || user?.username}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.rol}</p>
-                </div>
-              </div>
-              
-            <NotificacionesDropdown 
-              alertas={alertasPendientes}
-              loading={cargando}
-              onRefresh={() => cargarAlertas()}
-            />
-              
-              <Button
-                onClick={toggleTheme}
-                className="!p-2 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                title={`Cambiar a modo ${themeMode === 'light' ? 'oscuro' : 'claro'}`}
-              >
-                {themeMode === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-              </Button>
-
-              <Button
-                onClick={handleLogout}
-                className="bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30"
-              >
-                Cerrar Sesión
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Estadísticas */}
         <EstadisticasAlertas estadisticas={estadisticas} cargando={cargando} />
 
@@ -499,7 +364,7 @@ export const Alertas: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
                           {alerta.estado === 'pendiente' && (
                             <Button
                               variant="outline"
@@ -508,6 +373,16 @@ export const Alertas: React.FC = () => {
                             >
                               Marcar leída
                             </Button>
+                          )}
+                          {/* Visor conversación — oculto temporalmente, feature completo en rama */}
+                          {false && (
+                          <button
+                            onClick={() => setConversacionAbierta({ alertaId: alerta.id, nombreCliente: alerta.cliente_nombre })}
+                            title="Ver conversación WhatsApp"
+                            className="p-1.5 rounded-lg text-[#075E54] hover:bg-[#075E54]/10 dark:text-[#25D366] dark:hover:bg-[#25D366]/10 transition-colors"
+                          >
+                            <FontAwesomeIcon icon={faWhatsapp} style={{ width: 17, height: 17 }} />
+                          </button>
                           )}
                         </div>
                       </td>
@@ -565,7 +440,15 @@ export const Alertas: React.FC = () => {
             </div>
           )}
         </div>
-      </main>
+
+      {/* Modal visor de conversación WhatsApp */}
+      {conversacionAbierta && (
+        <VisorConversacion
+          alertaId={conversacionAbierta.alertaId}
+          nombreCliente={conversacionAbierta.nombreCliente}
+          onClose={() => setConversacionAbierta(null)}
+        />
+      )}
     </div>
   );
 };

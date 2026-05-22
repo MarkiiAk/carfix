@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, X, HardHat } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faXmark, faHardHat } from '@fortawesome/free-solid-svg-icons';
 import { Card, Input, Button } from '../ui';
 import { usePresupuestoStore } from '../../store/usePresupuestoStore';
 
@@ -53,7 +54,7 @@ export const ManoObraSection: React.FC<ManoObraSectionProps> = ({ disabled = fal
               className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
             >
               <div className="flex items-center gap-3">
-                <HardHat className="text-sag-600 dark:text-sag-400" size={20} />
+                <FontAwesomeIcon icon={faHardHat} className="text-sag-600 dark:text-sag-400" style={{ width: 20, height: 20 }} />
                 <div>
                   <p className="font-medium text-gray-900 dark:text-gray-100">
                     {item.descripcion}
@@ -66,7 +67,7 @@ export const ManoObraSection: React.FC<ManoObraSectionProps> = ({ disabled = fal
               <Button
                 variant="danger"
                 onClick={() => deleteManoDeObra(item.id)}
-                icon={<X size={16} />}
+                icon={<FontAwesomeIcon icon={faXmark} style={{ width: 16, height: 16 }} />}
                 className="!p-2"
                 disabled={disabled}
               >
@@ -91,7 +92,7 @@ export const ManoObraSection: React.FC<ManoObraSectionProps> = ({ disabled = fal
                      transition-all duration-200
                      disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-900"
         >
-          <Plus size={20} />
+          <FontAwesomeIcon icon={faPlus} style={{ width: 20, height: 20 }} />
           <span>Agregar Mano de Obra</span>
         </button>
       )}
@@ -126,7 +127,7 @@ export const ManoObraSection: React.FC<ManoObraSectionProps> = ({ disabled = fal
             <Button
               variant="success"
               onClick={handleAddManoObra}
-              icon={<Plus size={20} />}
+              icon={<FontAwesomeIcon icon={faPlus} style={{ width: 20, height: 20 }} />}
               disabled={
                 disabled ||
                 !descripcion ||

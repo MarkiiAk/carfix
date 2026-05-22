@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil, ResumenFinancieroResponse } from '../types';
+import type { Orden, EstadoSeguridad, PuntoSeguridadCatalogo, PuntoSeguridadOrden, ClienteListItem, ClientePerfil, ResumenFinancieroResponse, GastoOrden, GastoAdmin, GastosAdminResponse, OrdenesFinancieroResponse, EmpleadoSueldo, PagoFijo, MovimientoCajaChica, CajaChicaResponse } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -234,6 +234,103 @@ export const financieroAPI = {
     const response = await api.get<ResumenFinancieroResponse>('/financiero', { params: { tipo, offset } });
     return response.data;
   },
+  ordenes: async (tipo: 'mes' | 'semana', offset = 0): Promise<OrdenesFinancieroResponse> => {
+    const response = await api.get<OrdenesFinancieroResponse>('/financiero/ordenes', { params: { tipo, offset } });
+    return response.data;
+  },
+};
+
+export const gastosOrdenAPI = {
+  listar: async (ordenId: number): Promise<{ success: boolean; gastos: GastoOrden[]; total: number }> => {
+    const response = await api.get(`/financiero/gastos-orden`, { params: { orden_id: ordenId } });
+    return response.data;
+  },
+
+  crear: async (
+    ordenId: number,
+    concepto: string,
+    monto: number,
+    tipo: GastoOrden['tipo']
+  ): Promise<{ success: boolean; gasto: GastoOrden }> => {
+    const response = await api.post(`/financiero/gastos-orden`, {
+      orden_id: ordenId,
+      concepto,
+      monto,
+      tipo,
+    });
+    return response.data;
+  },
+
+  eliminar: async (id: number): Promise<{ success: boolean }> => {
+    const response = await api.delete(`/financiero/gastos-orden/${id}`);
+    return response.data;
+  },
+};
+
+export const gastosAdminAPI = {
+  listar: (mes: number, anio: number): Promise<GastosAdminResponse> =>
+    api.get(`/financiero/gastos-admin?mes=${mes}&anio=${anio}`).then(r => r.data),
+
+  crear: (
+    mes: number,
+    anio: number,
+    concepto: string,
+    monto: number,
+    categoria: GastoAdmin['categoria']
+  ): Promise<{ success: boolean; gasto: GastoAdmin }> =>
+    api.post('/financiero/gastos-admin', { mes, anio, concepto, monto, categoria }).then(r => r.data),
+
+  eliminar: (id: number): Promise<{ success: boolean }> =>
+    api.delete(`/financiero/gastos-admin/${id}`).then(r => r.data),
+};
+
+export const empleadosFinancieroAPI = {
+  listar: (fechaInicio?: string, fechaFin?: string): Promise<{ success: boolean; empleados: EmpleadoSueldo[] }> => {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.set('fecha_inicio', fechaInicio);
+    if (fechaFin)    params.set('fecha_fin',    fechaFin);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return api.get(`/financiero/empleados${qs}`).then(r => r.data);
+  },
+
+  crear: (data: Omit<EmpleadoSueldo, 'id' | 'activo'>): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
+    api.post('/financiero/empleados', data).then(r => r.data),
+
+  actualizar: (id: number, data: Partial<Omit<EmpleadoSueldo, 'id' | 'activo'>> & { fecha_inicio_cambio?: string }): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
+    api.put(`/financiero/empleados/${id}`, data).then(r => r.data),
+
+  toggle: (id: number): Promise<{ success: boolean; activo: boolean }> =>
+    api.put(`/financiero/empleados/${id}/toggle`, {}).then(r => r.data),
+};
+
+export const pagosFijosAPI = {
+  listar: (fechaInicio?: string, fechaFin?: string): Promise<{ success: boolean; pagos_fijos: PagoFijo[] }> => {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.set('fecha_inicio', fechaInicio);
+    if (fechaFin)    params.set('fecha_fin',    fechaFin);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return api.get(`/financiero/pagos-fijos${qs}`).then(r => r.data);
+  },
+
+  crear: (data: Omit<PagoFijo, 'id' | 'activo'>): Promise<{ success: boolean; pago_fijo: PagoFijo }> =>
+    api.post('/financiero/pagos-fijos', data).then(r => r.data),
+
+  actualizar: (id: number, data: Partial<Omit<PagoFijo, 'id' | 'activo'>> & { fecha_inicio_cambio?: string }): Promise<{ success: boolean; pago_fijo: PagoFijo }> =>
+    api.put(`/financiero/pagos-fijos/${id}`, data).then(r => r.data),
+
+  toggle: (id: number): Promise<{ success: boolean; activo: boolean }> =>
+    api.put(`/financiero/pagos-fijos/${id}/toggle`, {}).then(r => r.data),
+};
+
+export const cajaChicaAPI = {
+  resumen: (tipo: 'semana' | 'mes', offset: number): Promise<CajaChicaResponse> =>
+    api.get(`/financiero/caja-chica?tipo=${tipo}&offset=${offset}`).then(r => r.data),
+
+  crear: (data: Omit<MovimientoCajaChica, 'id' | 'gasto_admin_id'>): Promise<{ success: boolean; movimiento: MovimientoCajaChica }> =>
+    api.post('/financiero/caja-chica', data).then(r => r.data),
+
+  eliminar: (id: number): Promise<{ success: boolean }> =>
+    api.delete(`/financiero/caja-chica/${id}`).then(r => r.data),
 };
 
 export default api;

@@ -185,18 +185,27 @@ class TwilioConversationalBotRefactored
             if ($resultado['success']) {
                 // Actualizar estado usando el repositorio refactorizado
                 $this->alertRepo->updateEstadoWhatsApp($alertaId, 'enviado', $resultado['message_sid']);
-                
-                // Registrar mensaje usando el logger refactorizado
+
+                // Construir el body resuelto con las variables que ya están en scope.
+                // Opción C: se hace aquí mismo, sin reconstrucción posterior.
+                $serviciosStr = is_array($alerta['servicios_que_dispararon'])
+                    ? implode(', ', $alerta['servicios_que_dispararon'])
+                    : $alerta['servicios_que_dispararon'];
+                $textoRecordatorio = str_replace(
+                    ['{{1}}', '{{2}}', '{{3}}'],
+                    [$alerta['cliente_nombre'], '6 meses', $serviciosStr],
+                    "👋 ¡Hola {{1}}! Espero que estés muy bien 😊\n\n"
+                    . "🔧 Han pasado {{2}} desde tu {{3}} en SAG Garage y queremos asegurarnos de que tu vehículo siga en perfectas condiciones.\n\n"
+                    . "🚗💙 Sabemos lo importante que es tu auto para ti, por eso te recordamos con cariño que es momento del siguiente servicio.\n\n"
+                    . "✨ ¿Te gustaría que te ayudemos a agendar una cita? Estamos aquí para cuidar tu vehículo como se merece 🙌"
+                );
                 $this->logger->logMessage(
                     $alertaId,
                     $resultado['message_sid'],
                     'outbound',
                     $this->config->getWhatsappFrom(),
                     "whatsapp:+52{$telefonoLimpio}",
-                    "Plantilla recordatorio: {$alerta['cliente_nombre']}, 6 meses, " . 
-                    (is_array($alerta['servicios_que_dispararon']) ? 
-                     implode(', ', $alerta['servicios_que_dispararon']) : 
-                     $alerta['servicios_que_dispararon']),
+                    $textoRecordatorio,
                     'template',
                     'recordatorio_inicial',
                     $resultado['twilio_response'] ?? null
@@ -353,14 +362,28 @@ class TwilioConversationalBotRefactored
                 // Actualizar estado
                 $this->alertRepo->updateEstadoWhatsApp($alertaId, 'esperando_fecha', $resultado['message_sid']);
                 
-                // Registrar mensaje
+                // Construir el body resuelto con las variables que ya están en scope.
+                // Opción C: usamos las mismas variables que se pasaron a sendTemplateMessage.
+                $variablesHorarios = $this->formatearVariablesHorarios($alerta['cliente_nombre'], $horarios);
+                $slotLines = '';
+                for ($i = 2; $i <= 10; $i++) {
+                    $linea = $variablesHorarios[(string)$i] ?? '';
+                    if ($linea !== '') {
+                        $slotLines .= $linea . "\n";
+                    }
+                }
+                $textoHorarios = "🚗✨ ¡Tenemos opciones para ti, {$alerta['cliente_nombre']}!\n\n"
+                    . "Nos encantaría ayudarte a agendar el próximo servicio de tu vehículo 🔧\n\n"
+                    . "📅 Estos son los horarios disponibles:\n"
+                    . rtrim($slotLines) . "\n"
+                    . "💬 Elige el que mejor te funcione y con gusto lo apartamos para ti";
                 $this->logger->logMessage(
                     $alertaId,
                     $resultado['message_sid'],
                     'outbound',
                     $this->config->getWhatsappFrom(),
                     "whatsapp:+52{$telefonoLimpio}",
-                    "Plantilla horarios: {$alerta['cliente_nombre']}",
+                    $textoHorarios,
                     'template',
                     'plantilla_horarios',
                     $resultado['twilio_response'] ?? null
@@ -889,10 +912,19 @@ class TwilioConversationalBotRefactored
             );
 
             if ($resultado['success']) {
+                // Construir el body resuelto con las variables que ya están en scope.
+                // Opción C: se construye aquí mismo, sin llamada a reconstruirTextoTemplate.
+                $mensajeClienteSafe = $mensajeCliente ?: '(sin texto)';
+                $textoAtencion = "🔔 Cliente requiere atención personalizada\n\n"
+                    . "👤 Nombre: {$alerta['cliente_nombre']}\n"
+                    . "📱 Teléfono: {$telefonoCliente}\n"
+                    . "🔧 Servicio: {$tipoServicio}\n"
+                    . "💬 Mensaje: \"{$mensajeClienteSafe}\"\n\n"
+                    . "El bot no pudo manejar su respuesta. Por favor contáctalo directamente.";
                 $this->logger->logMessage(
                     $alertaId, $resultado['message_sid'], 'outbound',
                     $this->config->getWhatsappFrom(), "whatsapp:{$adminPhone}",
-                    "Notificación admin atención personalizada: {$alerta['cliente_nombre']}",
+                    $textoAtencion,
                     'template', 'notificacion_admin_atencion_personalizada',
                     $resultado['twilio_response'] ?? null
                 );
@@ -971,10 +1003,19 @@ class TwilioConversationalBotRefactored
             );
 
             if ($resultado['success']) {
+                // Construir el body resuelto con las variables que ya están en scope.
+                // Opción C: se construye aquí mismo, sin llamada a reconstruirTextoTemplate.
+                $vehiculoInfo = $alerta['vehiculo_info'] ?? 'Sin vehículo';
+                $textoOtroHorario = "🟡 CONTACTO DIRECTO SOLICITADO\n\n"
+                    . "Cliente: {$alerta['cliente_nombre']}\n"
+                    . "Teléfono: {$telefonoCliente}\n"
+                    . "Vehículo: {$vehiculoInfo}\n"
+                    . "Servicio: {$tipoServicio}\n\n"
+                    . "El cliente prefiere coordinar horario directamente.";
                 $this->logger->logMessage(
                     $alertaId, $resultado['message_sid'], 'outbound',
                     $this->config->getWhatsappFrom(), "whatsapp:{$adminPhone}",
-                    "Notificación admin otro horario: {$alerta['cliente_nombre']}",
+                    $textoOtroHorario,
                     'template', 'notificacion_admin_otro_horario',
                     $resultado['twilio_response'] ?? null
                 );
@@ -1011,10 +1052,20 @@ class TwilioConversationalBotRefactored
             );
 
             if ($resultado['success']) {
+                // Construir el body resuelto con las variables que ya están en scope.
+                // Opción C: se construye aquí mismo, sin llamada a reconstruirTextoTemplate.
+                $vehiculoInfo = $alerta['vehiculo_info'] ?? 'Sin vehículo';
+                $textoPreAgenda = "🟢 CITA PREVIA NUEVA\n\n"
+                    . "Cliente: {$alerta['cliente_nombre']}\n"
+                    . "Fecha: {$slot['fecha_display']} {$slot['hora_display']}\n"
+                    . "Vehículo: {$vehiculoInfo}\n"
+                    . "Servicio: {$tipoServicio}\n"
+                    . "Teléfono: {$alerta['cliente_telefono']}\n\n"
+                    . "⚠️ Es necesario confirmar manualmente y de forma directa con el cliente";
                 $this->logger->logMessage(
                     $alertaId, $resultado['message_sid'], 'outbound',
                     $this->config->getWhatsappFrom(), "whatsapp:{$adminPhone}",
-                    "Notificación admin pre-agenda: {$alerta['cliente_nombre']}",
+                    $textoPreAgenda,
                     'template', 'notificacion_admin_pre_agenda', $resultado['twilio_response'] ?? null
                 );
             }
@@ -1123,6 +1174,25 @@ class TwilioConversationalBotRefactored
             $this->logger->logError("Error en procesarConfirmacionSAG", $e, ['alerta_id' => $alertaId]);
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    // ============================================================================
+    // UTILIDAD INTERNA — Reconstrucción de texto de templates para logging
+    // ============================================================================
+
+    /**
+     * @deprecated Opción C (2026-04-30): el body resuelto ahora se construye en el
+     * momento exacto del envío, dentro de cada método que llama a sendTemplateMessage(),
+     * usando las variables que ya están en scope. Este método ya no se invoca y retorna
+     * null siempre para no romper ningún caller potencial.
+     *
+     * @param string $tipoTemplate
+     * @param array  $variables
+     * @return null
+     */
+    private function reconstruirTextoTemplate(string $tipoTemplate, array $variables): ?string
+    {
+        return null;
     }
 
     /**

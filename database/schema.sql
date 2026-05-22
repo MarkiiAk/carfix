@@ -7,7 +7,7 @@
 -- Server version: 11.4.10-MariaDB-cll-lve-log
 -- PHP Version: 8.4.19
 -- 
--- ACTUALIZADO: 2026-04-09 con estructura completa incluyendo sistema Twilio/WhatsApp
+-- ACTUALIZADO: 2026-05-15 — columna gasto_admin_id + FK en caja_chica para vínculo automático al P&L
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -84,8 +84,8 @@ CREATE TABLE `alertas_servicio` (
   `usuario_marco_leida` int(11) DEFAULT NULL,
   `dias_desde_servicio` int(11) NOT NULL,
   `slots_ofrecidos_json` text DEFAULT NULL COMMENT 'JSON con slots ofrecidos al cliente para mapear su respuesta numérica a un slot real',
-  `intentos_invalidos` int(11) DEFAULT 0 COMMENT 'Contador de respuestas inválidas en el paso actual, se resetea al cambiar de estado'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tabla principal de alertas con integración WhatsApp - Actualizada 30/03/2026';
+  `intentos_invalidos` tinyint(3) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Respuestas fuera de opciones en el paso actual; se resetea al avanzar estado'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tabla principal de alertas con integración WhatsApp - Actualizada 30/04/2026';
 
 -- --------------------------------------------------------
 
@@ -144,7 +144,12 @@ CREATE TABLE `clientes` (
   `rfc` varchar(20) DEFAULT NULL,
   `notas` text DEFAULT NULL,
   `fecha_registro` timestamp NULL DEFAULT current_timestamp(),
-  `ultima_visita` timestamp NULL DEFAULT NULL
+  `ultima_visita` timestamp NULL DEFAULT NULL,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `fusionado_en` int(11) DEFAULT NULL,
+  `fusionado_at` timestamp NULL DEFAULT NULL,
+  `notas_merge` varchar(500) DEFAULT NULL,
+  `telefono_normalizado` varchar(15) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -256,6 +261,7 @@ CREATE TABLE `ordenes_servicio` (
   `iva` decimal(10,2) DEFAULT 0.00,
   `total` decimal(10,2) DEFAULT 0.00,
   `anticipo` decimal(10,2) DEFAULT 0.00,
+  `fecha_anticipo` date DEFAULT NULL,
   `estado` varchar(20) DEFAULT 'abierta',
   `fecha_ingreso` timestamp NULL DEFAULT current_timestamp(),
   `fecha_promesa_entrega` timestamp NULL DEFAULT NULL,
@@ -642,6 +648,16 @@ ALTER TABLE `orden_puntos_seguridad`
   ADD KEY `idx_estado` (`estado_id`);
 
 --
+-- Indexes for table `puntos_seguridad_catalogo`
+--
+ALTER TABLE `puntos_seguridad_catalogo`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_categoria` (`categoria`),
+  ADD KEY `idx_activo` (`activo`),
+  ADD KEY `idx_critico` (`es_critico`);
+ALTER TABLE `puntos_seguridad_catalogo` ADD FULLTEXT KEY `idx_busqueda` (`nombre`,`descripcion`);
+
+--
 -- Indexes for table `refacciones_orden`
 --
 ALTER TABLE `refacciones_orden`
@@ -896,6 +912,119 @@ ALTER TABLE `servicios_orden`
 --
 ALTER TABLE `vehiculos`
   ADD CONSTRAINT `vehiculos_ibfk_1` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE CASCADE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- MIGRACIONES POSTERIORES AL DUMP ORIGINAL (2026-04-09)
+-- Aplicar en orden cronológico sobre una BD limpia creada con el schema base.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- 2026-04-21: Slots horarios en alertas (archivo: 20260421_add_slots_ofrecidos_json.sql)
+-- YA INCLUIDO arriba en CREATE TABLE alertas_servicio: slots_ofrecidos_json, intentos_invalidos
+
+-- 2026-04-21: Corrección llaves twilio_config (archivo: 20260421_fix_twilio_config_keys.sql)
+-- Solo datos (UPDATE/INSERT) — sin cambio de estructura.
+
+-- 2026-04-25: Fix template agendar SID (archivo: 20260425_fix_template_agendar_sid.sql)
+-- Solo datos — sin cambio de estructura.
+
+-- 2026-04-27: Columnas trazabilidad merge clientes (archivo: 20260427_merge_clientes_trazabilidad.sql)
+-- YA INCLUIDO arriba en CREATE TABLE clientes: activo, fusionado_en, fusionado_at, notas_merge, telefono_normalizado
+
+-- 2026-04-27: Operaciones merge de clientes específicos (archivos 20260427_merge_*.sql)
+-- Solo datos — sin cambio de estructura.
+
+-- 2026-04-29: Contador intentos_invalidos en alertas (archivo: 20260429_add_intentos_invalidos.sql)
+-- YA INCLUIDO arriba en CREATE TABLE alertas_servicio: intentos_invalidos
+
+-- 2026-04-30: Módulo financiero — gastos internos por orden
+-- Archivo: database/20260430_gastos_orden.sql
+
+ALTER TABLE `ordenes_servicio`
+  ADD COLUMN `costo_interno_total` DECIMAL(10,2) NOT NULL DEFAULT 0.00;
+
+CREATE TABLE `gastos_orden` (
+  `id`              INT AUTO_INCREMENT PRIMARY KEY,
+  `orden_id`        INT NOT NULL,
+  `concepto`        VARCHAR(300) NOT NULL,
+  `monto`           DECIMAL(10,2) NOT NULL,
+  `tipo`            ENUM('envio','consumible','propina','otro') NOT NULL DEFAULT 'otro',
+  `registrado_por`  INT NOT NULL,
+  `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_gastos_orden_orden`   FOREIGN KEY (`orden_id`)      REFERENCES `ordenes_servicio`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_gastos_orden_usuario` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios`(`id`),
+  INDEX `idx_gastos_orden_orden_id`   (`orden_id`),
+  INDEX `idx_gastos_orden_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2026-04-30: Gastos administrativos del taller (renta, salarios, etc.)
+-- Archivo: database/20260430_gastos_administrativos.sql
+
+CREATE TABLE `gastos_administrativos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `mes` tinyint(2) NOT NULL COMMENT '1-12',
+  `anio` year(4) NOT NULL,
+  `concepto` varchar(300) NOT NULL,
+  `monto` decimal(10,2) NOT NULL,
+  `categoria` enum('renta','salario','servicio','insumo','otro') NOT NULL DEFAULT 'otro',
+  `registrado_por` int(11) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_mes_anio` (`mes`,`anio`),
+  KEY `idx_created_at` (`created_at`),
+  CONSTRAINT `fk_gastos_admin_usuario` FOREIGN KEY (`registrado_por`) REFERENCES `usuarios` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2026-05-15: Sueldos de empleados y pagos fijos del taller
+-- Archivo: database/20260515_financiero_sueldos_pagos_fijos.sql
+
+CREATE TABLE IF NOT EXISTS `empleados_sueldos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `usuario_id` int(11) DEFAULT NULL,
+  `nombre` varchar(120) NOT NULL,
+  `puesto` varchar(80) DEFAULT NULL,
+  `sueldo_diario` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `fecha_inicio` date NOT NULL DEFAULT '2026-01-01',
+  `fecha_fin` date DEFAULT NULL,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_empleados_sueldos_usuario` (`usuario_id`),
+  CONSTRAINT `fk_empleados_sueldos_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `pagos_fijos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `concepto` varchar(120) NOT NULL,
+  `monto` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `fecha_inicio` date NOT NULL DEFAULT '2026-01-01',
+  `fecha_fin` date DEFAULT NULL,
+  `frecuencia` enum('semanal','mensual') NOT NULL DEFAULT 'mensual',
+  `categoria` enum('renta','servicio','proveedor','marketing','otro') NOT NULL DEFAULT 'otro',
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2026-05-15: Vínculo egresos caja chica → gastos_administrativos (P&L)
+-- Archivo: database/20260515_caja_chica_gasto_admin_link.sql
+
+CREATE TABLE IF NOT EXISTS `caja_chica` (
+  `id`             INT(11)                  NOT NULL AUTO_INCREMENT,
+  `fecha`          DATE                     NOT NULL,
+  `tipo`           ENUM('ingreso','egreso') NOT NULL,
+  `concepto`       VARCHAR(150)             NOT NULL,
+  `monto`          DECIMAL(10,2)            NOT NULL DEFAULT 0.00,
+  `notas`          TEXT                     NULL,
+  `gasto_admin_id` INT(11)                  NULL DEFAULT NULL,
+  `created_at`     TIMESTAMP                NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_caja_chica_fecha` (`fecha`),
+  CONSTRAINT `fk_caja_chica_gasto_admin`
+    FOREIGN KEY (`gasto_admin_id`) REFERENCES `gastos_administrativos` (`id`)
+    ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 COMMIT;
 

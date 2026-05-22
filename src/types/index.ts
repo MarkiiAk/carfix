@@ -97,6 +97,7 @@ export interface ResumenFinanciero {
   iva: number;
   total: number;
   anticipo: number;
+  fecha_anticipo?: string | null;
   restante: number;
 }
 
@@ -270,6 +271,35 @@ export interface ClientePerfil {
   vehiculos: VehiculoConHistorial[];
 }
 
+// Tipos para el visor de conversaciones WhatsApp (M2-002)
+
+export type DireccionMensaje = 'inbound' | 'outbound';
+
+export interface MensajeConversacion {
+  id: number;
+  direction: DireccionMensaje;
+  mensaje: string | null;
+  estado: string | null;
+  conversation_step: string;
+  created_at: string;
+}
+
+export interface ConversacionResponse {
+  success: boolean;
+  mensajes: MensajeConversacion[];
+  error?: string;
+}
+
+// Tipos para el módulo de Gastos Internos por Orden
+
+export interface GastoOrden {
+  id: number;
+  concepto: string;
+  monto: number;
+  tipo: 'envio' | 'consumible' | 'propina' | 'otro';
+  registrado_por_nombre: string;
+  created_at: string;
+}
 // Tipos para el módulo de Ingresos (M2-005, Q2 2026)
 
 export interface ResumenPeriodo {
@@ -320,4 +350,111 @@ export interface ResumenFinancieroResponse {
   top_servicios: TopServicio[];
   top_clientes: TopCliente[];
   por_dia: IngresosDia[];
+}
+
+export interface GastoAdmin {
+  id: number;
+  mes: number;
+  anio: number;
+  concepto: string;
+  monto: number;
+  categoria: 'renta' | 'salario' | 'servicio' | 'insumo' | 'otro';
+  registrado_por_nombre: string;
+  created_at: string;
+}
+
+export interface GastosAdminResponse {
+  success: boolean;
+  mes: number;
+  anio: number;
+  gastos: GastoAdmin[];
+  total_facturado: number;
+  total_iva: number;
+  ingresos_servicios: number;
+  ingresos_mano_obra: number;
+  ingresos_refacciones: number;
+  costo_refacciones: number;
+  margen_refacciones: number;
+  ingresos_netos: number;
+  total_admin: number;
+  gastos_ordenes_mes: number;
+  utilidad_neta: number;
+  total_sueldos_periodo: number;
+  total_pagos_fijos_periodo: number;
+}
+
+export interface ServicioOrdenFinanciero {
+  descripcion: string;
+  subtotal: number;
+}
+
+export interface RefaccionOrdenFinanciero {
+  descripcion: string;
+  proveedor: string | null;
+  subtotal: number;
+}
+
+export interface OrdenFinanciero {
+  id: number;
+  numero_orden: string;
+  fecha: string;
+  cliente_nombre: string;
+  vehiculo: string;
+  costo_venta: number;
+  costo_refacciones: number;   // costo de compra (sin margen 30%)
+  ganancia: number;
+  estado: string;
+  servicios: ServicioOrdenFinanciero[];
+  refacciones_detalle: RefaccionOrdenFinanciero[];
+}
+
+export interface OrdenesFinancieroResponse {
+  success: boolean;
+  ordenes: OrdenFinanciero[];
+  totales: {
+    costo_venta: number;
+    costo_refacciones: number;
+    ganancia: number;
+  };
+}
+
+export interface EmpleadoSueldo {
+  id: number;
+  usuario_id: number | null;
+  nombre: string;
+  puesto: string | null;
+  sueldo_diario: number;
+  fecha_inicio: string;    // 'YYYY-MM-DD'
+  fecha_fin: string | null;
+  activo: boolean;
+}
+
+export interface PagoFijo {
+  id: number;
+  concepto: string;
+  monto: number;
+  fecha_inicio: string;    // 'YYYY-MM-DD'
+  fecha_fin: string | null;
+  frecuencia: 'semanal' | 'mensual';
+  categoria: 'renta' | 'servicio' | 'proveedor' | 'marketing' | 'otro';
+  activo: boolean;
+}
+
+export interface MovimientoCajaChica {
+  id: number;
+  fecha: string;
+  tipo: 'ingreso' | 'egreso';
+  concepto: string;
+  monto: number;
+  notas: string | null;
+  gasto_admin_id: number | null;
+}
+
+export interface CajaChicaResponse {
+  success: boolean;
+  movimientos: MovimientoCajaChica[];
+  saldo_anterior: number;
+  ingresos_semana: number;
+  egresos_semana: number;
+  saldo_actual: number;
 }

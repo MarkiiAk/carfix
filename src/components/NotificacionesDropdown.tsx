@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Clock, User, Car } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faBell, faClock, faUser, faCar } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate } from 'react-router-dom';
 import { isAlertasAuthorized } from '../utils/alertsAuth';
 import { useAuth } from '../contexts/AuthContext';
@@ -77,7 +78,7 @@ export const NotificacionesDropdown = ({ alertas, loading, onRefresh }: Notifica
           title="Cargando alertas..."
           disabled
         >
-          <Bell size={20} />
+          <FontAwesomeIcon icon={faBell} style={{ width: 20, height: 20 }} />
           <div className="absolute -top-1 -right-1 bg-gray-400 rounded-full h-5 w-5 flex items-center justify-center">
             <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
           </div>
@@ -94,7 +95,7 @@ export const NotificacionesDropdown = ({ alertas, loading, onRefresh }: Notifica
         className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
         title={`${totalPendientes} alertas pendientes`}
       >
-        <Bell size={20} />
+        <FontAwesomeIcon icon={faBell} style={{ width: 20, height: 20 }} />
         {totalPendientes > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
             {totalPendientes > 9 ? '9+' : totalPendientes}
@@ -132,7 +133,7 @@ export const NotificacionesDropdown = ({ alertas, loading, onRefresh }: Notifica
           <div className="flex-1 overflow-y-auto max-h-80">
             {alertasRecientes.length === 0 ? (
               <div className="px-4 py-6 text-center">
-                <Bell className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+                <FontAwesomeIcon icon={faBell} className="mx-auto h-12 w-12 text-gray-400 mb-3" />
                 <p className="text-gray-500 dark:text-gray-400">No hay alertas pendientes</p>
               </div>
             ) : (
@@ -154,20 +155,20 @@ export const NotificacionesDropdown = ({ alertas, loading, onRefresh }: Notifica
                         ? 'bg-orange-100 dark:bg-orange-900/30'
                         : 'bg-yellow-100 dark:bg-yellow-900/30'
                     }`}>
-                      <Clock className={`w-4 h-4 ${getPrioridadColor(alerta.dias_exactos_desde_servicio)}`} />
+                      <FontAwesomeIcon icon={faClock} className={`w-4 h-4 ${getPrioridadColor(alerta.dias_exactos_desde_servicio)}`} />
                     </div>
 
                     <div className="flex-1 min-w-0">
                       {/* Cliente y vehículo */}
                       <div className="flex items-center gap-2 mb-1">
-                        <User className="w-3 h-3 text-gray-400" />
+                        <FontAwesomeIcon icon={faUser} className="w-3 h-3 text-gray-400" />
                         <span className="font-medium text-gray-900 dark:text-white text-sm truncate">
                           {alerta.cliente_nombre}
                         </span>
                       </div>
                       
                       <div className="flex items-center gap-2 mb-2">
-                        <Car className="w-3 h-3 text-gray-400" />
+                        <FontAwesomeIcon icon={faCar} className="w-3 h-3 text-gray-400" />
                         <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
                           {alerta.marca} {alerta.modelo} • {alerta.placas}
                         </span>

@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>El siguiente nivel de SAG Garage — Propuesta extendida</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --negro:      #0a0f0c;
+      --verde:      #0f2318;
+      --verde-mid:  #1a3a2a;
+      --acento:     #22c55e;
+      --acento-dim: #16a34a;
+      --blanco:     #ffffff;
+      --gris-10:    #f4f6f4;
+      --gris-20:    #e8ece9;
+      --gris-50:    #8a9e90;
+      --gris-70:    #4a5e50;
+      --texto:      #0d1a10;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--blanco);
+      color: var(--texto);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ─── PORTADA ──────────────────────────────────────────── */
+    .portada {
+      background: var(--verde);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 56px 64px;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .portada-deco {
+      position: absolute;
+      top: 0; right: 0;
+      width: 55%;
+      height: 100%;
+      background: linear-gradient(135deg, transparent 40%, rgba(34,197,94,0.06) 100%);
+      pointer-events: none;
+    }
+
+    .portada-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-dot {
+      width: 10px; height: 10px;
+      background: var(--acento);
+      border-radius: 50%;
+    }
+
+    .brand-nombre {
+      color: var(--blanco);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .portada-fecha {
+      color: rgba(255,255,255,0.35);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .portada-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding-bottom: 16px;
+    }
+
+    .portada-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--acento);
+      margin-bottom: 28px;
+    }
+
+    .portada-titulo {
+      font-size: 62px;
+      font-weight: 900;
+      color: var(--blanco);
+      letter-spacing: -1px;
+      word-spacing: 2px;
+      line-height: 1.05;
+      margin-bottom: 24px;
+      max-width: 580px;
+    }
+
+    .portada-sub {
+      font-size: 15px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0;
+      max-width: 420px;
+      line-height: 1.5;
+    }
+
+    .portada-footer {
+      margin-top: 64px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 28px;
+    }
+
+    .portada-cliente {
+      color: rgba(255,255,255,0.4);
+      font-size: 12px;
+    }
+
+    .portada-cliente strong {
+      color: rgba(255,255,255,0.7);
+      display: block;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+
+    .mes-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      max-width: 420px;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      padding: 5px 11px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .chip.done {
+      background: rgba(34,197,94,0.15);
+      color: var(--acento);
+      border-color: rgba(34,197,94,0.25);
+    }
+
+    .chip.propuesta {
+      background: rgba(251,191,36,0.1);
+      color: #f59e0b;
+      border-color: rgba(251,191,36,0.2);
+    }
+
+    /* ─── INTRO ────────────────────────────────────────────── */
+    .intro {
+      padding: 80px 64px 64px;
+      max-width: 740px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gris-50);
+      margin-bottom: 20px;
+    }
+
+    .intro-texto {
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--gris-70);
+      line-height: 1.65;
+    }
+
+    .intro-texto strong {
+      color: var(--texto);
+      font-weight: 600;
+    }
+
+    .inversion-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 32px;
+      background: var(--gris-10);
+      border: 1px solid var(--gris-20);
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 13px;
+      color: var(--gris-70);
+    }
+
+    .inversion-tag span {
+      font-weight: 700;
+      color: var(--texto);
+      font-size: 14px;
+    }
+
+    /* ─── SEPARADOR DE SECCIÓN ─────────────────────────────── */
+    .seccion-header {
+      padding: 48px 64px 0;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .seccion-linea {
+      flex: 1;
+      height: 1px;
+      background: var(--gris-20);
+    }
+
+    .seccion-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #f59e0b;
+      white-space: nowrap;
+    }
+
+    /* ─── DIVISOR ──────────────────────────────────────────── */
+    .divisor {
+      border: none;
+      border-top: 1px solid var(--gris-20);
+      margin: 0 64px;
+    }
+
+    /* ─── MES WRAP ─────────────────────────────────────────── */
+    .mes {
+      padding: 72px 64px;
+      page-break-before: always;
+    }
+
+    .mes-meta {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 48px;
+    }
+
+    .mes-num {
+      font-size: 120px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -6px;
+      color: var(--gris-20);
+      user-select: none;
+    }
+
+    .mes-info { flex: 1; padding-left: 40px; }
+
+    .estatus-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      margin-bottom: 14px;
+    }
+
+    .tag-listo    { background: #dcfce7; color: #15803d; }
+    .tag-activo   { background: #dbeafe; color: #1d4ed8; }
+    .tag-viene    { background: var(--gris-10); color: var(--gris-50); }
+    .tag-propuesta{ background: #fef3c7; color: #b45309; }
+
+    .mes-titulo {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.1;
+      color: var(--texto);
+      margin-bottom: 8px;
+    }
+
+    .mes-desc {
+      font-size: 14px;
+      color: var(--gris-50);
+      max-width: 480px;
+    }
+
+    /* ─── M1 LISTA ─────────────────────────────────────────── */
+    .m1-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .m1-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 10px;
+      padding: 14px 18px;
+    }
+
+    .m1-icon { font-size: 15px; flex-shrink: 0; }
+
+    .m1-nombre {
+      font-size: 13px;
+      font-weight: 600;
+      color: #166534;
+    }
+
+    /* ─── FEATURE CARDS ────────────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .cards.col1 { grid-template-columns: 1fr; }
+
+    .card {
+      background: var(--gris-10);
+      border: 1px solid var(--gris-20);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .card.span2 { grid-column: span 2; }
+
+    .card-titulo {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--texto);
+      letter-spacing: -0.3px;
+      margin-bottom: 8px;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--gris-70);
+      line-height: 1.6;
+    }
+
+    .card-verifica {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--gris-20);
+    }
+
+    .card-verifica-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gris-50);
+      margin-bottom: 10px;
+    }
+
+    .card-verifica ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .card-verifica li {
+      font-size: 12px;
+      color: var(--gris-70);
+      padding-left: 16px;
+      position: relative;
+      line-height: 1.4;
+    }
+
+    .card-verifica li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--acento-dim);
+      font-size: 10px;
+      top: 1px;
+    }
+
+    /* card oscura */
+    .card.dark {
+      background: var(--verde);
+      border-color: var(--verde);
+    }
+
+    .card.dark .card-titulo { color: var(--blanco); }
+    .card.dark .card-desc   { color: rgba(255,255,255,0.6); }
+    .card.dark .card-verifica { border-top-color: rgba(255,255,255,0.1); }
+    .card.dark .card-verifica-label { color: var(--acento); }
+    .card.dark .card-verifica li { color: rgba(255,255,255,0.55); }
+    .card.dark .card-verifica li::before { color: var(--acento); }
+
+    /* card ámbar para meses propuesta */
+    .card.amber {
+      background: #fffbeb;
+      border-color: #fde68a;
+    }
+
+    .card.amber .card-titulo { color: #92400e; }
+    .card.amber .card-desc   { color: #78350f; }
+    .card.amber .card-verifica { border-top-color: #fde68a; }
+    .card.amber .card-verifica-label { color: #b45309; }
+    .card.amber .card-verifica li { color: #78350f; }
+    .card.amber .card-verifica li::before { color: #d97706; }
+
+    /* nota técnica */
+    .card-nota {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(0,0,0,0.04);
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--gris-70);
+      line-height: 1.5;
+    }
+
+    /* ─── CIERRE ───────────────────────────────────────────── */
+    .cierre {
+      background: var(--negro);
+      padding: 80px 64px;
+      page-break-before: always;
+    }
+
+    .cierre-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--acento);
+      margin-bottom: 32px;
+    }
+
+    .cierre-texto {
+      font-size: 22px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.7;
+      max-width: 680px;
+    }
+
+    .cierre-texto strong {
+      color: var(--blanco);
+      font-weight: 600;
+    }
+
+    .cierre-foot {
+      margin-top: 80px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      padding-top: 32px;
+    }
+
+    .firma-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--blanco);
+      margin-bottom: 3px;
+    }
+
+    .firma-cargo {
+      font-size: 12px;
+      color: rgba(255,255,255,0.3);
+    }
+
+    .firma-fecha {
+      font-size: 12px;
+      color: rgba(255,255,255,0.2);
+    }
+
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .portada { page-break-after: always; min-height: 100vh; }
+      .mes     { page-break-before: always; }
+      .cierre  { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<div class="portada">
+  <div class="portada-deco"></div>
+
+  <nav class="portada-nav">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div class="brand-nombre">AkLabs × SAG Garage</div>
+    </div>
+    <div class="portada-fecha">Mayo 2026 · Propuesta</div>
+  </nav>
+
+  <div class="portada-body">
+    <div class="portada-label">Plan de trabajo · 10 meses</div>
+    <h1 class="portada-titulo">Plan de trabajo<br>SAG Garage</h1>
+    <p class="portada-sub">Meses 1 – 10 · Abril 2026 – Enero 2027 · Taller Gudino</p>
+
+    <div class="portada-footer">
+      <div class="portada-cliente">
+        <strong>Paco Gudiño</strong>
+        Taller Gudino — Ciudad de México
+      </div>
+      <div class="mes-chips">
+        <span class="chip done">Mes 1 ✓</span>
+        <span class="chip done">Mes 2 ✓</span>
+        <span class="chip">Mes 3</span>
+        <span class="chip">Mes 4</span>
+        <span class="chip">Mes 5</span>
+        <span class="chip propuesta">Mes 6</span>
+        <span class="chip propuesta">Mes 7</span>
+        <span class="chip propuesta">Mes 8</span>
+        <span class="chip propuesta">Mes 9</span>
+        <span class="chip propuesta">Mes 10</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- INTRO -->
+<div class="intro">
+  <div class="section-label">Dónde estamos</div>
+  <p class="intro-texto">
+    El Mes 1 y Mes 2 están entregados. <strong>Expedientes de clientes, historial de vehículos, tablero de ingresos y módulo financiero completo</strong> ya están en el sistema.
+    Este documento muestra lo que viene en los próximos meses — los tres comprometidos y cinco adicionales que podemos activar.
+  </p>
+  <div class="inversion-tag">
+    <span>$4,000 MXN / mes</span> · desarrollo a medida para Taller Gudino
+  </div>
+</div>
+
+<hr class="divisor" />
+
+<!-- MES 1 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">1</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-listo">✓ Listo y funcionando</div>
+      <h2 class="mes-titulo">La base:<br>clientes, vehículos y dinero</h2>
+      <p class="mes-desc">Todo esto ya está en tu sistema hoy.</p>
+    </div>
+  </div>
+
+  <div class="m1-grid">
+    <div class="m1-item">
+      <span class="m1-icon">✅</span>
+      <span class="m1-nombre">El expediente de cada cliente</span>
+    </div>
+    <div class="m1-item">
+      <span class="m1-icon">✅</span>
+      <span class="m1-nombre">El historial de cada vehículo</span>
+    </div>
+    <div class="m1-item">
+      <span class="m1-icon">✅</span>
+      <span class="m1-nombre">Sin clientes repetidos en el sistema</span>
+    </div>
+    <div class="m1-item">
+      <span class="m1-icon">✅</span>
+      <span class="m1-nombre">La historia de cada carro de un vistazo</span>
+    </div>
+    <div class="m1-item" style="grid-column: span 2;">
+      <span class="m1-icon">✅</span>
+      <span class="m1-nombre">Tablero de ingresos y ganancia por servicio</span>
+    </div>
+  </div>
+</div>
+
+<!-- MES 2 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">2</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-listo">✓ Listo y funcionando</div>
+      <h2 class="mes-titulo">Cuánto ganas<br>de verdad cada mes</h2>
+      <p class="mes-desc">Los números reales del taller, sin adivinar.</p>
+    </div>
+  </div>
+
+  <div class="m1-grid">
+    <div class="m1-item">
+      <span class="m1-icon">✅</span>
+      <span class="m1-nombre">Gastos de cada trabajo</span>
+    </div>
+    <div class="m1-item">
+      <span class="m1-icon">✅</span>
+      <span class="m1-nombre">Gastos generales por semana</span>
+    </div>
+    <div class="m1-item">
+      <span class="m1-icon">✅</span>
+      <span class="m1-nombre">Pago de mecánicos</span>
+    </div>
+    <div class="m1-item">
+      <span class="m1-icon">✅</span>
+      <span class="m1-nombre">Lo que te quedó limpio este mes</span>
+    </div>
+  </div>
+</div>
+
+<!-- MES 3 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">3</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-activo">● En construcción</div>
+      <h2 class="mes-titulo">Firma digital y<br>control de conversaciones</h2>
+      <p class="mes-desc">Protección legal para el taller y visibilidad de lo que habla el sistema con tus clientes.</p>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card dark span2">
+      <div class="card-titulo">El cliente firma en el celular</div>
+      <div class="card-desc">Firma el presupuesto con el dedo en el iPad antes de que el carro entre al taller. La firma queda guardada y aparece en el PDF. Sin papeles, sin "yo no autoricé".</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Abres una orden, tocas "Firmar" y el cliente traza su firma con el dedo</li>
+          <li>El botón cambia a "Firmada" en verde</li>
+          <li>El PDF de esa orden ya trae la firma en la sección del cliente</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card span2">
+      <div class="card-titulo">Ves la conversación completa con cada cliente</div>
+      <div class="card-desc">Panel de solo lectura con todo lo que el sistema le escribió a cada cliente y lo que el cliente respondió. Sin entrar a WhatsApp Business, desde el mismo SAG Garage.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Entras al panel de alertas, buscas a un cliente y ves la conversación completa</li>
+          <li>Cualquiera en el taller lo puede ver desde su celular</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MES 4 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">4</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-viene">Lo que viene</div>
+      <h2 class="mes-titulo">Control de<br>mensajes automáticos</h2>
+      <p class="mes-desc">Que el sistema cuide tu reputación y cierre el ciclo de cada visita.</p>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-titulo">Saca a un cliente de los mensajes automáticos</div>
+      <div class="card-desc">Lo marcas en su perfil y el sistema deja de contactarlo. Le pones fecha de reactivación o lo dejas fuera para siempre. Sin tener que recordarlo.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Activas la exclusión en el perfil del cliente y ese número deja de aparecer en los envíos</li>
+          <li>Si le pones fecha, el sistema lo reactiva solo cuando llegue</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-titulo">Lista de clientes que no quieren mensajes</div>
+      <div class="card-desc">Pantalla con todos los excluidos: nombre, motivo y fecha de reactivación. Puedes reactivar a cualquiera con un botón desde ahí.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Entras a la pantalla de exclusiones y ves la lista completa</li>
+          <li>Buscas a alguien por nombre y lo encuentras en segundos</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card span2">
+      <div class="card-titulo">El sistema pregunta si quedó contento — y pide reseña en Google</div>
+      <div class="card-desc">7 días después de cerrar una orden, el sistema manda un WhatsApp al cliente preguntando cómo quedó el servicio y dejándole el link directo a tu perfil de Google para que deje su reseña. Sale solo, sin que nadie lo mande.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Cierras una orden hoy y a los 7 días el cliente recibe el mensaje sin intervención</li>
+          <li>El link de Google lleva directo a la página de tu taller</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MES 5 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">5</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-viene">Lo que viene</div>
+      <h2 class="mes-titulo">Datos correctos,<br>sistema que funciona</h2>
+      <p class="mes-desc">Que el sistema avise cuando algo está mal capturado antes de que cause un problema.</p>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-titulo">Aviso si el teléfono está mal escrito</div>
+      <div class="card-desc">Al capturar un número de cliente, el sistema verifica el formato antes de guardarlo. Si algo está mal, te lo dice en el momento. Evita que números incorrectos rompan los mensajes automáticos.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Escribes un número incorrecto y el sistema no te deja guardarlo hasta que lo corrijas</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-titulo">Aviso si las placas no son válidas</div>
+      <div class="card-desc">Al capturar las placas del vehículo, el sistema revisa que tengan el formato oficial de México. Si están mal, te lo dice antes de guardar.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Escribes un formato de placas incorrecto y el sistema te marca el error</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card span2">
+      <div class="card-titulo">El sistema te sugiere el vehículo que ya tienes registrado</div>
+      <div class="card-desc">Al escribir marca y modelo, el sistema muestra los vehículos que ya tienes para ese nombre. Seleccionas el correcto y los datos se llenan solos. Sin duplicados, sin el mismo carro guardado dos veces.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Empiezas a escribir la marca y aparecen sugerencias de vehículos ya registrados</li>
+          <li>Seleccionas uno y los datos se cargan automáticamente</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SEPARADOR PROPUESTA -->
+<div class="seccion-header">
+  <div class="seccion-linea"></div>
+  <div class="seccion-label">Propuesta de continuación · Meses 6 – 10</div>
+  <div class="seccion-linea"></div>
+</div>
+
+<!-- MES 6 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">6</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-propuesta">Propuesta</div>
+      <h2 class="mes-titulo">Tu taller en tiempo real<br>desde el celular</h2>
+      <p class="mes-desc">Hoy para saber en qué está el carro de un cliente tienes que llamarle al mecánico o ir al taller.</p>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card amber span2">
+      <div class="card-titulo">Tablero de piso en vivo</div>
+      <div class="card-desc">Una pantalla con todos los carros que hay hoy en el taller: cuál está esperando, cuál está en reparación, cuál está listo para entregar. Lo ves desde tu celular en cualquier momento, sin llamarle a nadie.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Abres el tablero desde tu celular y ves el estado de cada carro en tiempo real</li>
+          <li>El mecánico cambia el estado con un toque desde su celular y tú lo ves al instante</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-titulo">Aviso automático cuando el carro está listo</div>
+      <div class="card-desc">En cuanto el mecánico marca la orden como terminada, el sistema le manda un WhatsApp al cliente avisando que puede pasar a recoger. Sin que nadie tenga que acordarse de llamar.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>El mecánico toca "Listo" y el cliente recibe el mensaje automáticamente</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-titulo">Kilometraje registrado al cerrar cada orden</div>
+      <div class="card-desc">Al terminar cada trabajo, el sistema guarda el kilometraje del carro. Este dato alimenta los recordatorios inteligentes que vienen en meses siguientes.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>En el perfil del vehículo ves el historial de kilometraje por visita</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MES 7 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">7</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-propuesta">Propuesta</div>
+      <h2 class="mes-titulo">Se acabó el<br>"yo no aprobé eso"</h2>
+      <p class="mes-desc">El problema más caro en un taller no es el trabajo — es el cliente que llega a recoger y dice que no autorizó algo. Hoy no tienes cómo probarlo.</p>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card amber span2">
+      <div class="card-titulo">El cliente aprueba el trabajo extra desde su celular</div>
+      <div class="card-desc">Cuando el mecánico encuentra algo que no estaba en el presupuesto original, el sistema le manda un mensaje al cliente con foto, descripción y precio. El cliente responde sí o no desde su celular. Su respuesta queda guardada con fecha y hora.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Agregas un trabajo extra a la orden y el cliente recibe el mensaje en segundos</li>
+          <li>La aprobación queda registrada — si el cliente dice que no autorizó, tienes el registro</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-titulo">Historial de aprobaciones por orden</div>
+      <div class="card-desc">En la pantalla de cada orden ves exactamente qué aprobó el cliente, cuándo y desde qué número respondió. No hay lugar para malentendidos.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Abres cualquier orden y ves el registro completo de aprobaciones con timestamps</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-titulo">Alerta si el cliente no responde</div>
+      <div class="card-desc">Si el cliente no responde la solicitud de aprobación en unas horas, el sistema te avisa para que puedas llamarle directamente. El carro no queda parado sin motivo.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Ves la alerta en el panel cuando una aprobación lleva más de X horas sin respuesta</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MES 8 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">8</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-propuesta">Propuesta</div>
+      <h2 class="mes-titulo">Saber exactamente a quién<br>llamar cuando una refacción falla</h2>
+      <p class="mes-desc">Cuando una refacción falla en garantía, Paco no siempre sabe de quién la compró ni cuánto pagó. El costo lo absorbe él.</p>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card amber">
+      <div class="card-titulo">Refacción con proveedor y garantía registrados</div>
+      <div class="card-desc">Al agregar una refacción a una orden registras también quién te la vendió, cuánto pagaste y cuántas semanas de garantía tiene. Todo en la misma pantalla.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Agregas una refacción y el sistema te pide proveedor, precio de compra y garantía</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card amber">
+      <div class="card-titulo">Alerta cuando un cliente regresa en garantía</div>
+      <div class="card-desc">Si un cliente regresa por un problema dentro del período de garantía de una refacción, el sistema avisa y muestra los datos del proveedor al que puedes reclamar.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>El sistema detecta que el carro regresa dentro del período y muestra los datos del proveedor automáticamente</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card amber span2">
+      <div class="card-titulo">Historial de compras por proveedor</div>
+      <div class="card-desc">Una pantalla que muestra cuánto le has comprado a cada proveedor, a qué precios y qué refacciones. Información real para negociar mejores precios o cambiar de proveedor.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Entras al historial de proveedores y ves el resumen de compras por período</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MES 9 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">9</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-propuesta">Propuesta</div>
+      <h2 class="mes-titulo">Avisarle al cliente<br>cuando ya es tiempo de volver</h2>
+      <p class="mes-desc">Hoy el recordatorio de 6 meses avisa a ciegas, sin importar si el carro corrió 2,000 km o 20,000. Este mes el aviso sale cuando el cálculo dice que ya es tiempo.</p>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card amber span2">
+      <div class="card-titulo">Recordatorio calculado por kilometraje real</div>
+      <div class="card-desc">Basado en el kilometraje que se ha ido registrando en cada visita, el sistema estima cuándo el carro necesita su próximo servicio. El recordatorio de WhatsApp sale cuando ya toca — no cada 6 meses a ciegas.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>El sistema detecta que un carro está cerca de su próximo mantenimiento y manda el recordatorio sin intervención</li>
+          <li>El mensaje menciona el tipo de servicio que probablemente necesita según el historial</li>
+        </ul>
+      </div>
+      <div class="card-nota">
+        Este feature requiere que desde el Mes 6 se esté registrando el kilometraje al cerrar cada orden. Si ese dato existe, el cálculo funciona solo.
+      </div>
+    </div>
+
+    <div class="card amber">
+      <div class="card-titulo">Lista de carros "próximos a mantenimiento"</div>
+      <div class="card-desc">Una pantalla donde ves qué clientes están cerca de necesitar servicio, antes de que el sistema los contacte. Puedes adelantarte y llamarles tú mismo si quieres.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Entras a la lista y ves los carros ordenados por proximidad al próximo servicio</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card amber">
+      <div class="card-titulo">Resumen mensual automático para Paco</div>
+      <div class="card-desc">El primer día de cada mes el sistema genera un resumen en PDF: órdenes del mes, ingreso total, servicio más frecuente, mecánico con más trabajo. Te llega por WhatsApp sin que tengas que abrir el sistema.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>El día 1 recibes el resumen del mes anterior por WhatsApp, con los números reales del taller</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MES 10 -->
+<div class="mes">
+  <div class="mes-meta">
+    <div class="mes-num">10</div>
+    <div class="mes-info">
+      <div class="estatus-tag tag-propuesta">Propuesta</div>
+      <h2 class="mes-titulo">Nota de venta formal<br>y listo para facturar</h2>
+      <p class="mes-desc">El PDF que hoy genera el sistema es un presupuesto. Este mes se convierte en un documento fiscal que sirve como comprobante real.</p>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card amber span2">
+      <div class="card-titulo">Nota de venta con folio, IVA desglosado y datos fiscales</div>
+      <div class="card-desc">El documento de cierre incluye folio consecutivo, desglose de IVA al 16%, datos fiscales del cliente y sello del taller. Es el comprobante que los clientes piden para sus gastos. Sin ser una factura electrónica todavía.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Cierras una orden y el PDF de entrega tiene folio, IVA desglosado y datos del taller</li>
+          <li>El cliente puede usarlo como comprobante de gasto</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card amber">
+      <div class="card-titulo">RFC y datos de facturación en el perfil del cliente</div>
+      <div class="card-desc">Para los clientes que piden factura, el sistema guarda su RFC, régimen fiscal y uso del CFDI. La próxima vez que vengan, los datos ya están listos.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Capturas el RFC de un cliente una vez y ya no tienes que pedirlo cada visita</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card amber">
+      <div class="card-titulo">El sistema queda listo para emitir CFDI cuando quieras</div>
+      <div class="card-desc">Toda la información fiscal ya está capturada en el sistema. Cuando decidas activar la facturación electrónica con tu PAC, el sistema ya tiene los datos listos para conectar.</div>
+      <div class="card-verifica">
+        <div class="card-verifica-label">¿Cómo lo verifico?</div>
+        <ul>
+          <li>Los datos fiscales de clientes y del taller están completos y en el formato correcto para un PAC</li>
+        </ul>
+      </div>
+      <div class="card-nota">
+        La emisión del CFDI timbrado requiere que el taller tenga su CSD activo y un PAC contratado — ese trámite lo hace Paco con el SAT. El sistema pone su parte; la parte fiscal la pone Paco cuando esté listo.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CIERRE -->
+<div class="cierre">
+  <div class="cierre-label">Siguientes pasos</div>
+  <p class="cierre-texto">
+    Los Meses 6 al 10 son una propuesta. <strong>El orden se define en conjunto antes de arrancar cada mes.</strong> Si hay algo que quieras adelantar, cambiar o quitar, lo ajustamos.
+  </p>
+
+  <div class="cierre-foot">
+    <div class="cierre-firma">
+      <div class="firma-name">Marco Candiani</div>
+      <div class="firma-cargo">AkLabs · Desarrollo SAG Garage</div>
+    </div>
+    <div class="firma-fecha">Mayo 2026</div>
+  </div>
+</div>
+
+</body>
+</html>
