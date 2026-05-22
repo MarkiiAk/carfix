@@ -111,7 +111,6 @@ function buildItems(o: OrdenFinanciero): ItemFila[] {
 /* ─────────────────────────────────────────────────────────────────── */
 export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => {
   const navigate = useNavigate();
-  const basePath = import.meta.env.VITE_BASE_PATH ?? '/gestion';
 
   if (loading) {
     return (
@@ -250,7 +249,7 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                       <span className="inline-flex items-center gap-2 justify-end">
                         {fmt(o.ganancia)}
                         <button
-                          onClick={() => navigate(`${basePath}/orden/${o.id}`)}
+                          onClick={() => navigate(`/orden/${o.id}`)}
                           title="Ver orden"
                           className="text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors flex-shrink-0"
                         >
