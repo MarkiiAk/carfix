@@ -818,7 +818,15 @@ export const Financiero = () => {
   if (!datos) return null;
 
   const { periodo, resumen, top_servicios, top_clientes } = datos;
-  const sinDatos = resumen.num_ordenes === 0;
+  // sinDatos = true solo cuando NO hay órdenes Y tampoco hay costos operativos.
+  // Si hay sueldos, pagos fijos o gastos variables aunque sea sin ingresos,
+  // se debe mostrar el balance (quedará en déficit).
+  const hayGastos =
+    totalSueldosActivos > 0 ||
+    totalPagosFijosActivos > 0 ||
+    Number(gastosAdmin?.total_admin       ?? 0) > 0 ||
+    Number(gastosAdmin?.gastos_ordenes_mes ?? 0) > 0;
+  const sinDatos = resumen.num_ordenes === 0 && !hayGastos;
 
   return (
     <>
