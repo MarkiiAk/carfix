@@ -403,6 +403,9 @@ export interface OrdenFinanciero {
   vehiculo: string;
   costo_venta: number;
   costo_refacciones: number;   // costo de compra (sin margen 30%)
+  costo_interno?: number;      // costos internos de la orden (total, para el TOTAL row)
+  gastos_internos?: Array<{ tipo: string; concepto: string; monto: number }>; // desglose por concepto
+  iva?: number;                // IVA de la orden (0 en órdenes abiertas/anticipo)
   ganancia: number;
   estado: string;
   servicios: ServicioOrdenFinanciero[];
@@ -425,9 +428,11 @@ export interface EmpleadoSueldo {
   nombre: string;
   puesto: string | null;
   sueldo_diario: number;
+  tipo_sueldo: 'diario' | 'semanal';   // 'diario' = tarifa_diaria; 'semanal' = sueldo_diario/7 tarifa efectiva
   fecha_inicio: string;    // 'YYYY-MM-DD'
   fecha_fin: string | null;
   activo: boolean;
+  dias_trabajados?: number; // días trabajados en la semana activa (0-7, default 5)
 }
 
 export interface PagoFijo {

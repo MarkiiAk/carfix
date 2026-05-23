@@ -268,8 +268,17 @@ export const gastosOrdenAPI = {
 };
 
 export const gastosAdminAPI = {
-  listar: (mes: number, anio: number): Promise<GastosAdminResponse> =>
-    api.get(`/financiero/gastos-admin?mes=${mes}&anio=${anio}`).then(r => r.data),
+  listar: (
+    tipoOrMes: 'semana' | 'mes' | number,
+    offsetOrAnio: number
+  ): Promise<GastosAdminResponse> => {
+    // Sobrecarga: si tipoOrMes es string → nuevo modo tipo+offset
+    //             si tipoOrMes es number → retrocompatible mes+anio
+    if (typeof tipoOrMes === 'string') {
+      return api.get(`/financiero/gastos-admin?tipo=${tipoOrMes}&offset=${offsetOrAnio}`).then(r => r.data);
+    }
+    return api.get(`/financiero/gastos-admin?mes=${tipoOrMes}&anio=${offsetOrAnio}`).then(r => r.data);
+  },
 
   crear: (
     mes: number,
@@ -293,14 +302,17 @@ export const empleadosFinancieroAPI = {
     return api.get(`/financiero/empleados${qs}`).then(r => r.data);
   },
 
-  crear: (data: Omit<EmpleadoSueldo, 'id' | 'activo'>): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
+  crear: (data: Omit<EmpleadoSueldo, 'id' | 'activo'> & { tipo_sueldo?: EmpleadoSueldo['tipo_sueldo'] }): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
     api.post('/financiero/empleados', data).then(r => r.data),
 
-  actualizar: (id: number, data: Partial<Omit<EmpleadoSueldo, 'id' | 'activo'>> & { fecha_inicio_cambio?: string }): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
+  actualizar: (id: number, data: Partial<Omit<EmpleadoSueldo, 'id'>> & { fecha_inicio_cambio?: string; fecha_fin?: string | null }): Promise<{ success: boolean; empleado: EmpleadoSueldo }> =>
     api.put(`/financiero/empleados/${id}`, data).then(r => r.data),
 
   toggle: (id: number): Promise<{ success: boolean; activo: boolean }> =>
     api.put(`/financiero/empleados/${id}/toggle`, {}).then(r => r.data),
+
+  asistencia: (id: number, semana_inicio: string, dias_trabajados: number): Promise<{ success: boolean; dias_trabajados: number }> =>
+    api.put(`/financiero/empleados/${id}/asistencia`, { semana_inicio, dias_trabajados }).then(r => r.data),
 };
 
 export const pagosFijosAPI = {

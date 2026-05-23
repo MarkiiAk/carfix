@@ -289,6 +289,12 @@ try {
         $controller = new FinancieroController();
         $controller->crearEmpleado($body, $userData);
     }
+    elseif (preg_match('#^financiero/empleados/([0-9]+)/asistencia$#', $path, $matches) && $request_method === 'PUT') {
+        $userData = requireAuth();
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+        $controller = new FinancieroController();
+        $controller->asistenciaEmpleado((int) $matches[1], $body, $userData);
+    }
     elseif (preg_match('#^financiero/empleados/([0-9]+)/toggle$#', $path, $matches) && $request_method === 'PUT') {
         $userData = requireAuth();
         $controller = new FinancieroController();

@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de Usuario — Sistema de Gestión de Taller</title>
+<style>
+  :root {
+    --red: #CC0000;
+    --red-light: #ff3333;
+    --red-dark: #990000;
+    --black: #111111;
+    --surface: #1a1a1a;
+    --surface-2: #242424;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --text-muted: #888888;
+    --white: #ffffff;
+    --sidebar-w: 260px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--black);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* ── Sidebar ── */
+  nav {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+  }
+
+  .nav-brand {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-brand .logo-box {
+    width: 40px; height: 40px;
+    background: var(--red-dark);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .nav-brand h2 { font-size: 14px; font-weight: 700; color: var(--white); }
+  .nav-brand p  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .nav-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 16px 20px 6px;
+  }
+
+  nav a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+  }
+
+  nav a:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  nav a.active { color: var(--white); border-left-color: var(--red); background: rgba(204,0,0,0.1); font-weight: 500; }
+
+  nav a .num {
+    width: 20px; height: 20px;
+    background: var(--border);
+    border-radius: 50%;
+    font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  nav a.active .num { background: var(--red); color: white; }
+
+  .nav-print {
+    margin-top: auto;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-print {
+    width: 100%;
+    padding: 10px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+
+  .btn-print:hover { background: var(--red-light); }
+
+  /* ── Main ── */
+  main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    max-width: 860px;
+    padding: 48px 56px;
+  }
+
+  /* ── Sections ── */
+  section {
+    margin-bottom: 72px;
+    scroll-margin-top: 32px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-icon {
+    width: 44px; height: 44px;
+    background: rgba(204,0,0,0.15);
+    border: 1px solid rgba(204,0,0,0.3);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: var(--red);
+  }
+
+  .section-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--white);
+  }
+
+  .section-header .section-num {
+    font-size: 12px;
+    color: var(--red);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  p { color: #ccc; margin-bottom: 14px; }
+
+  /* ── Steps ── */
+  .steps { margin: 20px 0; }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .step-num {
+    width: 28px; height: 28px;
+    background: var(--red);
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .step-body h4 { font-size: 14px; font-weight: 600; color: var(--white); margin-bottom: 4px; }
+  .step-body p  { font-size: 14px; margin-bottom: 0; }
+
+  /* ── Info boxes ── */
+  .tip, .warning, .info {
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 16px 0;
+    font-size: 13px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .tip     { background: rgba(0, 180, 80, 0.1); border: 1px solid rgba(0,180,80,0.25); color: #7fd97f; }
+  .warning { background: rgba(204,0,0,0.1);     border: 1px solid rgba(204,0,0,0.3);   color: #ff9999; }
+  .info    { background: rgba(100,160,255,0.1); border: 1px solid rgba(100,160,255,0.25); color: #99c2ff; }
+
+  .tip svg, .warning svg, .info svg { flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Field table ── */
+  .field-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  .field-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: #ccc;
+    vertical-align: top;
+  }
+  .field-table tr:last-child td { border-bottom: none; }
+  .field-table td:first-child { color: var(--white); font-weight: 500; }
+  .required { color: var(--red); font-size: 11px; margin-left: 4px; }
+  .optional { color: var(--text-muted); font-size: 11px; margin-left: 4px; }
+
+  /* ── Code/kbd ── */
+  kbd {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 12px;
+    font-family: monospace;
+    color: var(--text);
+  }
+
+  code {
+    background: var(--surface-2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #ff9999;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, var(--surface) 0%, #1f0a0a 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px 40px;
+    margin-bottom: 56px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(204,0,0,0.15), transparent 70%);
+  }
+
+  .hero h1 { font-size: 28px; font-weight: 800; color: var(--white); margin-bottom: 8px; }
+  .hero p  { font-size: 15px; color: #aaa; margin: 0; }
+
+  .hero-meta {
+    display: flex;
+    gap: 24px;
+    margin-top: 20px;
+  }
+
+  .hero-meta span {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .hero-meta span strong { color: var(--text); }
+
+  /* ── Checklist ── */
+  .checklist { list-style: none; margin: 12px 0; }
+  .checklist li {
+    padding: 7px 0;
+    font-size: 14px;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li::before {
+    content: '';
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  /* ── Shortcut grid ── */
+  .shortcut-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 16px 0;
+  }
+
+  .shortcut-item {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+
+  .shortcut-item span { color: #ccc; }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 28px 0;
+  }
+
+  /* ── Status pills ── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .pill-open    { background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+  .pill-closed  { background: rgba(34,197,94,0.15);  color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+  .pill-red     { background: rgba(204,0,0,0.15);    color: #ff9999; border: 1px solid rgba(204,0,0,0.3); }
+
+  /* ── Print styles ── */
+  @media print {
+    body { background: white; color: #111; }
+    nav, .nav-print { display: none; }
+    main { margin-left: 0; padding: 20px 24px; max-width: 100%; }
+
+    .hero { background: #f5f5f5; border-color: #ddd; }
+    .hero h1, .hero p { color: #111; }
+    .hero::before { display: none; }
+    .hero-meta span, .hero-meta span strong { color: #555; }
+
+    .section-icon { background: #fee; border-color: #fcc; color: #cc0000; }
+    .section-header h2 { color: #111; }
+    .section-num { color: #cc0000; }
+
+    p, .step-body p { color: #444; }
+    .step-body h4 { color: #111; }
+    .step-num { background: #cc0000; }
+
+    .tip     { background: #f0fff4; border-color: #86efac; color: #166534; }
+    .warning { background: #fff5f5; border-color: #fca5a5; color: #991b1b; }
+    .info    { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }
+
+    .field-table th { background: #f5f5f5; color: #555; }
+    .field-table td { color: #444; }
+    .field-table td:first-child { color: #111; }
+    .field-table, .field-table th, .field-table td { border-color: #e0e0e0; }
+
+    kbd  { background: #f5f5f5; border-color: #ddd; color: #111; }
+    code { background: #fef2f2; color: #cc0000; }
+
+    .shortcut-item { background: #f9f9f9; border-color: #e0e0e0; }
+    .shortcut-item span { color: #555; }
+
+    .checklist li { color: #555; border-color: #eee; }
+    .checklist li::before { border-color: #ccc; }
+
+    section { page-break-inside: avoid; margin-bottom: 40px; }
+    .section-header { border-color: #e0e0e0; }
+    .divider { background: #e0e0e0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ Sidebar ══ -->
+<nav id="sidebar">
+  <div class="nav-brand">
+    <div class="logo-box">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+        <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+      </svg>
+    </div>
+    <h2>Sistema de Gestión</h2>
+    <p>Manual de Usuario v1.0</p>
+  </div>
+
+  <div class="nav-section-label">Contenido</div>
+
+  <a href="#inicio" class="active" onclick="setActive(this)">
+    <span class="num">1</span> Bienvenida y Acceso
+  </a>
+  <a href="#dashboard" onclick="setActive(this)">
+    <span class="num">2</span> Dashboard
+  </a>
+  <a href="#nueva-orden" onclick="setActive(this)">
+    <span class="num">3</span> Crear una Orden
+  </a>
+  <a href="#detalle-orden" onclick="setActive(this)">
+    <span class="num">4</span> Detalle de Orden
+  </a>
+  <a href="#financiero" onclick="setActive(this)">
+    <span class="num">5</span> Módulo Financiero
+  </a>
+  <a href="#clientes" onclick="setActive(this)">
+    <span class="num">6</span> Clientes y Vehículos
+  </a>
+  <a href="#whatsapp" onclick="setActive(this)">
+    <span class="num">7</span> Alertas WhatsApp
+  </a>
+  <a href="#tips" onclick="setActive(this)">
+    <span class="num">★</span> Consejos útiles
+  </a>
+
+  <div class="nav-print">
+    <button class="btn-print" onclick="window.print()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Imprimir / Guardar PDF
+    </button>
+  </div>
+</nav>
+
+<!-- ══ Main content ══ -->
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Manual de Usuario</h1>
+    <p>Sistema de Gestión para Taller — guía completa para operar el sistema desde el primer día.</p>
+    <div class="hero-meta">
+      <span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <strong>Versión 1.0</strong> — Mayo 2026
+      </span>
+      <span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Tiempo de lectura: <strong>~15 minutos</strong>
+      </span>
+    </div>
+  </div>
+
+  <!-- ══ 1. BIENVENIDA ══ -->
+  <section id="inicio">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <div>
+        <div class="section-num">SECCIÓN 1</div>
+        <h2>Bienvenida y Acceso</h2>
+      </div>
+    </div>
+
+    <p>Este sistema te permite <strong>crear órdenes de servicio digitales</strong>, llevar el control financiero de tu taller y mantener el historial de cada cliente y vehículo — todo desde el navegador, sin instalar nada.</p>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Cómo entrar al sistema</h3>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Abre el navegador</h4>
+          <p>Chrome o Edge funcionan mejor. Escribe la dirección de tu sistema en la barra de navegación.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Ingresa tu usuario y contraseña</h4>
+          <p>Usa las credenciales que te proporcionó el administrador. La contraseña distingue mayúsculas de minúsculas.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Haz clic en "Iniciar Sesión"</h4>
+          <p>Si los datos son correctos entrarás directamente al Dashboard principal.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <span><strong>Tip:</strong> Agrega el link a favoritos en tu navegador para acceder más rápido la próxima vez.</span>
+    </div>
+
+    <div class="warning">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span><strong>Importante:</strong> No compartas tu contraseña. Cada persona debe tener su propio usuario para mantener el historial de actividad correcto.</span>
+    </div>
+  </section>
+
+  <!-- ══ 2. DASHBOARD ══ -->
+  <section id="dashboard">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      </div>
+      <div>
+        <div class="section-num">SECCIÓN 2</div>
+        <h2>Dashboard</h2>
+      </div>
+    </div>
+
+    <p>El Dashboard es la pantalla principal. De un vistazo te muestra el estado de todas las órdenes y te permite buscar cualquier trabajo.</p>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Las 3 tarjetas de resumen</h3>
+
+    <table class="field-table">
+      <thead><tr><th>Tarjeta</th><th>Qué significa</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Total Órdenes</td>
+          <td>Todos los trabajos registrados en el sistema, sin importar su estado.</td>
+        </tr>
+        <tr>
+          <td>Abiertas</td>
+          <td>Trabajos que están actualmente en proceso en el taller.</td>
+        </tr>
+        <tr>
+          <td>Cerradas</td>
+          <td>Trabajos terminados y entregados al cliente.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Buscar una orden</h3>
+
+    <p>Usa la barra de búsqueda para encontrar cualquier trabajo. Puedes buscar por:</p>
+
+    <ul style="list-style:none;margin:12px 0 16px 0;">
+      <li style="padding:6px 0;color:#ccc;display:flex;gap:8px;align-items:center;"><span style="color:var(--red);font-weight:700;">→</span> Número de folio (ej. <code>OS-0042</code>)</li>
+      <li style="padding:6px 0;color:#ccc;display:flex;gap:8px;align-items:center;"><span style="color:var(--red);font-weight:700;">→</span> Nombre del cliente</li>
+      <li style="padding:6px 0;color:#ccc;display:flex;gap:8px;align-items:center;"><span style="color:var(--red);font-weight:700;">→</span> Placas del vehículo</li>
+      <li style="padding:6px 0;color:#ccc;display:flex;gap:8px;align-items:center;"><span style="color:var(--red);font-weight:700;">→</span> Marca o modelo del auto</li>
+    </ul>
+
+    <p>También puedes filtrar por estado usando el menú <kbd>Todos los estados</kbd> que está junto al botón de nueva orden.</p>
+  </section>
+
+  <!-- ══ 3. NUEVA ORDEN ══ -->
+  <section id="nueva-orden">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </div>
+      <div>
+        <div class="section-num">SECCIÓN 3</div>
+        <h2>Crear una Nueva Orden</h2>
+      </div>
+    </div>
+
+    <p>Una orden de servicio es el documento digital que registra todo el trabajo: qué se hizo, qué piezas se usaron y cuánto se cobra. Haz clic en el botón <kbd>+ Nueva Orden</kbd> para comenzar.</p>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:16px;font-size:16px;">Paso a paso</h3>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Datos del Cliente</h4>
+          <p>Ingresa nombre y teléfono. Si el cliente ya existe en el sistema, aparecerá como sugerencia automáticamente.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Datos del Vehículo</h4>
+          <p>Marca, modelo, año y placas. Si el vehículo ya estuvo antes en el taller, también aparecerá como sugerencia.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Servicios a realizar</h4>
+          <p>Agrega los trabajos con su precio. Puedes incluir varios servicios en la misma orden.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Refacciones (opcional)</h4>
+          <p>Si usas piezas, ingrésalas con su precio de costo. El sistema calcula automáticamente el precio de venta con margen.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h4>Checklist de inspección (opcional)</h4>
+          <p>Marca el estado de los componentes del vehículo: luces, llantas, nivel de aceite, etc.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <h4>Guardar la orden</h4>
+          <p>Haz clic en <kbd>Guardar Orden</kbd>. El sistema le asigna un folio automáticamente.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Campos de la orden</h3>
+
+    <table class="field-table">
+      <thead><tr><th>Campo</th><th>Descripción</th></tr></thead>
+      <tbody>
+        <tr><td>Nombre del cliente<span class="required">*</span></td><td>Nombre completo o razón social.</td></tr>
+        <tr><td>Teléfono<span class="required">*</span></td><td>Formato mexicano: 10 dígitos. Necesario para el sistema de WhatsApp.</td></tr>
+        <tr><td>Marca / Modelo<span class="required">*</span></td><td>Ej: Toyota Corolla, Nissan Sentra.</td></tr>
+        <tr><td>Año<span class="optional">(opcional)</span></td><td>Año del vehículo para referencia.</td></tr>
+        <tr><td>Placas<span class="optional">(opcional)</span></td><td>Útil para buscar el historial del vehículo más adelante.</td></tr>
+        <tr><td>Descripción del problema<span class="required">*</span></td><td>Lo que el cliente reporta al traer el auto.</td></tr>
+        <tr><td>IVA</td><td>Opción de incluir o excluir el 16% de IVA en el total.</td></tr>
+        <tr><td>Estado</td><td><span class="pill pill-open">Abierta</span> cuando está en proceso. <span class="pill pill-closed">Cerrada</span> cuando se entregó.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="tip">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <span><strong>Tip refacciones:</strong> Ingresa siempre el precio de <em>costo</em> (lo que tú pagas). El sistema agrega automáticamente el margen de utilidad para calcular el precio de venta al cliente.</span>
+    </div>
+  </section>
+
+  <!-- ══ 4. DETALLE DE ORDEN ══ -->
+  <section id="detalle-orden">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      </div>
+      <div>
+        <div class="section-num">SECCIÓN 4</div>
+        <h2>Detalle de Orden</h2>
+      </div>
+    </div>
+
+    <p>Al hacer clic en cualquier orden del Dashboard entras a su detalle. Desde aquí puedes editar, generar el PDF para el cliente y cerrar la orden.</p>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Acciones disponibles</h3>
+
+    <table class="field-table">
+      <thead><tr><th>Acción</th><th>Qué hace</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Editar</td>
+          <td>Modifica cualquier dato de la orden: agrega servicios, cambia precios, actualiza el estado.</td>
+        </tr>
+        <tr>
+          <td>Generar PDF</td>
+          <td>Crea el presupuesto/factura en PDF listo para enviar al cliente por WhatsApp o imprimir.</td>
+        </tr>
+        <tr>
+          <td>Cerrar orden</td>
+          <td>Marca el trabajo como terminado. Esto activa el contador para el recordatorio automático de WhatsApp a los 6 meses.</td>
+        </tr>
+        <tr>
+          <td>Eliminar</td>
+          <td>Borra la orden permanentemente. Solo usar si fue un error — no se puede deshacer.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>El PDF incluye el logo del taller, los servicios, las refacciones, el desglose de IVA, la póliza de garantía y un espacio para firma del cliente.</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Estados de una orden</h3>
+
+    <table class="field-table">
+      <thead><tr><th>Estado</th><th>Significado</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill pill-open">Abierta</span></td><td>El vehículo está en el taller, trabajo en proceso.</td></tr>
+        <tr><td><span class="pill pill-closed">Cerrada</span></td><td>Trabajo terminado y vehículo entregado al cliente.</td></tr>
+        <tr><td><span class="pill pill-red">Cancelada</span></td><td>El trabajo no se realizó.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ══ 5. FINANCIERO ══ -->
+  <section id="financiero">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      </div>
+      <div>
+        <div class="section-num">SECCIÓN 5</div>
+        <h2>Módulo Financiero</h2>
+      </div>
+    </div>
+
+    <p>El módulo financiero te muestra <strong>cuánto ganas de verdad</strong> — no solo los ingresos, sino la utilidad real después de descontar refacciones, gastos y sueldos.</p>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Qué puedes ver</h3>
+
+    <table class="field-table">
+      <thead><tr><th>Sección</th><th>Contenido</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Ingresos</td>
+          <td>Total facturado por servicios y refacciones en el período.</td>
+        </tr>
+        <tr>
+          <td>Costo de Refacciones</td>
+          <td>Lo que pagaste por las piezas (precio de costo, no de venta).</td>
+        </tr>
+        <tr>
+          <td>Gastos Generales</td>
+          <td>Renta, luz, agua, materiales, publicidad — gastos del taller.</td>
+        </tr>
+        <tr>
+          <td>Sueldos</td>
+          <td>Pago a mecánicos calculado por días trabajados × tarifa.</td>
+        </tr>
+        <tr>
+          <td>Utilidad Neta</td>
+          <td><strong>Ingresos − Refacciones − Gastos − Sueldos = Lo que te queda a ti.</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Cómo registrar gastos</h3>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Gastos de una orden específica</h4>
+          <p>Dentro del detalle de una orden, busca la sección "Gastos internos". Ahí registras materiales o extras usados en ese trabajo específico.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Gastos generales del taller</h4>
+          <p>En el módulo Financiero, sección "Gastos Administrativos". Aquí van renta, servicios, insumos de taller.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Pago de mecánicos</h4>
+          <p>En "Sueldos y Pagos" registras los días trabajados y el sistema calcula el pago automáticamente.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <span><strong>Hábito recomendado:</strong> Registra los gastos el mismo día que ocurren. Al final del mes el reporte te dará números exactos sin tener que reconstruir nada.</span>
+    </div>
+  </section>
+
+  <!-- ══ 6. CLIENTES Y VEHÍCULOS ══ -->
+  <section id="clientes">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      </div>
+      <div>
+        <div class="section-num">SECCIÓN 6</div>
+        <h2>Clientes y Vehículos</h2>
+      </div>
+    </div>
+
+    <p>El sistema guarda automáticamente cada cliente y vehículo la primera vez que creas una orden. No necesitas registrarlos por separado.</p>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Expediente de cliente</h3>
+
+    <p>En el menú lateral selecciona <kbd>Clientes y Vehículos</kbd>. Al hacer clic en un cliente verás:</p>
+
+    <ul style="list-style:none;margin:12px 0;">
+      <li style="padding:7px 0;color:#ccc;display:flex;gap:8px;border-bottom:1px solid var(--border);"><span style="color:var(--red);">▸</span> Todos sus vehículos registrados</li>
+      <li style="padding:7px 0;color:#ccc;display:flex;gap:8px;border-bottom:1px solid var(--border);"><span style="color:var(--red);">▸</span> Historial completo de órdenes de servicio</li>
+      <li style="padding:7px 0;color:#ccc;display:flex;gap:8px;border-bottom:1px solid var(--border);"><span style="color:var(--red);">▸</span> Conversaciones de WhatsApp del cliente</li>
+      <li style="padding:7px 0;color:#ccc;display:flex;gap:8px;"><span style="color:var(--red);">▸</span> Cuánto ha gastado en total en el taller</li>
+    </ul>
+
+    <div class="info">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>Si un cliente tiene varios autos, todos aparecen en su expediente bajo un mismo perfil. No se crean clientes duplicados si el teléfono es el mismo.</span>
+    </div>
+  </section>
+
+  <!-- ══ 7. WHATSAPP ══ -->
+  <section id="whatsapp">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      </div>
+      <div>
+        <div class="section-num">SECCIÓN 7</div>
+        <h2>Alertas WhatsApp</h2>
+      </div>
+    </div>
+
+    <p>El sistema envía automáticamente mensajes de WhatsApp a clientes que no han visitado el taller en más de 6 meses. Tú no tienes que hacer nada — el sistema lo hace solo.</p>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Cómo funciona</h3>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Detección automática</h4>
+          <p>Cada noche el sistema revisa qué clientes tienen 6+ meses sin visitar el taller.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Envío del recordatorio</h4>
+          <p>En días hábiles el sistema manda un WhatsApp cordial preguntando si quieren agendar una cita.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>El cliente responde</h4>
+          <p>Si dice SÍ, el bot le ofrece horarios disponibles. El cliente elige y queda pre-agendado.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Tú confirmas</h4>
+          <p>El sistema te avisa que hay una cita pendiente de confirmar. La apruebas desde el panel de Alertas.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Panel de Alertas</h3>
+
+    <p>Accede desde el ícono de campana en el menú lateral. Aquí verás:</p>
+
+    <table class="field-table">
+      <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill pill-red">Pre-agendado</span></td><td>El cliente eligió un horario. Tú debes confirmar o proponer otro.</td></tr>
+        <tr><td><span class="pill" style="background:rgba(234,179,8,0.15);color:#fde047;border:1px solid rgba(234,179,8,0.3);">Esperando</span></td><td>El bot envió el mensaje y espera respuesta del cliente.</td></tr>
+        <tr><td><span class="pill pill-closed">Confirmado</span></td><td>Cita confirmada por ambas partes.</td></tr>
+        <tr><td><span class="pill pill-open">Rechazado</span></td><td>El cliente dijo que por el momento no. Se archiva sin molestar.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="warning">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span><strong>Nota:</strong> El sistema respeta a los clientes que piden no recibir mensajes. Los agrega automáticamente a una lista de exclusión.</span>
+    </div>
+  </section>
+
+  <!-- ══ TIPS ══ -->
+  <section id="tips">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <div>
+        <div class="section-num">BONUS</div>
+        <h2>Consejos útiles</h2>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:16px;font-size:16px;">Checklist de arranque</h3>
+    <p>Lo primero que debes hacer cuando recibes tu sistema:</p>
+
+    <ul class="checklist">
+      <li>Crear una orden de prueba con datos inventados para conocer el flujo</li>
+      <li>Generar el PDF de esa orden de prueba para ver cómo queda</li>
+      <li>Cerrar la orden de prueba y verificar que aparece en el Dashboard</li>
+      <li>Registrar tus gastos fijos del taller en el módulo Financiero</li>
+      <li>Agregar a tus mecánicos en la sección de Sueldos</li>
+    </ul>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:16px;font-size:16px;">Atajos del teclado</h3>
+
+    <div class="shortcut-grid">
+      <div class="shortcut-item"><span>Guardar un formulario</span> <kbd>Enter</kbd></div>
+      <div class="shortcut-item"><span>Buscar en el dashboard</span> <kbd>Ctrl + F</kbd></div>
+      <div class="shortcut-item"><span>Imprimir / PDF</span> <kbd>Ctrl + P</kbd></div>
+      <div class="shortcut-item"><span>Volver atrás</span> <kbd>Alt + ←</kbd></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="color:white;margin-bottom:12px;font-size:16px;">Buenas prácticas</h3>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">✓</div>
+        <div class="step-body">
+          <h4>Registra el teléfono siempre</h4>
+          <p>Sin teléfono, el sistema de WhatsApp no puede contactar al cliente. Es el campo más importante.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">✓</div>
+        <div class="step-body">
+          <h4>Cierra las órdenes cuando entregues el auto</h4>
+          <p>El contador de 6 meses para el recordatorio automático empieza en el momento en que cambias el estado a "Cerrada".</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">✓</div>
+        <div class="step-body">
+          <h4>Usa el módulo financiero semanalmente</h4>
+          <p>Registra gastos cada semana en lugar de dejarlo para fin de mes. 5 minutos semanales te ahorran 2 horas en el cierre mensual.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">✓</div>
+        <div class="step-body">
+          <h4>Revisa el panel de alertas cada mañana</h4>
+          <p>Si hay citas pre-agendadas pendientes de confirmar, el cliente está esperando tu respuesta. Entre más rápido confirmes, mejor la experiencia.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="text-align:center;padding:32px 0 16px;">
+      <p style="color:var(--text-muted);font-size:13px;margin:0;">
+        ¿Dudas o problemas? Contáctanos directamente — estamos para apoyarte.
+      </p>
+      <p style="color:var(--red);font-weight:700;font-size:15px;margin-top:8px;">Sistema desarrollado por AkLabs</p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  function setActive(el) {
+    document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Highlight nav on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks  = document.querySelectorAll('nav a[href^="#"]');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + entry.target.id);
+        });
+      }
+    });
+  }, { threshold: 0.3 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
