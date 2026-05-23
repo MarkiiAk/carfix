@@ -345,6 +345,7 @@ export const Financiero = () => {
   const [empSueldoOriginal, setEmpSueldoOriginal]   = useState('');  // para detectar si cambió
   const [empTipoSueldo, setEmpTipoSueldo]           = useState<'diario' | 'semanal'>('diario');
   const [empFechaInicioCambio, setEmpFechaInicioCambio] = useState(() => new Date().toISOString().split('T')[0]);
+  const [empFechaInicioBase,   setEmpFechaInicioBase]   = useState(() => new Date().toISOString().split('T')[0]);
   const [empGuardando, setEmpGuardando]             = useState(false);
   const [empError, setEmpError]                     = useState<string | null>(null);
   // Dar de baja
@@ -511,6 +512,7 @@ export const Financiero = () => {
       setEmpSueldo(String(emp.sueldo_diario));
       setEmpSueldoOriginal(String(emp.sueldo_diario));
       setEmpTipoSueldo(emp.tipo_sueldo ?? 'diario');
+      setEmpFechaInicioBase(emp.fecha_inicio ?? hoy); // para "Vigente desde:"
     } else {
       setEmpEditId(null);
       setEmpNombre('');
@@ -518,8 +520,9 @@ export const Financiero = () => {
       setEmpSueldo('');
       setEmpSueldoOriginal('');
       setEmpTipoSueldo('diario');
+      setEmpFechaInicioBase(hoy); // para "Alta:"
     }
-    setEmpFechaInicioCambio(hoy);
+    setEmpFechaInicioCambio(hoy); // siempre hoy para "Aplica desde:" (cambio de sueldo)
     setEmpError(null);
     setMostrarFormEmp(true);
   };
@@ -549,6 +552,9 @@ export const Financiero = () => {
         };
         if (sueldoCambio) {
           payload.fecha_inicio_cambio = empFechaInicioCambio;
+        } else {
+          // Permite corregir la fecha de alta del registro existente
+          payload.fecha_inicio = empFechaInicioBase;
         }
         await empleadosFinancieroAPI.actualizar(empEditId, payload);
       } else {
@@ -558,7 +564,7 @@ export const Financiero = () => {
           sueldo_diario: sueldo,
           tipo_sueldo: empTipoSueldo,
           usuario_id: null,
-          fecha_inicio: empFechaInicioCambio,
+          fecha_inicio: empFechaInicioBase,
           fecha_fin: null,
         });
       }
@@ -1176,13 +1182,16 @@ export const Financiero = () => {
                         step="0.01"
                         className="w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                       />
-                      {empEditId === null && (
+                      {/* "Alta:" al crear, "Vigente desde:" al editar sin cambiar sueldo */}
+                      {(empEditId === null || parseFloat(empSueldo) === parseFloat(empSueldoOriginal)) && (
                         <div className="flex items-center gap-1.5">
-                          <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">Alta:</label>
+                          <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                            {empEditId === null ? 'Alta:' : 'Vigente desde:'}
+                          </label>
                           <input
                             type="date"
-                            value={empFechaInicioCambio}
-                            onChange={e => setEmpFechaInicioCambio(e.target.value)}
+                            value={empFechaInicioBase}
+                            onChange={e => setEmpFechaInicioBase(e.target.value)}
                             className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                           />
                         </div>

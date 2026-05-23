@@ -1315,12 +1315,14 @@ class FinancieroController {
             }
 
             // Validar campos entrantes
-            $cambiaNombre     = isset($body['nombre']);
-            $cambiaPuesto     = array_key_exists('puesto', $body);
-            $cambiaSueldo     = isset($body['sueldo_diario']);
-            $cambiaTipoSueldo = isset($body['tipo_sueldo']);
+            $cambiaNombre      = isset($body['nombre']);
+            $cambiaPuesto      = array_key_exists('puesto', $body);
+            $cambiaSueldo      = isset($body['sueldo_diario']);
+            $cambiaTipoSueldo  = isset($body['tipo_sueldo']);
+            $cambiaFechaInicio = isset($body['fecha_inicio']);
 
             if (!$cambiaNombre && !$cambiaPuesto && !$cambiaSueldo && !$cambiaTipoSueldo
+                && !$cambiaFechaInicio
                 && !array_key_exists('fecha_fin', $body) && !array_key_exists('activo', $body)) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'No se enviaron campos a actualizar']);
@@ -1428,7 +1430,7 @@ class FinancieroController {
                     throw $e;
                 }
             } else {
-                // Cambio de nombre, puesto, tipo_sueldo, fecha_fin o activo — UPDATE directo
+                // Cambio de nombre, puesto, tipo_sueldo, fecha_inicio, fecha_fin o activo — UPDATE directo
                 $campos = [];
                 $params = [];
                 if ($cambiaNombre) {
@@ -1442,6 +1444,11 @@ class FinancieroController {
                 if ($cambiaTipoSueldo) {
                     $campos[]              = 'tipo_sueldo = :tipo_sueldo';
                     $params['tipo_sueldo'] = $nuevoTipoSueldo;
+                }
+                if ($cambiaFechaInicio) {
+                    $fechaInicioVal           = trim((string) $body['fecha_inicio']);
+                    $campos[]                 = 'fecha_inicio = :fecha_inicio';
+                    $params['fecha_inicio']   = $fechaInicioVal;
                 }
                 if ($darDeBajaOReactivar) {
                     if ($cambiaFechaFin) {
