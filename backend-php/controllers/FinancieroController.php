@@ -1317,7 +1317,10 @@ class FinancieroController {
             // Validar campos entrantes
             $cambiaNombre      = isset($body['nombre']);
             $cambiaPuesto      = array_key_exists('puesto', $body);
-            $cambiaSueldo      = isset($body['sueldo_diario']);
+            // Versioning solo cuando el MONTO realmente cambia — el frontend siempre manda sueldo_diario,
+            // así que comparamos valor contra el registro existente en lugar de solo detectar presencia.
+            $cambiaSueldo      = isset($body['sueldo_diario'])
+                && ((float)$body['sueldo_diario'] !== (float)$existente['sueldo_diario']);
             $cambiaTipoSueldo  = isset($body['tipo_sueldo']);
             $cambiaFechaInicio = isset($body['fecha_inicio']);
 
