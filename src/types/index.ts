@@ -432,6 +432,7 @@ export interface EmpleadoSueldo {
   fecha_inicio: string;    // 'YYYY-MM-DD'
   fecha_fin: string | null;
   activo: boolean;
+  dias_trabajados?: number; // días trabajados en la semana activa (0-7, default 5)
 }
 
 export interface PagoFijo {

@@ -1170,28 +1170,37 @@ class FinancieroController {
             //   - empleadosVigentes: sin fecha_fin o fecha_fin > hoy → aparecen en tabla principal
             //   - exEmpleados: fecha_fin <= hoy → aparecen en sección colapsada "Ex-empleados"
             // Dentro de vigentes, activo=false se muestra greyed out (sin pago esa semana).
+            // Si se recibe fecha_inicio, se hace LEFT JOIN con empleado_asistencia para la semana.
+            $semanaInicio = isset($_GET['fecha_inicio']) ? trim($_GET['fecha_inicio']) : null;
+
             $sql = "
-                SELECT id, usuario_id, nombre, puesto, sueldo_diario, tipo_sueldo,
-                       fecha_inicio, fecha_fin, activo
-                FROM empleados_sueldos
+                SELECT es.id, es.usuario_id, es.nombre, es.puesto, es.sueldo_diario, es.tipo_sueldo,
+                       es.fecha_inicio, es.fecha_fin, es.activo,
+                       COALESCE(ea.dias_trabajados, 5) AS dias_trabajados
+                FROM empleados_sueldos es
+                LEFT JOIN empleado_asistencia ea
+                  ON ea.empleado_id = es.id
+                 AND ea.semana_inicio = :semana_inicio
                 WHERE 1=1
-                ORDER BY activo DESC, (fecha_fin IS NULL) DESC, nombre ASC
+                ORDER BY es.activo DESC, (es.fecha_fin IS NULL) DESC, es.nombre ASC
             ";
             $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(':semana_inicio', $semanaInicio, $semanaInicio !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $empleados = array_map(function ($r) {
                 return [
-                    'id'           => (int)    $r['id'],
-                    'usuario_id'   => $r['usuario_id'] !== null ? (int) $r['usuario_id'] : null,
-                    'nombre'       => $r['nombre'],
-                    'puesto'       => $r['puesto'],
-                    'sueldo_diario'=> (float)  $r['sueldo_diario'],
-                    'tipo_sueldo'  => $r['tipo_sueldo'] ?? 'diario',
-                    'fecha_inicio' => $r['fecha_inicio'],
-                    'fecha_fin'    => $r['fecha_fin'],
-                    'activo'       => (bool)   $r['activo'],
+                    'id'              => (int)    $r['id'],
+                    'usuario_id'      => $r['usuario_id'] !== null ? (int) $r['usuario_id'] : null,
+                    'nombre'          => $r['nombre'],
+                    'puesto'          => $r['puesto'],
+                    'sueldo_diario'   => (float)  $r['sueldo_diario'],
+                    'tipo_sueldo'     => $r['tipo_sueldo'] ?? 'diario',
+                    'fecha_inicio'    => $r['fecha_inicio'],
+                    'fecha_fin'       => $r['fecha_fin'],
+                    'activo'          => (bool)   $r['activo'],
+                    'dias_trabajados' => (int)    $r['dias_trabajados'],
                 ];
             }, $rows);
 
@@ -1202,6 +1211,55 @@ class FinancieroController {
             error_log('[FinancieroController::empleadosSueldos] ERROR: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Error al obtener empleados']);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // PUT /api/financiero/empleados/:id/asistencia
+    // Body: { semana_inicio: 'YYYY-MM-DD', dias_trabajados: 0-7 }
+    // UPSERT días trabajados para un empleado en una semana dada.
+    // -----------------------------------------------------------------------
+    public function asistenciaEmpleado(int $id, array $body, $userData): void {
+        try {
+            if (!$userData) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                return;
+            }
+
+            $semanaInicio   = isset($body['semana_inicio'])   ? trim((string) $body['semana_inicio'])   : null;
+            $diasTrabajados = isset($body['dias_trabajados']) ? (int) $body['dias_trabajados']          : null;
+
+            if (!$semanaInicio || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicio)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'semana_inicio inválido (formato YYYY-MM-DD requerido)']);
+                return;
+            }
+            if ($diasTrabajados === null || $diasTrabajados < 0 || $diasTrabajados > 7) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'dias_trabajados debe ser entre 0 y 7']);
+                return;
+            }
+
+            $sql = "
+                INSERT INTO empleado_asistencia (empleado_id, semana_inicio, dias_trabajados)
+                VALUES (:empleado_id, :semana_inicio, :dias)
+                ON DUPLICATE KEY UPDATE dias_trabajados = VALUES(dias_trabajados),
+                                        updated_at = CURRENT_TIMESTAMP
+            ";
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindParam(':empleado_id',   $id,             PDO::PARAM_INT);
+            $stmt->bindParam(':semana_inicio', $semanaInicio,   PDO::PARAM_STR);
+            $stmt->bindParam(':dias',          $diasTrabajados, PDO::PARAM_INT);
+            $stmt->execute();
+
+            http_response_code(200);
+            echo json_encode(['success' => true, 'dias_trabajados' => $diasTrabajados]);
+
+        } catch (Exception $e) {
+            error_log('[FinancieroController::asistenciaEmpleado] ERROR: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error al guardar asistencia']);
         }
     }
 

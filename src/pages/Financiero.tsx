@@ -270,7 +270,8 @@ export const Financiero = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [tipoPeriodo, setTipoPeriodo] = useState<'semana' | 'mes'>('semana');
+  // Solo modo semanal — la opción mensual fue removida
+  const tipoPeriodo: 'semana' | 'mes' = 'semana';
   const [offset, setOffset] = useState(0);
   const [datos, setDatos]   = useState<ResumenFinancieroResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -331,6 +332,8 @@ export const Financiero = () => {
   const [pagosFijos, setPagosFijos]         = useState<PagoFijo[]>([]);
   const [loadingEmpleados, setLoadingEmpleados] = useState(false);
   const [loadingPagos, setLoadingPagos]     = useState(false);
+  // IDs de empleados cuya asistencia está guardándose en este momento
+  const [savingDias, setSavingDias]         = useState<Set<number>>(new Set());
 
   // Fechas del período activo — se llenan cuando llega la respuesta de financieroAPI.resumen
   // Se usan para filtrar empleados y pagos fijos vigentes en ese período
@@ -615,6 +618,22 @@ export const Financiero = () => {
     } catch { /* silencioso */ }
   };
 
+  const cambiarDias = async (emp: EmpleadoSueldo, dias: number) => {
+    const semana = periodoFechaInicio;
+    if (!semana) return;
+    // Actualización optimista
+    setEmpleados(prev => prev.map(e => e.id === emp.id ? { ...e, dias_trabajados: dias } : e));
+    setSavingDias(prev => new Set(prev).add(emp.id));
+    try {
+      await empleadosFinancieroAPI.asistencia(emp.id, semana, dias);
+    } catch {
+      // Revertir si falla
+      setEmpleados(prev => prev.map(e => e.id === emp.id ? { ...e, dias_trabajados: emp.dias_trabajados ?? 5 } : e));
+    } finally {
+      setSavingDias(prev => { const s = new Set(prev); s.delete(emp.id); return s; });
+    }
+  };
+
   // Handlers para pagos fijos
   const abrirFormPago = (pago?: PagoFijo) => {
     const hoy = new Date().toISOString().split('T')[0];
@@ -723,12 +742,14 @@ export const Financiero = () => {
     } catch { /* silencioso */ }
   };
 
-  // Totales calculados para la gráfica de distribución
-  // Tarifa diaria efectiva: diario → sueldo_diario; semanal → sueldo_diario / 7
-  const tarifaDiariaEfectiva = (e: EmpleadoSueldo): number =>
-    (e.tipo_sueldo ?? 'diario') === 'semanal'
-      ? Number(e.sueldo_diario) / 7
-      : Number(e.sueldo_diario);
+  // Pago real de la semana por empleado:
+  // - semanal → monto fijo (sueldo_diario es el monto semanal)
+  // - diario  → sueldo_diario × dias_trabajados (default 5 si no hay registro)
+  const pagoSemanalEmpleado = (e: EmpleadoSueldo): number => {
+    if (!e.activo) return 0;
+    if ((e.tipo_sueldo ?? 'diario') === 'semanal') return Number(e.sueldo_diario);
+    return Number(e.sueldo_diario) * (e.dias_trabajados ?? 5);
+  };
 
   // Separar empleados vigentes (en plantilla) de ex-empleados (dados de baja)
   // Usar la fecha fin del período seleccionado como referencia para vigencia.
@@ -739,8 +760,7 @@ export const Financiero = () => {
   const exEmpleados       = empleados.filter(e => e.fecha_fin != null && e.fecha_fin <= fechaRefPeriodo);
 
   const totalSueldosActivos = empleadosVigentes
-    .filter(e => e.activo)
-    .reduce((acc, e) => acc + tarifaDiariaEfectiva(e) * (tipoPeriodo === 'semana' ? 5 : 22), 0);
+    .reduce((acc, e) => acc + pagoSemanalEmpleado(e), 0);
 
   const totalPagosFijosActivos = pagosFijos
     .filter(p => p.activo)
@@ -822,24 +842,7 @@ export const Financiero = () => {
           </button>
         </div>
 
-        {/* Toggle Semana / Mes */}
-        <div className="flex justify-center mb-4">
-          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-0.5 gap-0.5">
-            {(['semana', 'mes'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => { setTipoPeriodo(t); setOffset(0); }}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  tipoPeriodo === t
-                    ? 'bg-sag-500 text-gray-900 shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                {t === 'semana' ? 'Semana' : 'Mes'}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Solo modo semanal — toggle mensual removido */}
 
         {/* Selector de flechas */}
         <div className="flex items-center justify-center gap-3">
@@ -1243,19 +1246,24 @@ export const Financiero = () => {
                             <th className="pb-2 pr-4 font-medium">Nombre</th>
                             <th className="pb-2 pr-4 font-medium">Puesto</th>
                             <th className="pb-2 pr-4 font-medium text-right">Tarifa</th>
-                            <th className="pb-2 pr-4 font-medium text-right">Est. período</th>
+                            <th className="pb-2 pr-3 font-medium text-center">Días</th>
+                            <th className="pb-2 pr-4 font-medium text-right">Total semana</th>
                             <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Vigente desde</th>
                             <th className="pb-2 font-medium w-16 text-center">Esta semana</th>
                             <th className="pb-2 w-16"></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {empleadosVigentes.map(e => (
+                          {empleadosVigentes.map(e => {
+                            const esSemanal = (e.tipo_sueldo ?? 'diario') === 'semanal';
+                            const diasVal   = e.dias_trabajados ?? 5;
+                            const guardando = savingDias.has(e.id);
+                            return (
                             <tr key={e.id} className={`border-b border-gray-50 dark:border-gray-700/50 last:border-0 ${!e.activo ? 'opacity-50' : ''}`}>
                               <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{e.nombre}</td>
                               <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{e.puesto ?? '—'}</td>
                               <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
-                                {(e.tipo_sueldo ?? 'diario') === 'semanal' ? (
+                                {esSemanal ? (
                                   <div>
                                     <span>{formatMoneda(Number(e.sueldo_diario))}/sem</span>
                                     <span className="block text-[10px] text-gray-400 dark:text-gray-500">
@@ -1266,10 +1274,31 @@ export const Financiero = () => {
                                   <span>{formatMoneda(Number(e.sueldo_diario))}/día</span>
                                 )}
                               </td>
-                              <td className="py-2 pr-4 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                                {e.activo
-                                  ? formatMoneda(tarifaDiariaEfectiva(e) * (tipoPeriodo === 'semana' ? 5 : 22))
-                                  : '—'}
+                              {/* Columna Días — editable solo para empleados diarios */}
+                              <td className="py-2 pr-3 text-center">
+                                {esSemanal ? (
+                                  <span className="text-xs text-gray-400">—</span>
+                                ) : (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      onClick={() => e.activo && cambiarDias(e, Math.max(0, diasVal - 1))}
+                                      disabled={!e.activo || diasVal <= 0 || guardando}
+                                      className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
+                                    >−</button>
+                                    <span className="w-4 text-center text-sm tabular-nums font-medium text-gray-700 dark:text-gray-200">
+                                      {guardando ? '…' : diasVal}
+                                    </span>
+                                    <button
+                                      onClick={() => e.activo && cambiarDias(e, Math.min(7, diasVal + 1))}
+                                      disabled={!e.activo || diasVal >= 7 || guardando}
+                                      className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
+                                    >+</button>
+                                  </div>
+                                )}
+                              </td>
+                              {/* Total semana */}
+                              <td className="py-2 pr-4 text-right tabular-nums font-medium text-gray-700 dark:text-gray-200">
+                                {e.activo ? formatMoneda(pagoSemanalEmpleado(e)) : '—'}
                               </td>
                               <td className="py-2 pr-4 hidden sm:table-cell">
                                 <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
@@ -1300,12 +1329,13 @@ export const Financiero = () => {
                                 </div>
                               </td>
                             </tr>
-                          ))}
+                          );
+                          })}
                         </tbody>
                       </table>
                     )}
                     <div className="flex justify-end pt-3 border-t border-gray-100 dark:border-gray-700 mt-1">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 mr-4">Total estimado del período:</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 mr-4">Total semana:</span>
                       <span className="font-bold text-gray-900 dark:text-white tabular-nums">
                         {formatMoneda(totalSueldosActivos)}
                       </span>

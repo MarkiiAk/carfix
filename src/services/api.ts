@@ -310,6 +310,9 @@ export const empleadosFinancieroAPI = {
 
   toggle: (id: number): Promise<{ success: boolean; activo: boolean }> =>
     api.put(`/financiero/empleados/${id}/toggle`, {}).then(r => r.data),
+
+  asistencia: (id: number, semana_inicio: string, dias_trabajados: number): Promise<{ success: boolean; dias_trabajados: number }> =>
+    api.put(`/financiero/empleados/${id}/asistencia`, { semana_inicio, dias_trabajados }).then(r => r.data),
 };
 
 export const pagosFijosAPI = {
