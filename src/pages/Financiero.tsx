@@ -1167,20 +1167,26 @@ export const Financiero = () => {
                         onChange={e => setEmpPuesto(e.target.value)}
                         className="flex-1 min-w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                       />
-                      <div className="flex flex-col gap-0.5">
-                        <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 px-1">
-                          {empTipoSueldo === 'semanal' ? 'Sueldo/semana' : 'Sueldo/día'}
-                        </label>
-                        <input
-                          type="number"
-                          placeholder={empTipoSueldo === 'semanal' ? 'Sueldo/semana' : 'Sueldo/día'}
-                          value={empSueldo}
-                          onChange={e => setEmpSueldo(e.target.value)}
-                          min="0"
-                          step="0.01"
-                          className="w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                        />
-                      </div>
+                      <input
+                        type="number"
+                        placeholder={empTipoSueldo === 'semanal' ? 'Sueldo/semana' : 'Sueldo/día'}
+                        value={empSueldo}
+                        onChange={e => setEmpSueldo(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        className="w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                      {empEditId === null && (
+                        <div className="flex items-center gap-1.5">
+                          <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">Alta:</label>
+                          <input
+                            type="date"
+                            value={empFechaInicioCambio}
+                            onChange={e => setEmpFechaInicioCambio(e.target.value)}
+                            className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          />
+                        </div>
+                      )}
                       <button
                         onClick={guardarEmpleado}
                         disabled={empGuardando}
