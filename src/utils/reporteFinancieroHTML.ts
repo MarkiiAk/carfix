@@ -27,36 +27,48 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   const ingresosBrutos = resumen?.resumen?.total_facturado ?? 0;
   const costoRefacciones = resumen?.refacciones?.costo ?? 0;
   const ingresoNeto = ingresosBrutos - costoRefacciones;
-  const diasPeriodo = tipoPeriodo === 'semana' ? 5 : 22;
+
+  // Misma lógica que pagoSemanalEmpleado() en Financiero.tsx:
+  //   semanal → sueldo_diario es el monto semanal flat
+  //   diario  → sueldo_diario × dias_trabajados (default 5)
+  const pagoSemanalEmp = (e: EmpleadoSueldo): number => {
+    if (!e.activo) return 0;
+    const tipo = e.tipo_sueldo ?? 'diario';
+    if (tipo === 'semanal') return Number(e.sueldo_diario);
+    return Number(e.sueldo_diario) * (Number(e.dias_trabajados) || 5);
+  };
 
   const totalSueldos = empleados
-    .filter(e => e.activo)
-    .reduce((acc, e) => acc + e.sueldo_diario * diasPeriodo, 0);
+    .filter(e => !e.fecha_fin)           // excluir ex-empleados
+    .reduce((acc, e) => acc + pagoSemanalEmp(e) * (tipoPeriodo === 'semana' ? 1 : 4), 0);
 
   const totalFijos = pagosFijos
     .filter(p => p.activo)
     .reduce((acc, p) => {
-      // Igual que pantalla: semanal×4 en mes, mensual/4 en semana
+      // Igual que pantalla: semanal×1 en semana, semanal×4 en mes; mensual/4 en semana
       if (p.frecuencia === 'semanal') return acc + p.monto * (tipoPeriodo === 'semana' ? 1 : 4);
       return acc + (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
     }, 0);
 
-  const totalVariablesMes = (gastos?.gastos ?? []).reduce((acc, g) => acc + g.monto, 0);
-  // Mismo criterio que la pantalla: prorratear entre 4 en vista semanal
-  const totalVariables = tipoPeriodo === 'semana' ? totalVariablesMes / 4 : totalVariablesMes;
-  const totalGastos = totalSueldos + totalFijos + totalVariables;
-  const gananciaNeta = ingresoNeto - totalSueldos - totalFijos - totalVariables;
+  // gastos.total_admin ya es el total del período (filtrado por el API).
+  // NO dividir entre 4: cuando tipo=semana el API ya retorna solo los de esa semana.
+  const totalVariables = Number(gastos?.total_admin ?? 0);
+  // Costos internos de órdenes del período (gastos_orden sumados)
+  const gastosOrdenes = Number(gastos?.gastos_ordenes_mes ?? 0);
+
+  const totalGastos = totalSueldos + totalFijos + totalVariables + gastosOrdenes;
+  const gananciaNeta = ingresoNeto - totalSueldos - totalFijos - totalVariables - gastosOrdenes;
   const ivaCobrado = resumen?.resumen?.total_iva ?? 0;
 
   // Porcentajes para barra de distribución (base = ingresosBrutos)
   const pct = (v: number): string =>
     ingresosBrutos > 0 ? Math.max(0, (v / ingresosBrutos) * 100).toFixed(1) : '0';
 
-  const pctSueldos    = pct(totalSueldos);
+  const pctSueldos     = pct(totalSueldos);
   const pctRefacciones = pct(costoRefacciones);
-  const pctFijos      = pct(totalFijos);
-  const pctVariables  = pct(totalVariables);
-  const pctGanancia   = pct(Math.max(0, gananciaNeta));
+  const pctFijos       = pct(totalFijos);
+  const pctVariables   = pct(totalVariables + gastosOrdenes);
+  const pctGanancia    = pct(Math.max(0, gananciaNeta));
 
   // -----------------------------------------------------------------------
   // Helpers de formato
@@ -150,7 +162,7 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
     : empleadosActivos.map(e => `
       <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e3e8e0;font-size:12px">
         <span style="color:#111a13">${escapeHtml(e.nombre)}${e.puesto ? ` <span style="color:#8a9e90">(${escapeHtml(e.puesto)})</span>` : ''}</span>
-        <span style="color:#4a5e50;tabular-nums">${fmt(e.sueldo_diario * diasPeriodo)}</span>
+        <span style="color:#4a5e50;tabular-nums">${fmt(pagoSemanalEmp(e) * (tipoPeriodo === 'semana' ? 1 : 4))}</span>
       </div>`).join('');
 
   // -----------------------------------------------------------------------
@@ -365,7 +377,7 @@ tr.fila-total td.lime { color: var(--lime); text-align: right; }
     <div class="kpi">
       <div class="kpi-label">Total Gastos</div>
       <div class="kpi-valor" style="color:var(--texto)">${fmt(totalGastos)}</div>
-      <div class="kpi-sub">sueldos + fijos + variables</div>
+      <div class="kpi-sub">sueldos + fijos + variables + internos</div>
     </div>
     <div class="kpi destacado">
       <div class="kpi-label">Ganancia Neta</div>
@@ -424,6 +436,11 @@ tr.fila-total td.lime { color: var(--lime); text-align: right; }
         <span>&minus; Gastos variables</span>
         <span class="er-val">&minus;${fmt(totalVariables)}</span>
       </div>
+      ${gastosOrdenes > 0 ? `
+      <div class="er-row indent">
+        <span>&minus; Costos internos de órdenes</span>
+        <span class="er-val">&minus;${fmt(gastosOrdenes)}</span>
+      </div>` : ''}
       <div style="border-top:2px solid var(--borde);margin:8px 0"></div>
       <div class="er-row total ${gananciaNeta < 0 ? 'negativo' : ''}">
         <span>GANANCIA NETA</span>

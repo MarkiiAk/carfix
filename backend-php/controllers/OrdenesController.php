@@ -428,6 +428,15 @@ class OrdenesController {
                 $updateFields[] = 'estado = ?';
                 $updateValues[] = $data['estado'];
                 error_log('Estado a actualizar: ' . $data['estado']);
+
+                // Al cerrar una orden, registrar la fecha si aún no tiene ninguna.
+                // Así el Financiero puede determinar en qué semana cae el ingreso:
+                // COALESCE(fecha_entregada, fecha_completada, fecha_ingreso).
+                $estadosCierre = ['cerrada', 'completada', 'completado', 'entregada', 'entregado'];
+                if (in_array($data['estado'], $estadosCierre, true)) {
+                    $updateFields[] = 'fecha_completada = COALESCE(fecha_completada, NOW())';
+                    // Sin push a $updateValues: no es un placeholder ?
+                }
             }
             
             // Actualizar campos de resumen si se enviaron
