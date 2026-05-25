@@ -428,6 +428,15 @@ class OrdenesController {
                 $updateFields[] = 'estado = ?';
                 $updateValues[] = $data['estado'];
                 error_log('Estado a actualizar: ' . $data['estado']);
+
+                // Al cerrar una orden, registrar la fecha si aún no tiene ninguna.
+                // Así el Financiero puede determinar en qué semana cae el ingreso:
+                // COALESCE(fecha_entregada, fecha_completada, fecha_ingreso).
+                $estadosCierre = ['cerrada', 'completada', 'completado', 'entregada', 'entregado'];
+                if (in_array($data['estado'], $estadosCierre, true)) {
+                    $updateFields[] = 'fecha_completada = COALESCE(fecha_completada, NOW())';
+                    // Sin push a $updateValues: no es un placeholder ?
+                }
             }
             
             // Actualizar campos de resumen si se enviaron
@@ -824,11 +833,12 @@ class OrdenesController {
         $orden['refacciones'] = [];
         foreach ($refacciones as $refaccion) {
             $orden['refacciones'][] = [
-                'id' => (string)$refaccion['id'],
-                'nombre' => $refaccion['descripcion'],
-                'cantidad' => (float)$refaccion['cantidad'],
+                'id'          => (string)$refaccion['id'],
+                'nombre'      => $refaccion['descripcion'],
+                'cantidad'    => (float)$refaccion['cantidad'],
                 'precioVenta' => (float)$refaccion['precio_unitario'],
-                'total' => (float)$refaccion['subtotal']
+                'total'       => (float)$refaccion['subtotal'],
+                'proveedor'   => $refaccion['proveedor'] ?? null,
             ];
         }
         
@@ -1104,21 +1114,22 @@ class OrdenesController {
     
     private function insertRefaccionesOrden($orden_id, $refacciones) {
         $stmt = $this->db->prepare('
-            INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor)
+            VALUES (?, ?, ?, ?, ?, ?)
         ');
-        
+
         foreach ($refacciones as $refaccion) {
             $cantidad = $refaccion['cantidad'] ?? 1;
             $precioUnitario = $refaccion['precioVenta'] ?? $refaccion['precio_unitario'] ?? 0;
             $subtotal = $refaccion['total'] ?? ($cantidad * $precioUnitario);
-            
+
             $stmt->execute([
                 $orden_id,
                 $refaccion['nombre'] ?? $refaccion['descripcion'],
                 $cantidad,
                 $precioUnitario,
-                $subtotal
+                $subtotal,
+                $refaccion['proveedor'] ?? null,
             ]);
         }
     }

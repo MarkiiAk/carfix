@@ -70,19 +70,21 @@ interface BarraDistribucionProps {
   costoRefacciones: number;
   totalFijos: number;
   gastosVariables: number;
+  gastosOrdenes: number;
   gananciaNeta: number;
   totalBase: number;
 }
 
-const BarraDistribucion = ({ totalSueldos, costoRefacciones, totalFijos, gastosVariables, gananciaNeta, totalBase }: BarraDistribucionProps) => {
+const BarraDistribucion = ({ totalSueldos, costoRefacciones, totalFijos, gastosVariables, gastosOrdenes, gananciaNeta, totalBase }: BarraDistribucionProps) => {
   if (totalBase <= 0) return null;
   const widthPct = (v: number) => `${Math.max(0, (v / totalBase) * 100).toFixed(1)}%`;
   const fmt = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(v);
   const segmentos = [
-    { label: 'Sueldos',       valor: totalSueldos,       color: 'bg-sag-500',  textColor: 'text-sag-600 dark:text-sag-400' },
-    { label: 'Refacciones',   valor: costoRefacciones,   color: 'bg-amber-500',   textColor: 'text-amber-600 dark:text-amber-400' },
-    { label: 'Costos fijos',  valor: totalFijos,         color: 'bg-rose-500',    textColor: 'text-rose-600 dark:text-rose-400' },
-    { label: 'Gastos varios', valor: gastosVariables,    color: 'bg-gray-500',    textColor: 'text-gray-500 dark:text-gray-400' },
+    { label: 'Sueldos',         valor: totalSueldos,       color: 'bg-indigo-500',  textColor: 'text-indigo-600 dark:text-indigo-400' },
+    { label: 'Refacciones',     valor: costoRefacciones,   color: 'bg-amber-500',   textColor: 'text-amber-600 dark:text-amber-400' },
+    { label: 'Costos fijos',    valor: totalFijos,         color: 'bg-rose-500',    textColor: 'text-rose-600 dark:text-rose-400' },
+    { label: 'Gastos varios',   valor: gastosVariables,    color: 'bg-teal-500',    textColor: 'text-teal-600 dark:text-teal-400' },
+    { label: 'Costos internos', valor: gastosOrdenes,      color: 'bg-orange-500',  textColor: 'text-orange-600 dark:text-orange-400' },
     {
       label: gananciaNeta >= 0 ? 'Ganancia' : 'Déficit',
       valor: Math.abs(gananciaNeta),
@@ -268,7 +270,8 @@ export const Financiero = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [tipoPeriodo, setTipoPeriodo] = useState<'semana' | 'mes'>('semana');
+  // Solo modo semanal — la opción mensual fue removida
+  const tipoPeriodo: 'semana' | 'mes' = 'semana';
   const [offset, setOffset] = useState(0);
   const [datos, setDatos]   = useState<ResumenFinancieroResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -329,6 +332,8 @@ export const Financiero = () => {
   const [pagosFijos, setPagosFijos]         = useState<PagoFijo[]>([]);
   const [loadingEmpleados, setLoadingEmpleados] = useState(false);
   const [loadingPagos, setLoadingPagos]     = useState(false);
+  // IDs de empleados cuya asistencia está guardándose en este momento
+  const [savingDias, setSavingDias]         = useState<Set<number>>(new Set());
 
   // Fechas del período activo — se llenan cuando llega la respuesta de financieroAPI.resumen
   // Se usan para filtrar empleados y pagos fijos vigentes en ese período
@@ -341,9 +346,18 @@ export const Financiero = () => {
   const [empPuesto, setEmpPuesto]                   = useState('');
   const [empSueldo, setEmpSueldo]                   = useState('');
   const [empSueldoOriginal, setEmpSueldoOriginal]   = useState('');  // para detectar si cambió
+  const [empTipoSueldo, setEmpTipoSueldo]           = useState<'diario' | 'semanal'>('diario');
   const [empFechaInicioCambio, setEmpFechaInicioCambio] = useState(() => new Date().toISOString().split('T')[0]);
+  const [empFechaInicioBase,   setEmpFechaInicioBase]   = useState(() => new Date().toISOString().split('T')[0]);
   const [empGuardando, setEmpGuardando]             = useState(false);
   const [empError, setEmpError]                     = useState<string | null>(null);
+  // Dar de baja
+  const [empBajaId, setEmpBajaId]                   = useState<number | null>(null);
+  const [empBajaNombre, setEmpBajaNombre]           = useState('');
+  const [empBajaFecha, setEmpBajaFecha]             = useState('');
+  const [empBajando, setEmpBajando]                 = useState(false);
+  // Ex-empleados (dados de baja: fecha_fin <= hoy)
+  const [mostrarExEmpleados, setMostrarExEmpleados] = useState(false);
   const [mostrarFormEmp, setMostrarFormEmp]         = useState(false);
 
   // Formulario pagos fijos
@@ -417,7 +431,7 @@ export const Financiero = () => {
   const cargarAdmin = useCallback(async () => {
     setLoadingAdmin(true);
     try {
-      const res = await gastosAdminAPI.listar(mesSel, anioSel);
+      const res = await gastosAdminAPI.listar(tipoPeriodo, offset);
       setGastosAdmin({
         ...res,
         total_facturado:      Number(res.total_facturado),
@@ -438,7 +452,7 @@ export const Financiero = () => {
     } finally {
       setLoadingAdmin(false);
     }
-  }, [mesSel, anioSel]);
+  }, [tipoPeriodo, offset]);
 
   const cargarEmpleados = useCallback(async (fechaInicio?: string, fechaFin?: string) => {
     setLoadingEmpleados(true);
@@ -500,14 +514,18 @@ export const Financiero = () => {
       setEmpPuesto(emp.puesto ?? '');
       setEmpSueldo(String(emp.sueldo_diario));
       setEmpSueldoOriginal(String(emp.sueldo_diario));
+      setEmpTipoSueldo(emp.tipo_sueldo ?? 'diario');
+      setEmpFechaInicioBase(emp.fecha_inicio ?? hoy); // para "Vigente desde:"
     } else {
       setEmpEditId(null);
       setEmpNombre('');
       setEmpPuesto('');
       setEmpSueldo('');
       setEmpSueldoOriginal('');
+      setEmpTipoSueldo('diario');
+      setEmpFechaInicioBase(hoy); // para "Alta:"
     }
-    setEmpFechaInicioCambio(hoy);
+    setEmpFechaInicioCambio(hoy); // siempre hoy para "Aplica desde:" (cambio de sueldo)
     setEmpError(null);
     setMostrarFormEmp(true);
   };
@@ -521,8 +539,9 @@ export const Financiero = () => {
   const guardarEmpleado = async () => {
     const nombre = empNombre.trim();
     const sueldo = parseFloat(empSueldo);
+    const labelSueldo = empTipoSueldo === 'semanal' ? 'semanal' : 'diario';
     if (!nombre) { setEmpError('El nombre es obligatorio.'); return; }
-    if (isNaN(sueldo) || sueldo < 0) { setEmpError('Sueldo diario inválido.'); return; }
+    if (isNaN(sueldo) || sueldo < 0) { setEmpError(`Sueldo ${labelSueldo} inválido.`); return; }
     setEmpError(null);
     setEmpGuardando(true);
     try {
@@ -532,9 +551,13 @@ export const Financiero = () => {
           nombre,
           puesto: empPuesto || null,
           sueldo_diario: sueldo,
+          tipo_sueldo: empTipoSueldo,
         };
         if (sueldoCambio) {
           payload.fecha_inicio_cambio = empFechaInicioCambio;
+        } else {
+          // Permite corregir la fecha de alta del registro existente
+          payload.fecha_inicio = empFechaInicioBase;
         }
         await empleadosFinancieroAPI.actualizar(empEditId, payload);
       } else {
@@ -542,8 +565,9 @@ export const Financiero = () => {
           nombre,
           puesto: empPuesto || null,
           sueldo_diario: sueldo,
+          tipo_sueldo: empTipoSueldo,
           usuario_id: null,
-          fecha_inicio: empFechaInicioCambio,
+          fecha_inicio: empFechaInicioBase,
           fecha_fin: null,
         });
       }
@@ -556,11 +580,58 @@ export const Financiero = () => {
     }
   };
 
+  const confirmarDarDeBaja = (emp: EmpleadoSueldo) => {
+    const hoy = new Date().toISOString().split('T')[0];
+    setEmpBajaId(emp.id);
+    setEmpBajaNombre(emp.nombre);
+    setEmpBajaFecha(hoy);
+  };
+
+  const ejecutarDarDeBaja = async () => {
+    if (empBajaId === null) return;
+    setEmpBajando(true);
+    try {
+      await empleadosFinancieroAPI.actualizar(empBajaId, { fecha_fin: empBajaFecha, activo: false });
+      setEmpBajaId(null);
+      setEmpBajaNombre('');
+      setEmpBajaFecha('');
+      await cargarEmpleados(periodoFechaInicio ?? undefined, periodoFechaFin ?? undefined);
+    } catch {
+      // silencioso — el error de red no debería bloquear el modal
+      setEmpBajaId(null);
+    } finally {
+      setEmpBajando(false);
+    }
+  };
+
   const toggleEmpleado = async (id: number) => {
     try {
       const res = await empleadosFinancieroAPI.toggle(id);
       setEmpleados(prev => prev.map(e => e.id === id ? { ...e, activo: res.activo } : e));
     } catch { /* silencioso */ }
+  };
+
+  const reactivarEmpleado = async (id: number) => {
+    try {
+      await empleadosFinancieroAPI.actualizar(id, { fecha_fin: null, activo: true });
+      await cargarEmpleados(periodoFechaInicio ?? undefined, periodoFechaFin ?? undefined);
+    } catch { /* silencioso */ }
+  };
+
+  const cambiarDias = async (emp: EmpleadoSueldo, dias: number) => {
+    const semana = periodoFechaInicio;
+    if (!semana) return;
+    // Actualización optimista
+    setEmpleados(prev => prev.map(e => e.id === emp.id ? { ...e, dias_trabajados: dias } : e));
+    setSavingDias(prev => new Set(prev).add(emp.id));
+    try {
+      await empleadosFinancieroAPI.asistencia(emp.id, semana, dias);
+    } catch {
+      // Revertir si falla
+      setEmpleados(prev => prev.map(e => e.id === emp.id ? { ...e, dias_trabajados: emp.dias_trabajados ?? 5 } : e));
+    } finally {
+      setSavingDias(prev => { const s = new Set(prev); s.delete(emp.id); return s; });
+    }
   };
 
   // Handlers para pagos fijos
@@ -671,10 +742,25 @@ export const Financiero = () => {
     } catch { /* silencioso */ }
   };
 
-  // Totales calculados para la gráfica de distribución
-  const totalSueldosActivos = empleados
-    .filter(e => e.activo)
-    .reduce((acc, e) => acc + e.sueldo_diario * (tipoPeriodo === 'semana' ? 5 : 22), 0);
+  // Pago real de la semana por empleado:
+  // - semanal → monto fijo (sueldo_diario es el monto semanal)
+  // - diario  → sueldo_diario × dias_trabajados (default 5 si no hay registro)
+  const pagoSemanalEmpleado = (e: EmpleadoSueldo): number => {
+    if (!e.activo) return 0;
+    if ((e.tipo_sueldo ?? 'diario') === 'semanal') return Number(e.sueldo_diario);
+    return Number(e.sueldo_diario) * (e.dias_trabajados ?? 5);
+  };
+
+  // Separar empleados vigentes (en plantilla) de ex-empleados (dados de baja)
+  // Usar la fecha fin del período seleccionado como referencia para vigencia.
+  // Así un empleado dado de baja después del período visualizado aparece como vigente
+  // en esa semana (era activo entonces), no como ex-empleado.
+  const fechaRefPeriodo   = periodoFechaFin ?? new Date().toISOString().split('T')[0];
+  const empleadosVigentes = empleados.filter(e => !e.fecha_fin || e.fecha_fin > fechaRefPeriodo);
+  const exEmpleados       = empleados.filter(e => e.fecha_fin != null && e.fecha_fin <= fechaRefPeriodo);
+
+  const totalSueldosActivos = empleadosVigentes
+    .reduce((acc, e) => acc + pagoSemanalEmpleado(e), 0);
 
   const totalPagosFijosActivos = pagosFijos
     .filter(p => p.activo)
@@ -732,9 +818,18 @@ export const Financiero = () => {
   if (!datos) return null;
 
   const { periodo, resumen, top_servicios, top_clientes } = datos;
-  const sinDatos = resumen.num_ordenes === 0;
+  // sinDatos = true solo cuando NO hay órdenes Y tampoco hay costos operativos.
+  // Si hay sueldos, pagos fijos o gastos variables aunque sea sin ingresos,
+  // se debe mostrar el balance (quedará en déficit).
+  const hayGastos =
+    totalSueldosActivos > 0 ||
+    totalPagosFijosActivos > 0 ||
+    Number(gastosAdmin?.total_admin       ?? 0) > 0 ||
+    Number(gastosAdmin?.gastos_ordenes_mes ?? 0) > 0;
+  const sinDatos = resumen.num_ordenes === 0 && !hayGastos;
 
   return (
+    <>
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
       {/* ------------------------------------------------------------------ */}
@@ -755,24 +850,7 @@ export const Financiero = () => {
           </button>
         </div>
 
-        {/* Toggle Semana / Mes */}
-        <div className="flex justify-center mb-4">
-          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-0.5 gap-0.5">
-            {(['semana', 'mes'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => { setTipoPeriodo(t); setOffset(0); }}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  tipoPeriodo === t
-                    ? 'bg-sag-500 text-gray-900 shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                {t === 'semana' ? 'Semana' : 'Mes'}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Solo modo semanal — toggle mensual removido */}
 
         {/* Selector de flechas */}
         <div className="flex items-center justify-center gap-3">
@@ -857,9 +935,7 @@ export const Financiero = () => {
                 const costoRefas        = datos?.refacciones.costo ?? 0;
                 const ivaDelPeriodo     = datos?.resumen.total_iva ?? 0;
                 const ingresoNeto       = totalFacturado - costoRefas;
-                const gastosVarsMes     = Number(gastosAdmin.total_admin ?? 0);
-                // En semana: prorratear gastos mensuales entre 4 (son registros mensuales)
-                const gastosVarsRaw     = tipoPeriodo === 'semana' ? gastosVarsMes / 4 : gastosVarsMes;
+                const gastosVarsRaw     = Number(gastosAdmin.total_admin ?? 0);
                 const gastosOrdenesVal  = Number(gastosAdmin.gastos_ordenes_mes ?? 0);
                 const gananciaNetaFinal =
                   ingresoNeto - totalSueldosActivos - totalPagosFijosActivos - gastosVarsRaw - gastosOrdenesVal;
@@ -876,12 +952,30 @@ export const Financiero = () => {
                       costoRefacciones={costoRefas}
                       totalFijos={totalPagosFijosActivos}
                       gastosVariables={gastosVarsRaw}
+                      gastosOrdenes={gastosOrdenesVal}
                       gananciaNeta={gananciaNetaFinal}
                       totalBase={totalFacturado}
                     />
 
                     {/* --------------------------------------------------- */}
-                    {/* 3. Balance — hero number + cascada                    */}
+                    {/* 3. Detalle por orden — justo debajo de ¿A dónde fue? */}
+                    {/* --------------------------------------------------- */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
+                      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                        Detalle por orden
+                      </h2>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                        Ganancia = total facturado − costo de refacciones (sin margen) − costos internos
+                      </p>
+                      <TablaOrdenesDesglosada
+                        ordenes={ordenes}
+                        totales={ordTotales}
+                        loading={loadingOrdenes}
+                      />
+                    </div>
+
+                    {/* --------------------------------------------------- */}
+                    {/* 4. Balance — hero number + cascada                    */}
                     {/* --------------------------------------------------- */}
                     <div>
                       {/* Hero number */}
@@ -946,9 +1040,6 @@ export const Financiero = () => {
                             <div className="flex items-baseline justify-between pl-5">
                               <span className="text-sm text-gray-400 dark:text-gray-500">
                                 &minus; Gastos variables
-                                {tipoPeriodo === 'semana' && (
-                                  <span className="text-xs text-gray-400 dark:text-gray-600 ml-1">(1/4 del mes)</span>
-                                )}
                               </span>
                               <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosVarsRaw)}</span>
                             </div>
@@ -986,7 +1077,7 @@ export const Financiero = () => {
               })()}
 
               {/* ----------------------------------------------------------- */}
-              {/* 4. Top servicios + Top clientes                              */}
+              {/* 5. Top servicios + Top clientes                              */}
               {/* ----------------------------------------------------------- */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
@@ -1005,23 +1096,6 @@ export const Financiero = () => {
                   </h2>
                   <TopClientes clientes={top_clientes} />
                 </div>
-              </div>
-
-              {/* ----------------------------------------------------------- */}
-              {/* 5. Tabla órdenes desglosada                                  */}
-              {/* ----------------------------------------------------------- */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
-                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
-                  Detalle por orden
-                </h2>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                  Ganancia = total facturado − costo de refacciones (sin margen)
-                </p>
-                <TablaOrdenesDesglosada
-                  ordenes={ordenes}
-                  totales={ordTotales}
-                  loading={loadingOrdenes}
-                />
               </div>
             </>
           )}
@@ -1061,7 +1135,7 @@ export const Financiero = () => {
                 <div className="flex justify-end">
                   <button
                     onClick={() => abrirFormEmp()}
-                    className="flex items-center gap-1.5 text-sm font-medium bg-sag-600 hover:bg-sag-700 text-white rounded-lg px-3 py-1.5 transition-colors"
+                    className="flex items-center gap-1.5 text-sm font-medium bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg px-3 py-1.5 transition-colors"
                   >
                     <FontAwesomeIcon icon={faPlus} style={{ width: 12, height: 12 }} />
                     Agregar
@@ -1076,6 +1150,25 @@ export const Financiero = () => {
 
                 {mostrarFormEmp && (
                   <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-indigo-200 dark:border-indigo-700/40">
+                    {/* Radio: tipo de sueldo */}
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Tipo:</span>
+                      {(['diario', 'semanal'] as const).map(tipo => (
+                        <label key={tipo} className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="empTipoSueldo"
+                            value={tipo}
+                            checked={empTipoSueldo === tipo}
+                            onChange={() => setEmpTipoSueldo(tipo)}
+                            className="accent-indigo-500"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {tipo === 'diario' ? 'Por día' : 'Por semana'}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       <input
                         type="text"
@@ -1093,17 +1186,31 @@ export const Financiero = () => {
                       />
                       <input
                         type="number"
-                        placeholder="Sueldo/día"
+                        placeholder={empTipoSueldo === 'semanal' ? 'Sueldo/semana' : 'Sueldo/día'}
                         value={empSueldo}
                         onChange={e => setEmpSueldo(e.target.value)}
                         min="0"
                         step="0.01"
-                        className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="w-32 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                       />
+                      {/* "Alta:" al crear, "Vigente desde:" al editar sin cambiar sueldo */}
+                      {(empEditId === null || parseFloat(empSueldo) === parseFloat(empSueldoOriginal)) && (
+                        <div className="flex items-center gap-1.5">
+                          <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                            {empEditId === null ? 'Alta:' : 'Vigente desde:'}
+                          </label>
+                          <input
+                            type="date"
+                            value={empFechaInicioBase}
+                            onChange={e => setEmpFechaInicioBase(e.target.value)}
+                            className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          />
+                        </div>
+                      )}
                       <button
                         onClick={guardarEmpleado}
                         disabled={empGuardando}
-                        className="flex items-center gap-1 text-sm font-medium bg-sag-600 hover:bg-sag-700 disabled:bg-indigo-300 text-white rounded-lg px-3 py-2 transition-colors"
+                        className="flex items-center gap-1 text-sm font-medium bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white rounded-lg px-3 py-2 transition-colors"
                       >
                         {empGuardando ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 14, height: 14 }} /> : <FontAwesomeIcon icon={faCheck} style={{ width: 14, height: 14 }} />}
                         {empEditId !== null && parseFloat(empSueldo) !== parseFloat(empSueldoOriginal) ? 'Guardar cambio' : 'Guardar'}
@@ -1136,64 +1243,162 @@ export const Financiero = () => {
                     <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 16, height: 16 }} />
                     <span className="text-sm">Cargando...</span>
                   </div>
-                ) : empleados.length === 0 ? (
+                ) : empleadosVigentes.length === 0 && exEmpleados.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Sin empleados registrados.</p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                          <th className="pb-2 pr-4 font-medium">Nombre</th>
-                          <th className="pb-2 pr-4 font-medium">Puesto</th>
-                          <th className="pb-2 pr-4 font-medium text-right">Sueldo/día</th>
-                          <th className="pb-2 pr-4 font-medium text-right">Est. período</th>
-                          <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Vigente desde</th>
-                          <th className="pb-2 font-medium w-16 text-center">Activo</th>
-                          <th className="pb-2 w-8"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {empleados.map(e => (
-                          <tr key={e.id} className={`border-b border-gray-50 dark:border-gray-700/50 last:border-0 ${!e.activo ? 'opacity-50' : ''}`}>
-                            <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{e.nombre}</td>
-                            <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{e.puesto ?? '—'}</td>
-                            <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
-                              {formatMoneda(e.sueldo_diario)}
-                            </td>
-                            <td className="py-2 pr-4 text-right tabular-nums text-gray-600 dark:text-gray-400">
-                              {formatMoneda(e.sueldo_diario * (tipoPeriodo === 'semana' ? 5 : 22))}
-                            </td>
-                            <td className="py-2 pr-4 hidden sm:table-cell">
-                              <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
-                                {e.fecha_inicio ? new Date(e.fecha_inicio + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                              </span>
-                              {e.fecha_fin && (
-                                <span className="text-xs text-orange-500 dark:text-orange-400 block">hasta {new Date(e.fecha_fin + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
-                              )}
-                            </td>
-                            <td className="py-2 text-center">
-                              <button
-                                onClick={() => toggleEmpleado(e.id)}
-                                className={`w-10 h-5 rounded-full transition-colors ${e.activo ? 'bg-sag-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                              >
-                                <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${e.activo ? 'translate-x-5' : 'translate-x-0'}`} />
-                              </button>
-                            </td>
-                            <td className="py-2 text-right">
-                              <button onClick={() => abrirFormEmp(e)} className="text-gray-400 hover:text-indigo-500 transition-colors">
-                                <FontAwesomeIcon icon={faPencil} style={{ width: 13, height: 13 }} />
-                              </button>
-                            </td>
+                    {empleadosVigentes.length > 0 && (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                            <th className="pb-2 pr-4 font-medium">Nombre</th>
+                            <th className="pb-2 pr-4 font-medium">Puesto</th>
+                            <th className="pb-2 pr-4 font-medium text-right">Tarifa</th>
+                            <th className="pb-2 pr-3 font-medium text-center">Días</th>
+                            <th className="pb-2 pr-4 font-medium text-right">Total semana</th>
+                            <th className="pb-2 pr-4 font-medium hidden sm:table-cell">Vigente desde</th>
+                            <th className="pb-2 font-medium w-16 text-center">Esta semana</th>
+                            <th className="pb-2 w-16"></th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {empleadosVigentes.map(e => {
+                            const esSemanal = (e.tipo_sueldo ?? 'diario') === 'semanal';
+                            const diasVal   = e.dias_trabajados ?? 5;
+                            const guardando = savingDias.has(e.id);
+                            return (
+                            <tr key={e.id} className={`border-b border-gray-50 dark:border-gray-700/50 last:border-0 ${!e.activo ? 'opacity-50' : ''}`}>
+                              <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{e.nombre}</td>
+                              <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{e.puesto ?? '—'}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                                {esSemanal ? (
+                                  <div>
+                                    <span>{formatMoneda(Number(e.sueldo_diario))}/sem</span>
+                                    <span className="block text-[10px] text-gray-400 dark:text-gray-500">
+                                      ({formatMoneda(Number(e.sueldo_diario) / 7)}/día ef.)
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span>{formatMoneda(Number(e.sueldo_diario))}/día</span>
+                                )}
+                              </td>
+                              {/* Columna Días — editable solo para empleados diarios */}
+                              <td className="py-2 pr-3 text-center">
+                                {esSemanal ? (
+                                  <span className="text-xs text-gray-400">—</span>
+                                ) : (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      onClick={() => e.activo && cambiarDias(e, Math.max(0, diasVal - 1))}
+                                      disabled={!e.activo || diasVal <= 0 || guardando}
+                                      className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
+                                    >−</button>
+                                    <span className="w-4 text-center text-sm tabular-nums font-medium text-gray-700 dark:text-gray-200">
+                                      {guardando ? '…' : diasVal}
+                                    </span>
+                                    <button
+                                      onClick={() => e.activo && cambiarDias(e, Math.min(7, diasVal + 1))}
+                                      disabled={!e.activo || diasVal >= 7 || guardando}
+                                      className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
+                                    >+</button>
+                                  </div>
+                                )}
+                              </td>
+                              {/* Total semana */}
+                              <td className="py-2 pr-4 text-right tabular-nums font-medium text-gray-700 dark:text-gray-200">
+                                {e.activo ? formatMoneda(pagoSemanalEmpleado(e)) : '—'}
+                              </td>
+                              <td className="py-2 pr-4 hidden sm:table-cell">
+                                <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                                  {e.fecha_inicio ? new Date(e.fecha_inicio + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                </span>
+                              </td>
+                              <td className="py-2 text-center">
+                                <button
+                                  onClick={() => toggleEmpleado(e.id)}
+                                  title={e.activo ? 'Marcar como inactivo esta semana' : 'Marcar como activo'}
+                                  className={`w-10 h-5 rounded-full transition-colors ${e.activo ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                  <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${e.activo ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                              </td>
+                              <td className="py-2 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button onClick={() => abrirFormEmp(e)} className="text-gray-400 hover:text-indigo-500 transition-colors">
+                                    <FontAwesomeIcon icon={faPencil} style={{ width: 13, height: 13 }} />
+                                  </button>
+                                  <button
+                                    onClick={() => confirmarDarDeBaja(e)}
+                                    title="Dar de baja"
+                                    className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                  >
+                                    <FontAwesomeIcon icon={faXmark} style={{ width: 13, height: 13 }} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
                     <div className="flex justify-end pt-3 border-t border-gray-100 dark:border-gray-700 mt-1">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 mr-4">Total estimado del período:</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 mr-4">Total semana:</span>
                       <span className="font-bold text-gray-900 dark:text-white tabular-nums">
                         {formatMoneda(totalSueldosActivos)}
                       </span>
                     </div>
+
+                    {/* Ex-empleados — colapsados */}
+                    {exEmpleados.length > 0 && (
+                      <div className="mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
+                        <button
+                          onClick={() => setMostrarExEmpleados(!mostrarExEmpleados)}
+                          className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {mostrarExEmpleados ? 'Ocultar ex-empleados' : `Ex-empleados (${exEmpleados.length})`}
+                        </button>
+                        {mostrarExEmpleados && (
+                          <table className="w-full text-sm mt-2">
+                            <thead>
+                              <tr className="text-left text-gray-400 dark:text-gray-600 border-b border-gray-100 dark:border-gray-800">
+                                <th className="pb-1.5 pr-4 font-medium text-xs">Nombre</th>
+                                <th className="pb-1.5 pr-4 font-medium text-xs">Puesto</th>
+                                <th className="pb-1.5 pr-4 font-medium text-xs text-right">Tarifa</th>
+                                <th className="pb-1.5 pr-4 font-medium text-xs">Baja desde</th>
+                                <th className="pb-1.5 w-20"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {exEmpleados.map(e => (
+                                <tr key={e.id} className="border-b border-gray-50 dark:border-gray-800 last:border-0 opacity-60">
+                                  <td className="py-1.5 pr-4 text-gray-600 dark:text-gray-400 text-sm">{e.nombre}</td>
+                                  <td className="py-1.5 pr-4 text-gray-400 dark:text-gray-500 text-sm">{e.puesto ?? '—'}</td>
+                                  <td className="py-1.5 pr-4 text-right tabular-nums text-gray-400 dark:text-gray-500 text-sm">
+                                    {(e.tipo_sueldo ?? 'diario') === 'semanal'
+                                      ? `${formatMoneda(Number(e.sueldo_diario))}/sem`
+                                      : `${formatMoneda(Number(e.sueldo_diario))}/día`}
+                                  </td>
+                                  <td className="py-1.5 pr-4 text-xs text-gray-400 dark:text-gray-600">
+                                    {e.fecha_fin
+                                      ? new Date(e.fecha_fin + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+                                      : '—'}
+                                  </td>
+                                  <td className="py-1.5 text-right">
+                                    <button
+                                      onClick={() => reactivarEmpleado(e.id)}
+                                      className="text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 rounded-md px-2 py-1 transition-colors"
+                                    >
+                                      Reactivar
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1480,7 +1685,7 @@ export const Financiero = () => {
                                     {m.tipo}
                                   </span>
                                   {m.tipo === 'egreso' && m.gasto_admin_id !== null && (
-                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-1">→ P&L</span>
+                                    <span className="text-[10px] text-teal-600 dark:text-teal-400 ml-1">→ P&L</span>
                                   )}
                                 </td>
                                 <td className="py-2 pr-3">{m.concepto}</td>
@@ -1504,7 +1709,7 @@ export const Financiero = () => {
                   <select
                     value={cajaTipo}
                     onChange={e => setCajaTipo(e.target.value as 'ingreso' | 'egreso')}
-                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-sag-400"
+                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
                   >
                     <option value="egreso">Egreso (salida)</option>
                     <option value="ingreso">Ingreso (entrada)</option>
@@ -1513,14 +1718,14 @@ export const Financiero = () => {
                     type="date"
                     value={cajaFecha}
                     onChange={e => setCajaFecha(e.target.value)}
-                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-sag-400"
+                    className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400"
                   />
                   <input
                     type="text"
                     placeholder="Concepto (ej: gasolina, propina Autozone)"
                     value={cajaConcepto}
                     onChange={e => setCajaConcepto(e.target.value)}
-                    className="flex-1 min-w-40 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sag-400"
+                    className="flex-1 min-w-40 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400"
                   />
                   <input
                     type="number"
@@ -1529,11 +1734,11 @@ export const Financiero = () => {
                     onChange={e => setCajaMonto(e.target.value)}
                     min="0"
                     step="1"
-                    className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sag-400"
+                    className="w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400"
                   />
                   <button
                     onClick={handleAgregarCaja}
-                    className="flex items-center gap-1 text-sm font-medium bg-sag-600 hover:bg-sag-700 text-white rounded-lg px-4 py-2 transition-colors"
+                    className="flex items-center gap-1 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 transition-colors"
                   >
                     <FontAwesomeIcon icon={faPlus} style={{ width: 12, height: 12 }} />
                     Agregar
@@ -1562,7 +1767,7 @@ export const Financiero = () => {
               <div className="flex items-center gap-3 flex-shrink-0">
                 {gastosAdmin && (
                   <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400 font-medium">
-                    {formatMoneda(Number(gastosAdmin.total_admin ?? 0))} / mes
+                    {formatMoneda(Number(gastosAdmin.total_admin ?? 0))} / {tipoPeriodo === 'semana' ? 'semana' : 'mes'}
                   </span>
                 )}
                 <FontAwesomeIcon
@@ -1737,5 +1942,51 @@ export const Financiero = () => {
       )}
 
     </div>
+
+    {/* ── Modal: confirmar dar de baja ─────────────────────────────── */}
+    {empBajaId !== null && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-gray-200 dark:border-gray-700">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            Dar de baja a {empBajaNombre}
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            El empleado dejará de aparecer en los cálculos a partir de la fecha de baja.
+            Su historial de sueldos se conserva para los períodos anteriores.
+          </p>
+          <div className="mb-5">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              Fecha de baja:
+            </label>
+            <input
+              type="date"
+              value={empBajaFecha}
+              onChange={e => setEmpBajaFecha(e.target.value)}
+              disabled={empBajando}
+              className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-400"
+            />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => { setEmpBajaId(null); setEmpBajaNombre(''); setEmpBajaFecha(''); }}
+              disabled={empBajando}
+              className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={ejecutarDarDeBaja}
+              disabled={empBajando || !empBajaFecha}
+              className="flex items-center gap-1.5 text-sm font-medium bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white rounded-lg px-4 py-2 transition-colors"
+            >
+              {empBajando && <FontAwesomeIcon icon={faSpinner} className="animate-spin" style={{ width: 13, height: 13 }} />}
+              Dar de baja
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    </>
   );
 };
