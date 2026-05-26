@@ -160,12 +160,15 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
     );
   }
 
-  // Filtrado por estado
+  // Filtrado por tipo_fila (modelo flujo de caja) con fallback a ESTADOS_ABIERTOS para datos legacy
+  const esFilaApertura = (o: OrdenFinanciero): boolean =>
+    o.tipo_fila ? o.tipo_fila === 'apertura' : ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '');
+
   const ordenesFiltradas = filtro === 'todas'
     ? ordenes
     : ordenes.filter(o => {
-        const esAbierta = ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '');
-        return filtro === 'abiertas' ? esAbierta : !esAbierta;
+        const esApertura = esFilaApertura(o);
+        return filtro === 'abiertas' ? esApertura : !esApertura;
       });
 
   // Totales recalculados sobre el conjunto filtrado
@@ -196,8 +199,8 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
             {f !== 'todas' && (
               <span className="ml-1 opacity-70">
                 ({f === 'abiertas'
-                  ? ordenes.filter(o => ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '')).length
-                  : ordenes.filter(o => !ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '')).length})
+                  ? ordenes.filter(esFilaApertura).length
+                  : ordenes.filter(o => !esFilaApertura(o)).length})
               </span>
             )}
           </button>
@@ -228,19 +231,20 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
         <tbody>
           {ordenesFiltradas.map(o => {
             const items     = buildItems(o);
-            const esAbierta = ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '');
+            // tipo_fila para chips visuales — fallback a comportamiento legacy si no viene del API
+            const tipoFila  = o.tipo_fila ?? (ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '') ? 'apertura' : 'cierre');
             // Si no hay detalle, mostramos una sola fila
             const totalRows = items.length > 0 ? items.length + 1 : 1;
 
             return (
-              <Fragment key={o.id}>
+              <Fragment key={`${o.id}_${tipoFila}`}>
 
                 {/* Sin detalle — fila única */}
                 {items.length === 0 && (
                   <tr className="border-b border-gray-200 dark:border-gray-700">
                     <td className="py-2 pr-3 text-gray-500 dark:text-gray-400 whitespace-nowrap align-top">
                       {formatFecha(o.fecha)}
-                      {esAbierta && <AnticipoChip />}
+                      <FilaChip tipoFila={tipoFila} />
                     </td>
                     <td className="py-2 pr-3 align-top">
                       <UnidadCliente vehiculo={o.vehiculo} cliente={o.cliente_nombre} estado={o.estado} />
@@ -272,7 +276,7 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                           className="py-2 pr-3 text-gray-500 dark:text-gray-400 whitespace-nowrap align-top border-b-2 border-gray-200 dark:border-gray-700"
                         >
                           {formatFecha(o.fecha)}
-                          {esAbierta && <AnticipoChip />}
+                          <FilaChip tipoFila={tipoFila} />
                         </td>
                         <td
                           rowSpan={totalRows}
@@ -397,11 +401,35 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
 };
 
 /* ── Sub-componentes ─────────────────────────────────────────────── */
-const AnticipoChip = () => (
-  <span className="block mt-0.5 text-[9px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded px-1 py-0.5 font-medium leading-none w-fit">
-    anticipo
-  </span>
-);
+
+// Chip visual que indica el tipo de fila en el modelo de flujo de caja
+const FilaChip = ({ tipoFila }: { tipoFila: string }) => {
+  if (tipoFila === 'apertura') {
+    // Orden abierta con anticipo parcial
+    return (
+      <span className="block mt-0.5 text-[9px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded px-1 py-0.5 font-medium leading-none w-fit">
+        anticipo
+      </span>
+    );
+  }
+  if (tipoFila === 'anticipo') {
+    // Orden ya cerrada — mostrando el anticipo en su semana histórica
+    return (
+      <span className="block mt-0.5 text-[9px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded px-1 py-0.5 font-medium leading-none w-fit">
+        anticipo ✓
+      </span>
+    );
+  }
+  if (tipoFila === 'cierre') {
+    // Orden cerrada en su semana de entrega
+    return (
+      <span className="block mt-0.5 text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded px-1 py-0.5 font-medium leading-none w-fit">
+        restante
+      </span>
+    );
+  }
+  return null;
+};
 
 const UnidadCliente = ({ vehiculo, cliente, estado }: { vehiculo: string; cliente: string; estado: string }) => (
   <div>

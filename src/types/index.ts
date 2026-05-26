@@ -410,6 +410,11 @@ export interface OrdenFinanciero {
   iva?: number;                // IVA de la orden (0 en órdenes abiertas/anticipo)
   ganancia: number;
   estado: string;
+  /** Flujo de caja real:
+   *  'apertura' = orden abierta (anticipo en su semana)
+   *  'anticipo' = orden ya cerrada, pero mostrando el anticipo en la semana que entró
+   *  'cierre'   = orden cerrada mostrando el restante (total − anticipo) en la semana de entrega */
+  tipo_fila?: 'apertura' | 'anticipo' | 'cierre';
   servicios: ServicioOrdenFinanciero[];
   refacciones_detalle: RefaccionOrdenFinanciero[];
 }
