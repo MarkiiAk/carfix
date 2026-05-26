@@ -1148,7 +1148,8 @@ class FinancieroController {
 
             if (!empty($rows)) {
                 // Deduplicar IDs: una orden cerrada con anticipo aparece en Parte B y C
-                $orderIds    = array_unique(array_map(fn($r) => (int) $r['id'], $rows));
+                // array_values() fuerza índices 0,1,2... — PDO 8.x tira HY093 con índices no-secuenciales
+                $orderIds    = array_values(array_unique(array_map(fn($r) => (int) $r['id'], $rows)));
                 $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
 
                 $stmtSvc = $this->db->prepare("
