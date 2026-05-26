@@ -807,7 +807,7 @@ export const Financiero = () => {
         ordenes,
         totales: ordTotales,
       },
-      empleados,
+      empleados: empleadosVigentes,
       pagosFijos,
       gastos: gastosAdmin,
       cajaChica,
