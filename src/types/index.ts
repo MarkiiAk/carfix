@@ -393,6 +393,8 @@ export interface RefaccionOrdenFinanciero {
   descripcion: string;
   proveedor: string | null;
   subtotal: number;
+  precio_costo?: number | null;  // null = registro anterior a 2026-05-25 (usar subtotal/1.30)
+  cantidad?: number;
 }
 
 export interface OrdenFinanciero {
@@ -408,6 +410,11 @@ export interface OrdenFinanciero {
   iva?: number;                // IVA de la orden (0 en órdenes abiertas/anticipo)
   ganancia: number;
   estado: string;
+  /** Flujo de caja real:
+   *  'apertura' = orden abierta (anticipo en su semana)
+   *  'anticipo' = orden ya cerrada, pero mostrando el anticipo en la semana que entró
+   *  'cierre'   = orden cerrada mostrando el restante (total − anticipo) en la semana de entrega */
+  tipo_fila?: 'apertura' | 'anticipo' | 'cierre';
   servicios: ServicioOrdenFinanciero[];
   refacciones_detalle: RefaccionOrdenFinanciero[];
 }

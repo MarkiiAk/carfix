@@ -319,6 +319,8 @@ CREATE TABLE `refacciones_orden` (
   `descripcion` varchar(500) NOT NULL,
   `cantidad` decimal(8,2) NOT NULL,
   `precio_unitario` decimal(10,2) NOT NULL,
+  `precio_costo` decimal(10,2) DEFAULT NULL COMMENT 'Precio costo/unidad (sin margen). NULL = registro previo a 2026-05-25',
+  `margen_ganancia` decimal(5,2) DEFAULT NULL COMMENT 'Margen % aplicado (ej: 30.00). NULL = asumir 30%',
   `subtotal` decimal(10,2) NOT NULL,
   `numero_parte` varchar(100) DEFAULT NULL,
   `proveedor` varchar(200) DEFAULT NULL,

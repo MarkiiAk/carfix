@@ -430,9 +430,12 @@ class FinancieroController {
     // Queries
     // -----------------------------------------------------------------------
     private function queryResumen(string $fechaInicio, string $fechaFin): array {
-        // UNION igual que ordenesDesglosadas():
-        // - Órdenes en proceso: fecha_ingreso en el período, ingreso = anticipo
-        // - Órdenes cerradas: fecha_entregada en el período, ingreso = total
+        // UNION de 3 partes (modelo flujo de caja real):
+        // A. Órdenes ABIERTAS       → fecha_ingreso,   ingreso = anticipo
+        // B. Órdenes CERRADAS c/ant → fecha_ingreso,   ingreso = anticipo
+        //    Usa id real (no NULL) + COUNT(DISTINCT) para no duplicar num_ordenes
+        //    cuando la misma orden aparece en B (semana apertura) y C (semana cierre)
+        // C. Órdenes CERRADAS       → fecha_entregada, ingreso = (total − anticipo) o total
         $sql = "
             SELECT
                 COALESCE(SUM(q.total_facturado), 0)      AS total_facturado,
@@ -440,28 +443,44 @@ class FinancieroController {
                 COALESCE(SUM(q.ingresos_mano_obra), 0)   AS ingresos_mano_obra,
                 COALESCE(SUM(q.ingresos_refacciones), 0) AS ingresos_refacciones,
                 COALESCE(SUM(q.total_iva), 0)            AS total_iva,
-                COUNT(q.id)                              AS num_ordenes
+                COUNT(DISTINCT q.id)                     AS num_ordenes
             FROM (
+                -- Parte A: abiertas por fecha_ingreso, ingreso = anticipo
                 SELECT id,
-                    COALESCE(anticipo, 0)            AS total_facturado,
-                    0                                AS ingresos_servicios,
-                    0                                AS ingresos_mano_obra,
-                    0                                AS ingresos_refacciones,
-                    0                                AS total_iva
+                    COALESCE(anticipo, 0)  AS total_facturado,
+                    0 AS ingresos_servicios, 0 AS ingresos_mano_obra,
+                    0 AS ingresos_refacciones, 0 AS total_iva
                 FROM ordenes_servicio
                 WHERE fecha_ingreso BETWEEN :fi_a AND :ff_a
                   AND estado NOT IN ('completado','completada','entregado','entregada','cerrada')
 
                 UNION ALL
 
+                -- Parte B: cerradas con anticipo, por fecha_ingreso — solo el anticipo recibido
                 SELECT id,
-                    COALESCE(total, 0)               AS total_facturado,
-                    COALESCE(subtotal_servicios, 0)  AS ingresos_servicios,
-                    COALESCE(subtotal_mano_obra, 0)  AS ingresos_mano_obra,
-                    COALESCE(subtotal_refacciones, 0) AS ingresos_refacciones,
-                    COALESCE(iva, 0)                 AS total_iva
+                    COALESCE(anticipo, 0)  AS total_facturado,
+                    0 AS ingresos_servicios, 0 AS ingresos_mano_obra,
+                    0 AS ingresos_refacciones, 0 AS total_iva
                 FROM ordenes_servicio
-                WHERE COALESCE(fecha_entregada, fecha_completada, fecha_ingreso) BETWEEN :fi_b AND :ff_b
+                WHERE fecha_ingreso BETWEEN :fi_b AND :ff_b
+                  AND estado IN ('completado','completada','entregado','entregada','cerrada')
+                  AND COALESCE(anticipo, 0) > 0
+
+                UNION ALL
+
+                -- Parte C: cerradas por fecha_entregada — solo el restante (total − anticipo)
+                -- o el total completo si no hubo anticipo
+                SELECT id,
+                    CASE WHEN COALESCE(anticipo, 0) > 0
+                         THEN (COALESCE(total, 0) - COALESCE(anticipo, 0))
+                         ELSE COALESCE(total, 0)
+                    END AS total_facturado,
+                    COALESCE(subtotal_servicios, 0)   AS ingresos_servicios,
+                    COALESCE(subtotal_mano_obra, 0)   AS ingresos_mano_obra,
+                    COALESCE(subtotal_refacciones, 0) AS ingresos_refacciones,
+                    COALESCE(iva, 0)                  AS total_iva
+                FROM ordenes_servicio
+                WHERE COALESCE(fecha_entregada, fecha_completada, fecha_ingreso) BETWEEN :fi_c AND :ff_c
                   AND estado IN ('completado','completada','entregado','entregada','cerrada')
             ) q
         ";
@@ -470,6 +489,8 @@ class FinancieroController {
         $stmt->bindParam(':ff_a', $fechaFin,    PDO::PARAM_STR);
         $stmt->bindParam(':fi_b', $fechaInicio, PDO::PARAM_STR);
         $stmt->bindParam(':ff_b', $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindParam(':fi_c', $fechaInicio, PDO::PARAM_STR);
+        $stmt->bindParam(':ff_c', $fechaFin,    PDO::PARAM_STR);
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -484,31 +505,27 @@ class FinancieroController {
     }
 
     private function queryRefacciones(string $fechaInicio, string $fechaFin): array {
-        // precio_unitario ya incluye el 30% de margen fijo: precioVenta = precioCosto * 1.30
-        // Por lo tanto: costo = subtotal / 1.30, margen = subtotal - (subtotal / 1.30)
+        // precio_unitario = precioVenta. Para órdenes ≥ 2026-05-25, precio_costo está almacenado.
+        // Para órdenes antiguas (precio_costo IS NULL) se estima como subtotal / 1.30.
         $sql = "
             SELECT
-                COALESCE(SUM(r.subtotal), 0)                    AS vendido,
-                COALESCE(SUM(r.subtotal / 1.30), 0)             AS costo_estimado,
-                COALESCE(SUM(r.subtotal - r.subtotal / 1.30), 0) AS margen_estimado,
-                COUNT(r.id)                                      AS num_items
+                COALESCE(SUM(r.subtotal), 0) AS vendido,
+                COALESCE(SUM(
+                    COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30)
+                ), 0) AS costo_estimado,
+                COALESCE(SUM(
+                    r.subtotal - COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30)
+                ), 0) AS margen_estimado,
+                COUNT(r.id) AS num_items
             FROM refacciones_orden r
             INNER JOIN ordenes_servicio o ON r.orden_id = o.id
-            WHERE (
-                -- Órdenes en proceso: por fecha_ingreso (costo real ya salió)
-                (o.fecha_ingreso BETWEEN :fi_a AND :ff_a
-                 AND o.estado NOT IN ('completado','completada','entregado','entregada','cerrada'))
-                OR
-                -- Órdenes cerradas: por fecha_entregada
-                (COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fi_b AND :ff_b
-                 AND o.estado IN ('completado','completada','entregado','entregada','cerrada'))
-            )
+            WHERE o.fecha_ingreso BETWEEN :fi AND :ff
+            -- Todas las órdenes por fecha_ingreso: la refacción se compra cuando entra el coche,
+            -- independientemente de cuándo se cierra la orden (consistente con el modelo 3-partes)
         ";
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':fi_a', $fechaInicio, PDO::PARAM_STR);
-        $stmt->bindParam(':ff_a', $fechaFin,    PDO::PARAM_STR);
-        $stmt->bindParam(':fi_b', $fechaInicio, PDO::PARAM_STR);
-        $stmt->bindParam(':ff_b', $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindParam(':fi', $fechaInicio, PDO::PARAM_STR);
+        $stmt->bindParam(':ff', $fechaFin,    PDO::PARAM_STR);
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -698,8 +715,14 @@ class FinancieroController {
                   COALESCE(SUM(o.subtotal_servicios), 0)           AS ingresos_servicios,
                   COALESCE(SUM(o.subtotal_mano_obra), 0)           AS ingresos_mano_obra,
                   COALESCE(SUM(o.subtotal_refacciones), 0)         AS ingresos_refacciones,
-                  COALESCE(SUM(o.subtotal_refacciones / 1.30), 0)  AS costo_refacciones
+                  COALESCE(SUM(COALESCE(rc.costo_real, o.subtotal_refacciones / 1.30)), 0) AS costo_refacciones
                 FROM ordenes_servicio o
+                LEFT JOIN (
+                  SELECT orden_id,
+                         SUM(COALESCE(precio_costo * cantidad, subtotal / 1.30)) AS costo_real
+                  FROM refacciones_orden
+                  GROUP BY orden_id
+                ) rc ON rc.orden_id = o.id
                 WHERE o.estado IN ('cerrada', 'entregada', 'completada')
                   AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)
                       BETWEEN :fecha_inicio AND :fecha_fin
@@ -1000,63 +1023,123 @@ class FinancieroController {
 
             [$fechaInicio, $fechaFin] = $this->calcularPeriodo($tipo, $offset);
 
-            // UNION de dos lógicas:
-            // 1. Órdenes EN PROCESO → aparecen en la semana que ingresó el coche.
-            //    Ingreso = anticipo recibido (puede ser 0). Costo = refacciones ya compradas.
-            //    Muestra la "inversión" de esta semana aunque no se haya cobrado.
-            // 2. Órdenes CERRADAS → aparecen en la semana en que se entregaron/cobraron.
-            //    Ingreso = total cobrado. Costo = refacciones (deducción en el cierre).
-            //    Así si el coche entró la semana pasada y se cobró esta semana, el ingreso
-            //    aparece aquí, no la semana pasada.
-            $sql = "
+            // ── Modelo flujo de caja real ──────────────────────────────────────────────
+            // Se usan 3 queries separadas para evitar ambigüedad de PDO con UNION complejos.
+            //
+            // Query A: Órdenes ABIERTAS        → fecha_ingreso, venta=anticipo, costo=refac
+            // Query B: Órdenes CERRADAS c/ant  → fecha_ingreso, venta=anticipo, costo=refac
+            //          (el anticipo se mantiene histórico en su semana aunque la orden cierre después)
+            // Query C: Órdenes CERRADAS        → fecha_entregada, venta=restante(total-anticipo), costo=0
+            //          Si no hubo anticipo: venta=total, costo=refac normal
+
+            $estadosAbiertos  = "NOT IN ('completado','completada','entregado','entregada','cerrada')";
+            $estadosCerrados  = "IN ('completado','completada','entregado','entregada','cerrada')";
+            $costoRefacSubq   = "(SELECT SUM(COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30))
+                                   FROM refacciones_orden r WHERE r.orden_id = os.id)";
+            $costoRefacFallbk = "COALESCE(os.subtotal_refacciones, 0) / 1.30";
+            $costoRefac       = "COALESCE($costoRefacSubq, $costoRefacFallbk)";
+
+            // ── Query A: abiertas ──────────────────────────────────────────────────────
+            $sqlA = "
                 SELECT
-                    os.id,
-                    os.numero_orden,
-                    os.fecha_ingreso                                                        AS fecha,
-                    c.nombre                                                                AS cliente_nombre,
+                    os.id, os.numero_orden,
+                    os.fecha_ingreso AS fecha,
+                    c.nombre AS cliente_nombre,
                     CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
-                    COALESCE(os.anticipo, 0)                                                AS costo_venta,
-                    COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
-                    COALESCE(os.costo_interno_total, 0)                                    AS costo_interno_total,
-                    (COALESCE(os.anticipo, 0) - COALESCE(os.subtotal_refacciones, 0) / 1.30 - COALESCE(os.costo_interno_total, 0)) AS ganancia,
-                    0                                                                       AS iva_orden,
-                    os.estado
+                    COALESCE(os.anticipo, 0)                                     AS costo_venta,
+                    COALESCE($costoRefacSubq, $costoRefacFallbk)                 AS costo_refacciones,
+                    COALESCE(os.costo_interno_total, 0)                          AS costo_interno_total,
+                    (COALESCE(os.anticipo, 0)
+                      - COALESCE($costoRefacSubq, $costoRefacFallbk)
+                      - COALESCE(os.costo_interno_total, 0))                     AS ganancia,
+                    0                                                             AS iva_orden,
+                    os.estado,
+                    'apertura'                                                    AS tipo_fila,
+                    0                                                             AS tiene_anticipo
                 FROM ordenes_servicio os
-                LEFT JOIN clientes c  ON os.cliente_id  = c.id
+                LEFT JOIN clientes c ON os.cliente_id = c.id
                 LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
-                WHERE os.fecha_ingreso BETWEEN :fecha_inicio_a AND :fecha_fin_a
-                  AND os.estado NOT IN ('completado','completada','entregado','entregada','cerrada')
-
-                UNION ALL
-
-                SELECT
-                    os.id,
-                    os.numero_orden,
-                    COALESCE(os.fecha_entregada, os.fecha_completada, os.fecha_ingreso)    AS fecha,
-                    c.nombre                                                                AS cliente_nombre,
-                    CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
-                    os.total                                                                AS costo_venta,
-                    COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
-                    COALESCE(os.costo_interno_total, 0)                                    AS costo_interno_total,
-                    (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30 - COALESCE(os.costo_interno_total, 0)) AS ganancia,
-                    COALESCE(os.iva, 0)                                                    AS iva_orden,
-                    os.estado
-                FROM ordenes_servicio os
-                LEFT JOIN clientes c  ON os.cliente_id  = c.id
-                LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
-                WHERE COALESCE(os.fecha_entregada, os.fecha_completada, os.fecha_ingreso)
-                      BETWEEN :fecha_inicio_b AND :fecha_fin_b
-                  AND os.estado IN ('completado','completada','entregado','entregada','cerrada')
-
+                WHERE os.fecha_ingreso BETWEEN ? AND ?
+                  AND os.estado $estadosAbiertos
                 ORDER BY fecha ASC
             ";
-            $stmt = $this->db->prepare($sql);
-            $stmt->bindParam(':fecha_inicio_a', $fechaInicio, PDO::PARAM_STR);
-            $stmt->bindParam(':fecha_fin_a',    $fechaFin,    PDO::PARAM_STR);
-            $stmt->bindParam(':fecha_inicio_b', $fechaInicio, PDO::PARAM_STR);
-            $stmt->bindParam(':fecha_fin_b',    $fechaFin,    PDO::PARAM_STR);
-            $stmt->execute();
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmtA = $this->db->prepare($sqlA);
+            $stmtA->execute([$fechaInicio, $fechaFin]);
+            $rowsA = $stmtA->fetchAll(PDO::FETCH_ASSOC);
+
+            // ── Query B: cerradas con anticipo, por fecha_ingreso (histórico anticipo) ──
+            $sqlB = "
+                SELECT
+                    os.id, os.numero_orden,
+                    os.fecha_ingreso AS fecha,
+                    c.nombre AS cliente_nombre,
+                    CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
+                    COALESCE(os.anticipo, 0)                                     AS costo_venta,
+                    COALESCE($costoRefacSubq, $costoRefacFallbk)                 AS costo_refacciones,
+                    COALESCE(os.costo_interno_total, 0)                          AS costo_interno_total,
+                    (COALESCE(os.anticipo, 0)
+                      - COALESCE($costoRefacSubq, $costoRefacFallbk)
+                      - COALESCE(os.costo_interno_total, 0))                     AS ganancia,
+                    0                                                             AS iva_orden,
+                    os.estado,
+                    'anticipo'                                                    AS tipo_fila,
+                    1                                                             AS tiene_anticipo
+                FROM ordenes_servicio os
+                LEFT JOIN clientes c ON os.cliente_id = c.id
+                LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
+                WHERE os.fecha_ingreso BETWEEN ? AND ?
+                  AND os.estado $estadosCerrados
+                  AND COALESCE(os.anticipo, 0) > 0
+                ORDER BY fecha ASC
+            ";
+            $stmtB   = $this->db->prepare($sqlB);
+            $stmtB->execute([$fechaInicio, $fechaFin]);
+            $rowsB = $stmtB->fetchAll(PDO::FETCH_ASSOC);
+
+            // ── Query C: cerradas por fecha_entregada (solo el restante) ──────────────
+            $sqlC = "
+                SELECT
+                    os.id, os.numero_orden,
+                    COALESCE(os.fecha_entregada, os.fecha_completada, os.fecha_ingreso) AS fecha,
+                    c.nombre AS cliente_nombre,
+                    CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
+                    CASE WHEN COALESCE(os.anticipo, 0) > 0
+                         THEN (os.total - COALESCE(os.anticipo, 0))
+                         ELSE os.total
+                    END AS costo_venta,
+                    CASE WHEN COALESCE(os.anticipo, 0) > 0
+                         THEN 0
+                         ELSE COALESCE($costoRefacSubq, $costoRefacFallbk)
+                    END AS costo_refacciones,
+                    CASE WHEN COALESCE(os.anticipo, 0) > 0
+                         THEN 0
+                         ELSE COALESCE(os.costo_interno_total, 0)
+                    END AS costo_interno_total,
+                    CASE WHEN COALESCE(os.anticipo, 0) > 0
+                         THEN (os.total - COALESCE(os.anticipo, 0))
+                         ELSE (os.total
+                           - COALESCE($costoRefacSubq, $costoRefacFallbk)
+                           - COALESCE(os.costo_interno_total, 0))
+                    END AS ganancia,
+                    COALESCE(os.iva, 0) AS iva_orden,
+                    os.estado,
+                    'cierre' AS tipo_fila,
+                    CASE WHEN COALESCE(os.anticipo, 0) > 0 THEN 1 ELSE 0 END AS tiene_anticipo
+                FROM ordenes_servicio os
+                LEFT JOIN clientes c ON os.cliente_id = c.id
+                LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
+                WHERE COALESCE(os.fecha_entregada, os.fecha_completada, os.fecha_ingreso)
+                      BETWEEN ? AND ?
+                  AND os.estado $estadosCerrados
+                ORDER BY fecha ASC
+            ";
+            $stmtC = $this->db->prepare($sqlC);
+            $stmtC->execute([$fechaInicio, $fechaFin]);
+            $rowsC = $stmtC->fetchAll(PDO::FETCH_ASSOC);
+
+            // Merge A + B + C y ordenar por fecha ASC
+            $rows = array_merge($rowsA, $rowsB, $rowsC);
+            usort($rows, fn($x, $y) => strcmp($x['fecha'] ?? '', $y['fecha'] ?? ''));
 
             // ── Cargar servicios, refacciones y gastos internos por orden ──
             $serviciosPorOrden   = [];
@@ -1064,7 +1147,8 @@ class FinancieroController {
             $gastosPorOrden      = [];
 
             if (!empty($rows)) {
-                $orderIds    = array_map(fn($r) => (int) $r['id'], $rows);
+                // Deduplicar IDs: una orden cerrada con anticipo aparece en Parte B y C
+                $orderIds    = array_unique(array_map(fn($r) => (int) $r['id'], $rows));
                 $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
 
                 $stmtSvc = $this->db->prepare("
@@ -1082,17 +1166,22 @@ class FinancieroController {
                 }
 
                 $stmtRef = $this->db->prepare("
-                    SELECT orden_id, descripcion, proveedor, subtotal
+                    SELECT orden_id, descripcion, proveedor, cantidad, precio_costo, subtotal
                     FROM refacciones_orden
                     WHERE orden_id IN ($placeholders)
                     ORDER BY id ASC
                 ");
                 $stmtRef->execute($orderIds);
                 foreach ($stmtRef->fetchAll(PDO::FETCH_ASSOC) as $ref) {
+                    $precioCosto = $ref['precio_costo'] !== null
+                        ? (float)$ref['precio_costo']
+                        : null;
                     $refaccionesPorOrden[(int)$ref['orden_id']][] = [
                         'descripcion' => $ref['descripcion'],
                         'proveedor'   => $ref['proveedor'] ?: null,
                         'subtotal'    => round((float)$ref['subtotal'], 2),
+                        'precio_costo'=> $precioCosto,
+                        'cantidad'    => (float)$ref['cantidad'],
                     ];
                 }
 
@@ -1113,7 +1202,11 @@ class FinancieroController {
             }
 
             $ordenes = array_map(function ($r) use ($serviciosPorOrden, $refaccionesPorOrden, $gastosPorOrden) {
-                $id = (int) $r['id'];
+                $id       = (int) $r['id'];
+                $tipoFila = $r['tipo_fila'] ?? 'apertura';
+                // Las filas 'cierre' de órdenes con anticipo no repiten servicios/refac/gastos
+                // (ya aparecen en la fila 'anticipo' de la semana de apertura)
+                $esRestante = ($tipoFila === 'cierre' && (int)($r['tiene_anticipo'] ?? 0) === 1);
                 return [
                     'id'                 => $id,
                     'numero_orden'       => $r['numero_orden'],
@@ -1123,12 +1216,13 @@ class FinancieroController {
                     'costo_venta'        => round((float) $r['costo_venta'], 2),
                     'costo_refacciones'  => round((float) $r['costo_refacciones'], 2),
                     'costo_interno'      => round((float) ($r['costo_interno_total'] ?? 0), 2),
-                    'gastos_internos'    => $gastosPorOrden[$id] ?? [],
+                    'gastos_internos'    => $esRestante ? [] : ($gastosPorOrden[$id] ?? []),
                     'iva'                => round((float) ($r['iva_orden'] ?? 0), 2),
                     'ganancia'           => round((float) $r['ganancia'], 2),
                     'estado'             => $r['estado'],
-                    'servicios'          => $serviciosPorOrden[$id]   ?? [],
-                    'refacciones_detalle'=> $refaccionesPorOrden[$id] ?? [],
+                    'tipo_fila'          => $tipoFila,
+                    'servicios'          => $esRestante ? [] : ($serviciosPorOrden[$id]    ?? []),
+                    'refacciones_detalle'=> $esRestante ? [] : ($refaccionesPorOrden[$id]  ?? []),
                 ];
             }, $rows);
 

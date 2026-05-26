@@ -605,10 +605,27 @@ export const Financiero = () => {
   };
 
   const toggleEmpleado = async (id: number) => {
+    const emp = empleados.find(e => e.id === id);
+    if (!emp || !periodoFechaInicio) return;
+    // Toggle week-specific: dias>0 → apagar (0); dias=0 → encender (5 default)
+    const diasActuales = Number(emp.dias_trabajados ?? 5);
+    const nuevosDias   = diasActuales > 0 ? 0 : 5;
+    setSavingDias(prev => new Set(prev).add(id));
     try {
-      const res = await empleadosFinancieroAPI.toggle(id);
-      setEmpleados(prev => prev.map(e => e.id === id ? { ...e, activo: res.activo } : e));
+      await empleadosFinancieroAPI.asistencia(id, periodoFechaInicio, nuevosDias);
+      // Si tenía activo=false del sistema anterior (legacy), limpiarlo al encender
+      if (nuevosDias > 0 && !emp.activo) {
+        await empleadosFinancieroAPI.actualizar(id, { activo: true });
+      }
+      setEmpleados(prev => prev.map(e =>
+        e.id === id
+          ? { ...e, dias_trabajados: nuevosDias, activo: nuevosDias > 0 ? true : e.activo }
+          : e
+      ));
     } catch { /* silencioso */ }
+    finally {
+      setSavingDias(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
   };
 
   const reactivarEmpleado = async (id: number) => {
@@ -743,12 +760,16 @@ export const Financiero = () => {
   };
 
   // Pago real de la semana por empleado:
-  // - semanal → monto fijo (sueldo_diario es el monto semanal)
+  // - activo=false (baja permanente o dato legacy)   → $0
+  // - dias_trabajados=0 (toggle OFF esta semana)      → $0
+  // - semanal → sueldo_diario es el monto semanal flat
   // - diario  → sueldo_diario × dias_trabajados (default 5 si no hay registro)
   const pagoSemanalEmpleado = (e: EmpleadoSueldo): number => {
     if (!e.activo) return 0;
+    const dias = Number(e.dias_trabajados ?? 5);
+    if (dias === 0) return 0;
     if ((e.tipo_sueldo ?? 'diario') === 'semanal') return Number(e.sueldo_diario);
-    return Number(e.sueldo_diario) * (e.dias_trabajados ?? 5);
+    return Number(e.sueldo_diario) * dias;
   };
 
   // Separar empleados vigentes (en plantilla) de ex-empleados (dados de baja)
@@ -756,7 +777,14 @@ export const Financiero = () => {
   // Así un empleado dado de baja después del período visualizado aparece como vigente
   // en esa semana (era activo entonces), no como ex-empleado.
   const fechaRefPeriodo   = periodoFechaFin ?? new Date().toISOString().split('T')[0];
-  const empleadosVigentes = empleados.filter(e => !e.fecha_fin || e.fecha_fin > fechaRefPeriodo);
+  // periodoFin como fecha pura (YYYY-MM-DD) para comparar con fecha_inicio del empleado
+  const periodoFinFecha   = periodoFechaFin ? periodoFechaFin.split('T')[0].split(' ')[0] : null;
+  const empleadosVigentes = empleados.filter(e =>
+    // No ha terminado aún en este período
+    (!e.fecha_fin || e.fecha_fin > fechaRefPeriodo) &&
+    // Ya empezó para el fin de este período (evita aparición en semanas anteriores a su alta)
+    (!e.fecha_inicio || !periodoFinFecha || e.fecha_inicio <= periodoFinFecha)
+  );
   const exEmpleados       = empleados.filter(e => e.fecha_fin != null && e.fecha_fin <= fechaRefPeriodo);
 
   const totalSueldosActivos = empleadosVigentes
@@ -779,7 +807,7 @@ export const Financiero = () => {
         ordenes,
         totales: ordTotales,
       },
-      empleados,
+      empleados: empleadosVigentes,
       pagosFijos,
       gastos: gastosAdmin,
       cajaChica,
@@ -826,7 +854,9 @@ export const Financiero = () => {
     totalPagosFijosActivos > 0 ||
     Number(gastosAdmin?.total_admin       ?? 0) > 0 ||
     Number(gastosAdmin?.gastos_ordenes_mes ?? 0) > 0;
-  const sinDatos = resumen.num_ordenes === 0 && !hayGastos;
+  // sinDatos: también debe considerar ordenes del modelo flujo de caja (antiicipo rows tienen
+  // num_ordenes=0 en el KPI pero sí aparecen en la tabla de desglose)
+  const sinDatos = resumen.num_ordenes === 0 && ordenes.length === 0 && !hayGastos;
 
   return (
     <>
@@ -1263,11 +1293,14 @@ export const Financiero = () => {
                         </thead>
                         <tbody>
                           {empleadosVigentes.map(e => {
-                            const esSemanal = (e.tipo_sueldo ?? 'diario') === 'semanal';
-                            const diasVal   = e.dias_trabajados ?? 5;
-                            const guardando = savingDias.has(e.id);
+                            const esSemanal   = (e.tipo_sueldo ?? 'diario') === 'semanal';
+                            const diasVal     = Number(e.dias_trabajados ?? 5);
+                            const guardando   = savingDias.has(e.id);
+                            // activoSemana: trabajó esta semana (dias>0).
+                            // No usamos e.activo aquí — activo=false legacy queda limpiado al primer toggle ON.
+                            const activoSemana = diasVal > 0;
                             return (
-                            <tr key={e.id} className={`border-b border-gray-50 dark:border-gray-700/50 last:border-0 ${!e.activo ? 'opacity-50' : ''}`}>
+                            <tr key={e.id} className={`border-b border-gray-50 dark:border-gray-700/50 last:border-0 ${!activoSemana ? 'opacity-50' : ''}`}>
                               <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{e.nombre}</td>
                               <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{e.puesto ?? '—'}</td>
                               <td className="py-2 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
@@ -1289,16 +1322,16 @@ export const Financiero = () => {
                                 ) : (
                                   <div className="flex items-center justify-center gap-1">
                                     <button
-                                      onClick={() => e.activo && cambiarDias(e, Math.max(0, diasVal - 1))}
-                                      disabled={!e.activo || diasVal <= 0 || guardando}
+                                      onClick={() => activoSemana && cambiarDias(e, Math.max(0, diasVal - 1))}
+                                      disabled={!activoSemana || diasVal <= 0 || guardando}
                                       className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
                                     >−</button>
                                     <span className="w-4 text-center text-sm tabular-nums font-medium text-gray-700 dark:text-gray-200">
                                       {guardando ? '…' : diasVal}
                                     </span>
                                     <button
-                                      onClick={() => e.activo && cambiarDias(e, Math.min(7, diasVal + 1))}
-                                      disabled={!e.activo || diasVal >= 7 || guardando}
+                                      onClick={() => activoSemana && cambiarDias(e, Math.min(7, diasVal + 1))}
+                                      disabled={!activoSemana || diasVal >= 7 || guardando}
                                       className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
                                     >+</button>
                                   </div>
@@ -1306,7 +1339,7 @@ export const Financiero = () => {
                               </td>
                               {/* Total semana */}
                               <td className="py-2 pr-4 text-right tabular-nums font-medium text-gray-700 dark:text-gray-200">
-                                {e.activo ? formatMoneda(pagoSemanalEmpleado(e)) : '—'}
+                                {activoSemana ? formatMoneda(pagoSemanalEmpleado(e)) : '—'}
                               </td>
                               <td className="py-2 pr-4 hidden sm:table-cell">
                                 <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
@@ -1316,10 +1349,10 @@ export const Financiero = () => {
                               <td className="py-2 text-center">
                                 <button
                                   onClick={() => toggleEmpleado(e.id)}
-                                  title={e.activo ? 'Marcar como inactivo esta semana' : 'Marcar como activo'}
-                                  className={`w-10 h-5 rounded-full transition-colors ${e.activo ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                  title={activoSemana ? 'No trabajó esta semana' : 'Sí trabajó esta semana'}
+                                  className={`w-10 h-5 rounded-full transition-colors ${activoSemana ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}
                                 >
-                                  <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${e.activo ? 'translate-x-5' : 'translate-x-0'}`} />
+                                  <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${activoSemana ? 'translate-x-5' : 'translate-x-0'}`} />
                                 </button>
                               </td>
                               <td className="py-2 text-right">

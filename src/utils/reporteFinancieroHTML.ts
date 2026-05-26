@@ -29,17 +29,20 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   const ingresoNeto = ingresosBrutos - costoRefacciones;
 
   // Misma lógica que pagoSemanalEmpleado() en Financiero.tsx:
+  //   activo=false o dias=0 → $0
   //   semanal → sueldo_diario es el monto semanal flat
   //   diario  → sueldo_diario × dias_trabajados (default 5)
   const pagoSemanalEmp = (e: EmpleadoSueldo): number => {
-    if (!e.activo) return 0;
+    // Ya se reciben solo empleados vigentes (empleadosVigentes del componente)
+    const dias = Number(e.dias_trabajados ?? 5);
+    if (dias === 0) return 0;   // desactivado esta semana
     const tipo = e.tipo_sueldo ?? 'diario';
     if (tipo === 'semanal') return Number(e.sueldo_diario);
-    return Number(e.sueldo_diario) * (Number(e.dias_trabajados) || 5);
+    return Number(e.sueldo_diario) * dias;
   };
 
+  // Recibimos ya empleadosVigentes (filtrados por fecha_inicio/fecha_fin en el componente)
   const totalSueldos = empleados
-    .filter(e => !e.fecha_fin)           // excluir ex-empleados
     .reduce((acc, e) => acc + pagoSemanalEmp(e) * (tipoPeriodo === 'semana' ? 1 : 4), 0);
 
   const totalFijos = pagosFijos
@@ -156,7 +159,8 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   // -----------------------------------------------------------------------
   // Empleados activos
   // -----------------------------------------------------------------------
-  const empleadosActivos = empleados.filter(e => e.activo);
+  // Activo esta semana = dias_trabajados > 0 (igual que la pantalla)
+  const empleadosActivos = empleados.filter(e => Number(e.dias_trabajados ?? 5) > 0);
   const filasEmpleados = empleadosActivos.length === 0
     ? '<p style="font-size:12px;color:#8a9e90">Sin empleados registrados.</p>'
     : empleadosActivos.map(e => `
