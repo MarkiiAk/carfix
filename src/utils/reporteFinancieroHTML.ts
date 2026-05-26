@@ -29,13 +29,16 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   const ingresoNeto = ingresosBrutos - costoRefacciones;
 
   // Misma lógica que pagoSemanalEmpleado() en Financiero.tsx:
+  //   activo=false o dias=0 → $0
   //   semanal → sueldo_diario es el monto semanal flat
   //   diario  → sueldo_diario × dias_trabajados (default 5)
   const pagoSemanalEmp = (e: EmpleadoSueldo): number => {
     if (!e.activo) return 0;
+    const dias = Number(e.dias_trabajados ?? 5);
+    if (dias === 0) return 0;
     const tipo = e.tipo_sueldo ?? 'diario';
     if (tipo === 'semanal') return Number(e.sueldo_diario);
-    return Number(e.sueldo_diario) * (Number(e.dias_trabajados) || 5);
+    return Number(e.sueldo_diario) * dias;
   };
 
   const totalSueldos = empleados
