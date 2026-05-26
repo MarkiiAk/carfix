@@ -1,8 +1,10 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
 import type { OrdenFinanciero, OrdenesFinancieroResponse } from '../../types';
+
+type FiltroEstado = 'todas' | 'abiertas' | 'cerradas';
 
 interface Props {
   ordenes: OrdenFinanciero[];
@@ -89,10 +91,10 @@ const EstadoBadge = ({ estado }: { estado: string }) => {
 
 /* ── Fila de un ítem de la orden ─────────────────────────────────── */
 type ItemFila =
-  | { tipo: 'servicio';        descripcion: string; subtotal: number; proveedor?: null }
-  | { tipo: 'refaccion';       descripcion: string; subtotal: number; proveedor: string | null }
-  | { tipo: 'iva';             descripcion: string; subtotal: number; proveedor?: null }
-  | { tipo: 'costo_interno';   descripcion: string; subtotal: number; proveedor?: null };
+  | { tipo: 'servicio';        descripcion: string; subtotal: number; costoCompra?: null;   proveedor?: null }
+  | { tipo: 'refaccion';       descripcion: string; subtotal: number; costoCompra: number;  proveedor: string | null }
+  | { tipo: 'iva';             descripcion: string; subtotal: number; costoCompra?: null;   proveedor?: null }
+  | { tipo: 'costo_interno';   descripcion: string; subtotal: number; costoCompra?: null;   proveedor?: null };
 
 function buildItems(o: OrdenFinanciero): ItemFila[] {
   const items: ItemFila[] = [
@@ -101,12 +103,19 @@ function buildItems(o: OrdenFinanciero): ItemFila[] {
       descripcion: s.descripcion,
       subtotal: s.subtotal,
     })),
-    ...o.refacciones_detalle.map(r => ({
-      tipo: 'refaccion' as const,
-      descripcion: r.descripcion,
-      subtotal: r.subtotal,
-      proveedor: r.proveedor,
-    })),
+    ...o.refacciones_detalle.map(r => {
+      // precio_costo disponible en refacciones ≥ 2026-05-25; fallback a subtotal/1.30
+      const costo = r.precio_costo != null && r.cantidad != null
+        ? r.precio_costo * r.cantidad
+        : r.subtotal / 1.30;
+      return {
+        tipo: 'refaccion' as const,
+        descripcion: r.descripcion,
+        subtotal: r.subtotal,
+        costoCompra: costo,
+        proveedor: r.proveedor,
+      };
+    }),
   ];
   // IVA — solo si aplica (órdenes cerradas con IVA > 0)
   if ((o.iva ?? 0) > 0) {
@@ -132,6 +141,7 @@ function buildItems(o: OrdenFinanciero): ItemFila[] {
 /* ─────────────────────────────────────────────────────────────────── */
 export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => {
   const navigate = useNavigate();
+  const [filtro, setFiltro] = useState<FiltroEstado>('todas');
 
   if (loading) {
     return (
@@ -150,7 +160,55 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
     );
   }
 
+  // Filtrado por estado
+  const ordenesFiltradas = filtro === 'todas'
+    ? ordenes
+    : ordenes.filter(o => {
+        const esAbierta = ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '');
+        return filtro === 'abiertas' ? esAbierta : !esAbierta;
+      });
+
+  // Totales recalculados sobre el conjunto filtrado
+  const totalesFiltrados = {
+    costo_venta:       ordenesFiltradas.reduce((s, o) => s + o.costo_venta, 0),
+    costo_refacciones: ordenesFiltradas.reduce((s, o) => s + o.costo_refacciones, 0),
+    ganancia:          ordenesFiltradas.reduce((s, o) => s + o.ganancia, 0),
+  };
+  const totalesVista = filtro === 'todas' ? totales : totalesFiltrados;
+
+  // Botones de filtro
+  const btnBase = 'px-3 py-1 text-xs font-medium rounded-full border transition-colors';
+  const btnActivo   = 'bg-sag-500 border-sag-500 text-white';
+  const btnInactivo = 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-sag-400';
+
   return (
+    <div className="space-y-3">
+      {/* ── Filtros ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-gray-500 dark:text-gray-400">Ver:</span>
+        {(['todas', 'abiertas', 'cerradas'] as FiltroEstado[]).map(f => (
+          <button
+            key={f}
+            onClick={() => setFiltro(f)}
+            className={`${btnBase} ${filtro === f ? btnActivo : btnInactivo}`}
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+            {f !== 'todas' && (
+              <span className="ml-1 opacity-70">
+                ({f === 'abiertas'
+                  ? ordenes.filter(o => ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '')).length
+                  : ordenes.filter(o => !ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '')).length})
+              </span>
+            )}
+          </button>
+        ))}
+        {filtro !== 'todas' && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
+            — {ordenesFiltradas.length} de {ordenes.length} órdenes
+          </span>
+        )}
+      </div>
+
     <div className="overflow-x-auto -mx-1">
       <table className="w-full text-xs min-w-[820px] border-collapse">
 
@@ -168,7 +226,7 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
 
         {/* ── Cuerpo — una orden = N filas de ítem + 1 fila TOTAL ──── */}
         <tbody>
-          {ordenes.map(o => {
+          {ordenesFiltradas.map(o => {
             const items     = buildItems(o);
             const esAbierta = ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '');
             // Si no hay detalle, mostramos una sola fila
@@ -253,10 +311,10 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
                       )}
                     </td>
 
-                    {/* Costo Compra — refacciones: precio sin margen; costos internos: monto en rojo */}
+                    {/* Costo Compra — refacciones: costo real o estimado; costos internos: monto en rojo */}
                     <td className="py-1.5 pr-3 text-right tabular-nums align-top whitespace-nowrap">
                       {item.tipo === 'refaccion' && (
-                        <span className="text-gray-400 dark:text-gray-500">{fmt(item.subtotal / 1.30)}</span>
+                        <span className="text-gray-400 dark:text-gray-500">{fmt(item.costoCompra)}</span>
                       )}
                       {item.tipo === 'costo_interno' && (
                         <span className="text-red-400 dark:text-red-500">{fmt(item.subtotal)}</span>
@@ -313,24 +371,27 @@ export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => 
               colSpan={3}
               className="py-2.5 pr-3 pl-1 text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wide"
             >
-              Total período · {ordenes.length} {ordenes.length === 1 ? 'orden' : 'órdenes'}
+              {filtro === 'todas'
+                ? `Total período · ${ordenes.length} ${ordenes.length === 1 ? 'orden' : 'órdenes'}`
+                : `${filtro.charAt(0).toUpperCase() + filtro.slice(1)} · ${ordenesFiltradas.length} de ${ordenes.length}`}
             </td>
             <td className="py-2.5 pr-3 text-right tabular-nums text-gray-800 dark:text-gray-100 whitespace-nowrap">
-              {fmt(totales.costo_venta)}
+              {fmt(totalesVista.costo_venta)}
             </td>
             <td className="py-2.5 pr-3 text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
               {(() => {
-                const totalCompra = ordenes.reduce((acc, o) => acc + o.costo_refacciones + (o.costo_interno ?? 0), 0);
+                const totalCompra = ordenesFiltradas.reduce((acc, o) => acc + o.costo_refacciones + (o.costo_interno ?? 0), 0);
                 return totalCompra > 0 ? fmt(totalCompra) : '—';
               })()}
             </td>
-            <td className={`py-2.5 text-right tabular-nums whitespace-nowrap ${gananciaColor(totales.ganancia)}`}>
-              {fmt(totales.ganancia)}
+            <td className={`py-2.5 text-right tabular-nums whitespace-nowrap ${gananciaColor(totalesVista.ganancia)}`}>
+              {fmt(totalesVista.ganancia)}
             </td>
           </tr>
         </tfoot>
 
       </table>
+    </div>
     </div>
   );
 };

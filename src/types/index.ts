@@ -393,6 +393,8 @@ export interface RefaccionOrdenFinanciero {
   descripcion: string;
   proveedor: string | null;
   subtotal: number;
+  precio_costo?: number | null;  // null = registro anterior a 2026-05-25 (usar subtotal/1.30)
+  cantidad?: number;
 }
 
 export interface OrdenFinanciero {

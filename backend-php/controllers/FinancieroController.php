@@ -484,14 +484,18 @@ class FinancieroController {
     }
 
     private function queryRefacciones(string $fechaInicio, string $fechaFin): array {
-        // precio_unitario ya incluye el 30% de margen fijo: precioVenta = precioCosto * 1.30
-        // Por lo tanto: costo = subtotal / 1.30, margen = subtotal - (subtotal / 1.30)
+        // precio_unitario = precioVenta. Para órdenes ≥ 2026-05-25, precio_costo está almacenado.
+        // Para órdenes antiguas (precio_costo IS NULL) se estima como subtotal / 1.30.
         $sql = "
             SELECT
-                COALESCE(SUM(r.subtotal), 0)                    AS vendido,
-                COALESCE(SUM(r.subtotal / 1.30), 0)             AS costo_estimado,
-                COALESCE(SUM(r.subtotal - r.subtotal / 1.30), 0) AS margen_estimado,
-                COUNT(r.id)                                      AS num_items
+                COALESCE(SUM(r.subtotal), 0) AS vendido,
+                COALESCE(SUM(
+                    COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30)
+                ), 0) AS costo_estimado,
+                COALESCE(SUM(
+                    r.subtotal - COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30)
+                ), 0) AS margen_estimado,
+                COUNT(r.id) AS num_items
             FROM refacciones_orden r
             INNER JOIN ordenes_servicio o ON r.orden_id = o.id
             WHERE (
@@ -698,8 +702,14 @@ class FinancieroController {
                   COALESCE(SUM(o.subtotal_servicios), 0)           AS ingresos_servicios,
                   COALESCE(SUM(o.subtotal_mano_obra), 0)           AS ingresos_mano_obra,
                   COALESCE(SUM(o.subtotal_refacciones), 0)         AS ingresos_refacciones,
-                  COALESCE(SUM(o.subtotal_refacciones / 1.30), 0)  AS costo_refacciones
+                  COALESCE(SUM(COALESCE(rc.costo_real, o.subtotal_refacciones / 1.30)), 0) AS costo_refacciones
                 FROM ordenes_servicio o
+                LEFT JOIN (
+                  SELECT orden_id,
+                         SUM(COALESCE(precio_costo * cantidad, subtotal / 1.30)) AS costo_real
+                  FROM refacciones_orden
+                  GROUP BY orden_id
+                ) rc ON rc.orden_id = o.id
                 WHERE o.estado IN ('cerrada', 'entregada', 'completada')
                   AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)
                       BETWEEN :fecha_inicio AND :fecha_fin
@@ -1016,9 +1026,19 @@ class FinancieroController {
                     c.nombre                                                                AS cliente_nombre,
                     CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
                     COALESCE(os.anticipo, 0)                                                AS costo_venta,
-                    COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
+                    COALESCE(
+                      (SELECT SUM(COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30))
+                       FROM refacciones_orden r WHERE r.orden_id = os.id),
+                      COALESCE(os.subtotal_refacciones, 0) / 1.30
+                    )                                                                       AS costo_refacciones,
                     COALESCE(os.costo_interno_total, 0)                                    AS costo_interno_total,
-                    (COALESCE(os.anticipo, 0) - COALESCE(os.subtotal_refacciones, 0) / 1.30 - COALESCE(os.costo_interno_total, 0)) AS ganancia,
+                    (COALESCE(os.anticipo, 0)
+                      - COALESCE(
+                          (SELECT SUM(COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30))
+                           FROM refacciones_orden r WHERE r.orden_id = os.id),
+                          COALESCE(os.subtotal_refacciones, 0) / 1.30
+                        )
+                      - COALESCE(os.costo_interno_total, 0))                               AS ganancia,
                     0                                                                       AS iva_orden,
                     os.estado
                 FROM ordenes_servicio os
@@ -1036,9 +1056,19 @@ class FinancieroController {
                     c.nombre                                                                AS cliente_nombre,
                     CONCAT(v.marca, ' ', v.modelo, IF(v.anio IS NOT NULL, CONCAT(' ', v.anio), '')) AS vehiculo,
                     os.total                                                                AS costo_venta,
-                    COALESCE(os.subtotal_refacciones, 0) / 1.30                            AS costo_refacciones,
+                    COALESCE(
+                      (SELECT SUM(COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30))
+                       FROM refacciones_orden r WHERE r.orden_id = os.id),
+                      COALESCE(os.subtotal_refacciones, 0) / 1.30
+                    )                                                                       AS costo_refacciones,
                     COALESCE(os.costo_interno_total, 0)                                    AS costo_interno_total,
-                    (os.total - COALESCE(os.subtotal_refacciones, 0) / 1.30 - COALESCE(os.costo_interno_total, 0)) AS ganancia,
+                    (os.total
+                      - COALESCE(
+                          (SELECT SUM(COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30))
+                           FROM refacciones_orden r WHERE r.orden_id = os.id),
+                          COALESCE(os.subtotal_refacciones, 0) / 1.30
+                        )
+                      - COALESCE(os.costo_interno_total, 0))                               AS ganancia,
                     COALESCE(os.iva, 0)                                                    AS iva_orden,
                     os.estado
                 FROM ordenes_servicio os
@@ -1082,17 +1112,22 @@ class FinancieroController {
                 }
 
                 $stmtRef = $this->db->prepare("
-                    SELECT orden_id, descripcion, proveedor, subtotal
+                    SELECT orden_id, descripcion, proveedor, cantidad, precio_costo, subtotal
                     FROM refacciones_orden
                     WHERE orden_id IN ($placeholders)
                     ORDER BY id ASC
                 ");
                 $stmtRef->execute($orderIds);
                 foreach ($stmtRef->fetchAll(PDO::FETCH_ASSOC) as $ref) {
+                    $precioCosto = $ref['precio_costo'] !== null
+                        ? (float)$ref['precio_costo']
+                        : null;
                     $refaccionesPorOrden[(int)$ref['orden_id']][] = [
                         'descripcion' => $ref['descripcion'],
                         'proveedor'   => $ref['proveedor'] ?: null,
                         'subtotal'    => round((float)$ref['subtotal'], 2),
+                        'precio_costo'=> $precioCosto,
+                        'cantidad'    => (float)$ref['cantidad'],
                     ];
                 }
 

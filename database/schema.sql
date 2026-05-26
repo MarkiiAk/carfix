@@ -319,6 +319,8 @@ CREATE TABLE `refacciones_orden` (
   `descripcion` varchar(500) NOT NULL,
   `cantidad` decimal(8,2) NOT NULL,
   `precio_unitario` decimal(10,2) NOT NULL,
+  `precio_costo` decimal(10,2) DEFAULT NULL COMMENT 'Precio costo/unidad (sin margen). NULL = registro previo a 2026-05-25',
+  `margen_ganancia` decimal(5,2) DEFAULT NULL COMMENT 'Margen % aplicado (ej: 30.00). NULL = asumir 30%',
   `subtotal` decimal(10,2) NOT NULL,
   `numero_parte` varchar(100) DEFAULT NULL,
   `proveedor` varchar(200) DEFAULT NULL,
@@ -1026,6 +1028,16 @@ CREATE TABLE IF NOT EXISTS `caja_chica` (
     FOREIGN KEY (`gasto_admin_id`) REFERENCES `gastos_administrativos` (`id`)
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2026-05-25: Margen variable en refacciones
+-- Archivo: database/20260525_refacciones_margen_variable.sql
+ALTER TABLE `refacciones_orden`
+  ADD COLUMN IF NOT EXISTS `precio_costo` decimal(10,2) DEFAULT NULL
+    COMMENT 'Precio costo/unidad (sin margen). NULL = registro previo a 2026-05-25'
+    AFTER `precio_unitario`,
+  ADD COLUMN IF NOT EXISTS `margen_ganancia` decimal(5,2) DEFAULT NULL
+    COMMENT 'Margen % aplicado (ej: 30.00). NULL = asumir 30%'
+    AFTER `precio_costo`;
 
 -- ---------------------------------------------------------------------------
 -- Asistencia semanal por empleado (20260523)

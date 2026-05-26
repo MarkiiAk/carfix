@@ -833,12 +833,14 @@ class OrdenesController {
         $orden['refacciones'] = [];
         foreach ($refacciones as $refaccion) {
             $orden['refacciones'][] = [
-                'id'          => (string)$refaccion['id'],
-                'nombre'      => $refaccion['descripcion'],
-                'cantidad'    => (float)$refaccion['cantidad'],
-                'precioVenta' => (float)$refaccion['precio_unitario'],
-                'total'       => (float)$refaccion['subtotal'],
-                'proveedor'   => $refaccion['proveedor'] ?? null,
+                'id'             => (string)$refaccion['id'],
+                'nombre'         => $refaccion['descripcion'],
+                'cantidad'       => (float)$refaccion['cantidad'],
+                'precioVenta'    => (float)$refaccion['precio_unitario'],
+                'precioCosto'    => $refaccion['precio_costo'] !== null ? (float)$refaccion['precio_costo'] : null,
+                'margenGanancia' => $refaccion['margen_ganancia'] !== null ? (float)$refaccion['margen_ganancia'] : 30,
+                'total'          => (float)$refaccion['subtotal'],
+                'proveedor'      => $refaccion['proveedor'] ?? null,
             ];
         }
         
@@ -1114,20 +1116,30 @@ class OrdenesController {
     
     private function insertRefaccionesOrden($orden_id, $refacciones) {
         $stmt = $this->db->prepare('
-            INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, subtotal, proveedor)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO refacciones_orden (orden_id, descripcion, cantidad, precio_unitario, precio_costo, margen_ganancia, subtotal, proveedor)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ');
 
         foreach ($refacciones as $refaccion) {
-            $cantidad = $refaccion['cantidad'] ?? 1;
+            $cantidad       = $refaccion['cantidad'] ?? 1;
             $precioUnitario = $refaccion['precioVenta'] ?? $refaccion['precio_unitario'] ?? 0;
-            $subtotal = $refaccion['total'] ?? ($cantidad * $precioUnitario);
+            $subtotal       = $refaccion['total'] ?? ($cantidad * $precioUnitario);
+            // Margen variable: si el frontend envía precioCosto y margenGanancia, los guardamos.
+            // Fallback a NULL para registros anteriores (el sistema usará subtotal/1.30 como costo).
+            $precioCosto    = isset($refaccion['precioCosto']) && $refaccion['precioCosto'] > 0
+                                ? (float) $refaccion['precioCosto']
+                                : null;
+            $margenGanancia = isset($refaccion['margenGanancia']) && $refaccion['margenGanancia'] > 0
+                                ? (float) $refaccion['margenGanancia']
+                                : null;
 
             $stmt->execute([
                 $orden_id,
                 $refaccion['nombre'] ?? $refaccion['descripcion'],
                 $cantidad,
                 $precioUnitario,
+                $precioCosto,
+                $margenGanancia,
                 $subtotal,
                 $refaccion['proveedor'] ?? null,
             ]);
