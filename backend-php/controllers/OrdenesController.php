@@ -434,8 +434,11 @@ class OrdenesController {
                 // COALESCE(fecha_entregada, fecha_completada, fecha_ingreso).
                 $estadosCierre = ['cerrada', 'completada', 'completado', 'entregada', 'entregado'];
                 if (in_array($data['estado'], $estadosCierre, true)) {
+                    // Ambas fechas: COALESCE en Financiero usa fecha_entregada ?? fecha_completada ?? fecha_ingreso
+                    // Si ninguna está explícita, NOW() marca la semana real del cierre
                     $updateFields[] = 'fecha_completada = COALESCE(fecha_completada, NOW())';
-                    // Sin push a $updateValues: no es un placeholder ?
+                    $updateFields[] = 'fecha_entregada  = COALESCE(fecha_entregada,  NOW())';
+                    // Sin push a $updateValues: no son placeholders ?
                 }
             }
             
