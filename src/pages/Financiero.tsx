@@ -854,7 +854,9 @@ export const Financiero = () => {
     totalPagosFijosActivos > 0 ||
     Number(gastosAdmin?.total_admin       ?? 0) > 0 ||
     Number(gastosAdmin?.gastos_ordenes_mes ?? 0) > 0;
-  const sinDatos = resumen.num_ordenes === 0 && !hayGastos;
+  // sinDatos: también debe considerar ordenes del modelo flujo de caja (antiicipo rows tienen
+  // num_ordenes=0 en el KPI pero sí aparecen en la tabla de desglose)
+  const sinDatos = resumen.num_ordenes === 0 && ordenes.length === 0 && !hayGastos;
 
   return (
     <>

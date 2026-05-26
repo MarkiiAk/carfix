@@ -432,8 +432,10 @@ class FinancieroController {
     private function queryResumen(string $fechaInicio, string $fechaFin): array {
         // UNION de 3 partes (modelo flujo de caja real):
         // A. Órdenes ABIERTAS       → fecha_ingreso,   ingreso = anticipo
-        // B. Órdenes CERRADAS c/ant → fecha_ingreso,   ingreso = anticipo  (NULL id → no duplica num_ordenes)
-        // C. Órdenes CERRADAS       → fecha_entregada, ingreso = (total - anticipo) o total si sin anticipo
+        // B. Órdenes CERRADAS c/ant → fecha_ingreso,   ingreso = anticipo
+        //    Usa id real (no NULL) + COUNT(DISTINCT) para no duplicar num_ordenes
+        //    cuando la misma orden aparece en B (semana apertura) y C (semana cierre)
+        // C. Órdenes CERRADAS       → fecha_entregada, ingreso = (total − anticipo) o total
         $sql = "
             SELECT
                 COALESCE(SUM(q.total_facturado), 0)      AS total_facturado,
@@ -441,7 +443,7 @@ class FinancieroController {
                 COALESCE(SUM(q.ingresos_mano_obra), 0)   AS ingresos_mano_obra,
                 COALESCE(SUM(q.ingresos_refacciones), 0) AS ingresos_refacciones,
                 COALESCE(SUM(q.total_iva), 0)            AS total_iva,
-                COUNT(q.id)                              AS num_ordenes
+                COUNT(DISTINCT q.id)                     AS num_ordenes
             FROM (
                 -- Parte A: abiertas por fecha_ingreso, ingreso = anticipo
                 SELECT id,
@@ -455,8 +457,7 @@ class FinancieroController {
                 UNION ALL
 
                 -- Parte B: cerradas con anticipo, por fecha_ingreso — solo el anticipo recibido
-                -- NULL id para no duplicar num_ordenes (la orden se cuenta en Parte C)
-                SELECT NULL AS id,
+                SELECT id,
                     COALESCE(anticipo, 0)  AS total_facturado,
                     0 AS ingresos_servicios, 0 AS ingresos_mano_obra,
                     0 AS ingresos_refacciones, 0 AS total_iva
