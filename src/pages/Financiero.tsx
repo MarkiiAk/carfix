@@ -613,8 +613,14 @@ export const Financiero = () => {
     setSavingDias(prev => new Set(prev).add(id));
     try {
       await empleadosFinancieroAPI.asistencia(id, periodoFechaInicio, nuevosDias);
+      // Si tenía activo=false del sistema anterior (legacy), limpiarlo al encender
+      if (nuevosDias > 0 && !emp.activo) {
+        await empleadosFinancieroAPI.actualizar(id, { activo: true });
+      }
       setEmpleados(prev => prev.map(e =>
-        e.id === id ? { ...e, dias_trabajados: nuevosDias } : e
+        e.id === id
+          ? { ...e, dias_trabajados: nuevosDias, activo: nuevosDias > 0 ? true : e.activo }
+          : e
       ));
     } catch { /* silencioso */ }
     finally {
@@ -1288,8 +1294,9 @@ export const Financiero = () => {
                             const esSemanal   = (e.tipo_sueldo ?? 'diario') === 'semanal';
                             const diasVal     = Number(e.dias_trabajados ?? 5);
                             const guardando   = savingDias.has(e.id);
-                            // activoSemana: activo global Y trabajó esta semana (dias>0)
-                            const activoSemana = e.activo && diasVal > 0;
+                            // activoSemana: trabajó esta semana (dias>0).
+                            // No usamos e.activo aquí — activo=false legacy queda limpiado al primer toggle ON.
+                            const activoSemana = diasVal > 0;
                             return (
                             <tr key={e.id} className={`border-b border-gray-50 dark:border-gray-700/50 last:border-0 ${!activoSemana ? 'opacity-50' : ''}`}>
                               <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{e.nombre}</td>
