@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faArrowUpRightFromSquare } from '@fortawesome/free-solid-svg-icons';
@@ -142,6 +142,11 @@ function buildItems(o: OrdenFinanciero): ItemFila[] {
 export const TablaOrdenesDesglosada = ({ ordenes, totales, loading }: Props) => {
   const navigate = useNavigate();
   const [filtro, setFiltro] = useState<FiltroEstado>('todas');
+
+  // Resetear filtro al cambiar de semana/período (evita que 'abiertas' oculte rows 'anticipo')
+  useEffect(() => {
+    setFiltro('todas');
+  }, [ordenes]);
 
   if (loading) {
     return (

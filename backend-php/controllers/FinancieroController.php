@@ -1092,9 +1092,8 @@ class FinancieroController {
                 ORDER BY fecha ASC
             ";
             $stmtB   = $this->db->prepare($sqlB);
-            $execB   = $stmtB->execute([$fechaInicio, $fechaFin]);
-            $rowsB   = $execB ? $stmtB->fetchAll(PDO::FETCH_ASSOC) : [];
-            $debugB  = ['ok' => $execB, 'rows' => count($rowsB), 'err' => $stmtB->errorInfo(), 'fi' => $fechaInicio, 'ff' => $fechaFin];
+            $stmtB->execute([$fechaInicio, $fechaFin]);
+            $rowsB = $stmtB->fetchAll(PDO::FETCH_ASSOC);
 
             // ── Query C: cerradas por fecha_entregada (solo el restante) ──────────────
             $sqlC = "
@@ -1237,7 +1236,6 @@ class FinancieroController {
                 'success' => true,
                 'ordenes' => $ordenes,
                 'totales' => $totales,
-                '_debug_b' => $debugB ?? null,  // TEMP DEBUG — borrar después
             ]);
 
         } catch (Exception $e) {
