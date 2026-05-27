@@ -118,45 +118,6 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   const totOrd = ordenes?.totales ?? { costo_venta: 0, costo_refacciones: 0, ganancia: 0 };
 
   // -----------------------------------------------------------------------
-  // Top servicios
-  // -----------------------------------------------------------------------
-  const topServicios = (resumen?.top_servicios ?? []).slice(0, 5);
-  const maxServicio = topServicios.reduce((max, s) => Math.max(max, s.total_generado), 0);
-
-  const filasServicios = topServicios.map(s => {
-    const barpct = maxServicio > 0 ? ((s.total_generado / maxServicio) * 100).toFixed(0) : '0';
-    return `
-      <div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:12px;color:#111a13">${escapeHtml(s.descripcion)}</span>
-          <span style="font-size:11px;color:#4a5e50">${fmt(s.total_generado)} · ${s.veces}x</span>
-        </div>
-        <div style="height:7px;background:#e3e8e0;border-radius:4px;overflow:hidden">
-          <div style="height:100%;width:${barpct}%;background:#CBF518;border-radius:4px"></div>
-        </div>
-      </div>`;
-  }).join('');
-
-  // -----------------------------------------------------------------------
-  // Top clientes
-  // -----------------------------------------------------------------------
-  const topClientes = (resumen?.top_clientes ?? []).slice(0, 5);
-
-  const filasClientes = topClientes.map((c, i) => {
-    const circuloStyle = i === 0
-      ? 'background:#CBF518;color:#0f2318'
-      : 'background:#e3e8e0;color:#4a5e50';
-    return `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="width:28px;height:28px;border-radius:50%;${circuloStyle};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${i + 1}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:#111a13;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.nombre)}</div>
-          <div style="font-size:11px;color:#8a9e90">${fmt(c.total_gastado)} · ${c.num_visitas} visita${c.num_visitas !== 1 ? 's' : ''}</div>
-        </div>
-      </div>`;
-  }).join('');
-
-  // -----------------------------------------------------------------------
   // Empleados activos
   // -----------------------------------------------------------------------
   // Activo esta semana = dias_trabajados > 0 (igual que la pantalla)
@@ -493,18 +454,6 @@ tr.fila-total td.lime { color: var(--lime); text-align: right; }
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- TOP SERVICIOS + TOP CLIENTES -->
-    <div class="two-col-p2">
-      <div class="col-card">
-        <div class="col-title">Top 5 Servicios</div>
-        ${filasServicios || '<p style="font-size:12px;color:#8a9e90">Sin datos.</p>'}
-      </div>
-      <div class="col-card">
-        <div class="col-title">Top 5 Clientes</div>
-        ${filasClientes || '<p style="font-size:12px;color:#8a9e90">Sin datos.</p>'}
-      </div>
     </div>
 
     ${cajaSectionHTML}

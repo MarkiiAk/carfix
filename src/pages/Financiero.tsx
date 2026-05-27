@@ -8,8 +8,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { TablaOrdenesDesglosada } from '../components/financiero/TablaOrdenesDesglosada';
 import type {
   ResumenFinancieroResponse,
-  TopServicio,
-  TopCliente,
   GastoAdmin,
   GastosAdminResponse,
   OrdenFinanciero,
@@ -119,95 +117,6 @@ const BarraDistribucion = ({ totalSueldos, costoRefacciones, totalFijos, gastosV
           </div>
         ))}
       </div>
-    </div>
-  );
-};
-
-
-// ---------------------------------------------------------------------------
-// Top servicios
-// ---------------------------------------------------------------------------
-
-interface TopServiciosProps {
-  servicios: TopServicio[];
-}
-
-const TopServicios = ({ servicios }: TopServiciosProps) => {
-  if (servicios.length === 0) {
-    return (
-      <p className="text-sm text-gray-400 dark:text-gray-500 py-4">
-        Sin servicios registrados en este periodo.
-      </p>
-    );
-  }
-
-  const maximo = servicios[0].total_generado;
-
-  return (
-    <div className="space-y-3">
-      {servicios.map((s) => {
-        const pct = maximo > 0 ? (s.total_generado / maximo) * 100 : 0;
-        return (
-          <div key={s.descripcion}>
-            <div className="flex items-center justify-between mb-1 gap-2">
-              <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">
-                {s.descripcion}
-              </span>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  {formatMoneda(s.total_generado)}
-                </span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 w-12 text-right">
-                  {s.veces}x
-                </span>
-              </div>
-            </div>
-            <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-sag-500 rounded-full transition-all duration-500"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Top clientes
-// ---------------------------------------------------------------------------
-
-interface TopClientesProps { clientes: TopCliente[]; }
-
-const TopClientes = ({ clientes }: TopClientesProps) => {
-  if (clientes.length === 0) {
-    return <p className="text-sm text-gray-400 dark:text-gray-500 py-4">Sin clientes en este periodo.</p>;
-  }
-  const maximo = clientes[0].total_gastado;
-  return (
-    <div className="space-y-3">
-      {clientes.map((c, i) => {
-        const pct = maximo > 0 ? Math.round((c.total_gastado / maximo) * 100) : 0;
-        return (
-          <div key={c.id} className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 w-4">{i + 1}</span>
-                <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{c.nombre}</span>
-                <span className="text-xs text-gray-400 hidden sm:inline">· {c.num_visitas} {c.num_visitas === 1 ? 'visita' : 'visitas'}</span>
-              </div>
-              <span className="font-semibold text-gray-700 dark:text-gray-300 flex-shrink-0 ml-2">
-                {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(c.total_gastado)}
-              </span>
-            </div>
-            <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-              <div className="bg-sag-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 };
@@ -845,7 +754,7 @@ export const Financiero = () => {
 
   if (!datos) return null;
 
-  const { periodo, resumen, top_servicios, top_clientes } = datos;
+  const { periodo, resumen } = datos;
   // sinDatos = true solo cuando NO hay órdenes Y tampoco hay costos operativos.
   // Si hay sueldos, pagos fijos o gastos variables aunque sea sin ingresos,
   // se debe mostrar el balance (quedará en déficit).
@@ -942,22 +851,7 @@ export const Financiero = () => {
           ) : (
             <>
               {/* ----------------------------------------------------------- */}
-              {/* 1. Cards KPI                                                  */}
-              {/* ----------------------------------------------------------- */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <KpiCard
-                  label="Total facturado"
-                  value={resumen.total_facturado}
-                  highlight
-                  sub={`${resumen.num_ordenes} ${resumen.num_ordenes === 1 ? 'orden' : 'ordenes'}`}
-                />
-                <KpiCard label="Servicios" value={resumen.ingresos_servicios} />
-                <KpiCard label="Mano de obra" value={resumen.ingresos_mano_obra} />
-                <KpiCard label="Refacciones" value={resumen.ingresos_refacciones} />
-              </div>
-
-              {/* ----------------------------------------------------------- */}
-              {/* 2. Barra de distribución + Balance (requieren gastosAdmin)    */}
+              {/* Barra de distribución + Balance (requieren gastosAdmin)       */}
               {/* ----------------------------------------------------------- */}
               {gastosAdmin !== null && !loadingAdmin && (() => {
                 const totalFacturado    = datos?.resumen.total_facturado ?? 0;
@@ -1101,31 +995,25 @@ export const Financiero = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* --------------------------------------------------- */}
+                    {/* KPI — Total facturado + desglose por tipo             */}
+                    {/* --------------------------------------------------- */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      <KpiCard
+                        label="Total facturado"
+                        value={resumen.total_facturado}
+                        highlight
+                        sub={`${resumen.num_ordenes} ${resumen.num_ordenes === 1 ? 'orden' : 'ordenes'}`}
+                      />
+                      <KpiCard label="Servicios" value={resumen.ingresos_servicios} />
+                      <KpiCard label="Mano de obra" value={resumen.ingresos_mano_obra} />
+                      <KpiCard label="Refacciones" value={resumen.ingresos_refacciones} />
+                    </div>
                   </>
                 );
               })()}
 
-              {/* ----------------------------------------------------------- */}
-              {/* 5. Top servicios + Top clientes                              */}
-              {/* ----------------------------------------------------------- */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
-                  <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">
-                    Top 5 servicios
-                  </h2>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                    Solo ingresos — sin datos de costos operativos
-                  </p>
-                  <TopServicios servicios={top_servicios} />
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
-                  <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
-                    Top 5 clientes
-                  </h2>
-                  <TopClientes clientes={top_clientes} />
-                </div>
-              </div>
             </>
           )}
         </>
