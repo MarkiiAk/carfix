@@ -90,29 +90,91 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   const pctGanancia    = pct(Math.max(0, gananciaNeta));
 
   // -----------------------------------------------------------------------
-  // Sección 2 — Tabla de órdenes (con tipo_fila)
+  // Sección 2 — Tabla de órdenes desglosada por ítem (igual que UI)
   // -----------------------------------------------------------------------
-  const filasOrdenes = (ordenes?.ordenes ?? []).map(o => {
-    const enProceso = ['en_proceso', 'abierta', 'pendiente'].includes(o.estado);
-    const gananciaColor = o.ganancia < 0 ? 'color:#dc2626' : enProceso ? 'color:#d97706' : '';
+  const ESTADOS_ABIERTOS = new Set(['en_proceso','en_revision','pendiente','cotizacion','en_espera','abierta','en proceso']);
 
-    const tipoChip = o.tipo_fila === 'anticipo'
-      ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700">anticipo</span>'
-      : o.tipo_fila === 'cierre'
-      ? '<span style="background:#dcfce7;color:#15803d;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700">restante</span>'
+  const filasOrdenes = (ordenes?.ordenes ?? []).map(o => {
+    const tipoFila = o.tipo_fila ?? (ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '') ? 'apertura' : 'cierre');
+    const gananciaColor = o.ganancia < 0 ? 'color:#dc2626' : 'color:#16a34a';
+    const totalCompra = (o.costo_refacciones ?? 0) + (o.costo_interno ?? 0);
+    const estadoBadge = estadoLabel[o.estado] ?? o.estado;
+
+    const tipoChip = tipoFila === 'anticipo'
+      ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;display:inline-block;margin-top:2px">anticipo ✓</span>'
+      : tipoFila === 'cierre'
+      ? '<span style="background:#dcfce7;color:#15803d;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;display:inline-block;margin-top:2px">restante</span>'
+      : tipoFila === 'apertura'
+      ? '<span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;display:inline-block;margin-top:2px">anticipo</span>'
       : '';
 
-    return `
+    // Construir ítems igual que buildItems() en TablaOrdenesDesglosada
+    type Item = { concepto: string; costoVenta: number | null; costoCompra: number | null; tipo: string; proveedor?: string | null };
+    const items: Item[] = [
+      ...(o.servicios ?? []).map(s => ({ concepto: s.descripcion, costoVenta: s.subtotal, costoCompra: null, tipo: 'servicio' })),
+      ...(o.refacciones_detalle ?? []).map(r => {
+        const costo = r.precio_costo != null && r.cantidad != null ? r.precio_costo * r.cantidad : r.subtotal / 1.30;
+        return { concepto: r.descripcion, costoVenta: r.subtotal, costoCompra: costo, tipo: 'refaccion', proveedor: r.proveedor };
+      }),
+    ];
+    if ((o.iva ?? 0) > 0) items.push({ concepto: 'IVA (16%)', costoVenta: o.iva!, costoCompra: null, tipo: 'iva' });
+    (o.gastos_internos ?? []).forEach(g => items.push({ concepto: g.concepto, costoVenta: null, costoCompra: g.monto, tipo: 'costo_interno' }));
+    if ((o.gastos_internos ?? []).length === 0 && (o.costo_interno ?? 0) > 0)
+      items.push({ concepto: 'Costos internos', costoVenta: null, costoCompra: o.costo_interno!, tipo: 'costo_interno' });
+
+    const celdasFijas = (rowspan: number) => `
+        <td rowspan="${rowspan}" style="padding:7px 8px;color:#4a5e50;font-size:11px;vertical-align:top;border-right:1px solid #f0f0f0;white-space:nowrap">
+          ${fmtFecha(o.fecha)}<br>${tipoChip}
+        </td>
+        <td rowspan="${rowspan}" style="padding:7px 8px;font-size:11px;vertical-align:top;border-right:1px solid #f0f0f0;min-width:120px;max-width:150px">
+          <div style="font-weight:600;color:#111a13;font-size:11px">${escapeHtml(o.vehiculo || '—')}</div>
+          <div style="color:#4a5e50;font-size:10px;margin-top:1px">${escapeHtml(o.cliente_nombre)}</div>
+          <div style="font-size:9px;color:#8a9e90;margin-top:2px">${estadoBadge}</div>
+        </td>`;
+
+    if (items.length === 0) {
+      return `
       <tr style="border-bottom:1px solid #e3e8e0">
-        <td style="padding:8px 10px;color:#4a5e50;font-size:12px">${fmtFecha(o.fecha)}</td>
-        <td style="padding:8px 10px;font-size:12px">${escapeHtml(o.cliente_nombre)}</td>
-        <td style="padding:8px 10px;font-size:12px;color:#4a5e50">${escapeHtml(o.vehiculo)}</td>
-        <td style="padding:8px 10px;text-align:right;font-size:12px">${fmt(o.costo_venta)}</td>
-        <td style="padding:8px 10px;text-align:right;font-size:12px;color:#4a5e50">${fmt(o.costo_refacciones)}</td>
-        <td style="padding:8px 10px;text-align:right;font-size:12px;${gananciaColor}">${fmt(o.ganancia)}</td>
-        <td style="padding:8px 10px;font-size:11px;color:#8a9e90">${estadoLabel[o.estado] ?? o.estado}</td>
-        <td style="padding:8px 10px;text-align:center">${tipoChip}</td>
+        ${celdasFijas(1)}
+        <td style="padding:7px 8px;color:#8a9e90;font-size:11px">—</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px">${fmt(o.costo_venta)}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;color:#8a9e90">${totalCompra > 0 ? fmt(totalCompra) : '—'}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;font-weight:600;${gananciaColor}">${fmt(o.ganancia)}</td>
       </tr>`;
+    }
+
+    const totalRows = items.length + 1;
+    const itemRows = items.map((item, idx) => `
+      <tr style="border-bottom:1px solid #f5f5f5">
+        ${idx === 0 ? celdasFijas(totalRows) : ''}
+        <td style="padding:5px 8px;font-size:11px;vertical-align:top">
+          ${item.tipo === 'costo_interno' || item.tipo === 'iva'
+            ? `<span style="font-style:italic;color:#8a9e90">${escapeHtml(item.concepto)}</span>`
+            : `<span style="color:#111a13">${escapeHtml(item.concepto)}</span>`}
+          ${item.tipo === 'refaccion' && item.proveedor ? `<div style="font-size:9px;color:#8a9e90;margin-top:1px">${escapeHtml(item.proveedor)}</div>` : ''}
+        </td>
+        <td style="padding:5px 8px;text-align:right;font-size:11px;vertical-align:top">
+          ${item.tipo === 'iva' ? `<span style="color:#8a9e90;font-style:italic">${fmt(item.costoVenta!)}</span>`
+            : (item.tipo === 'servicio' || item.tipo === 'refaccion') && item.costoVenta != null ? `<span style="color:#374151">${fmt(item.costoVenta)}</span>`
+            : ''}
+        </td>
+        <td style="padding:5px 8px;text-align:right;font-size:11px;vertical-align:top">
+          ${item.tipo === 'refaccion' && item.costoCompra != null ? `<span style="color:#8a9e90">${fmt(item.costoCompra)}</span>`
+            : item.tipo === 'costo_interno' && item.costoCompra != null ? `<span style="color:#dc2626">${fmt(item.costoCompra)}</span>`
+            : ''}
+        </td>
+        <td style="padding:5px 8px;vertical-align:top"></td>
+      </tr>`).join('');
+
+    const totalRow = `
+      <tr style="border-bottom:2px solid #d1d5db;background:#f9fafb">
+        <td style="padding:7px 8px;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">Total</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;font-weight:700;color:#111a13">${fmt(o.costo_venta)}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;color:#8a9e90">${totalCompra > 0 ? fmt(totalCompra) : '—'}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;font-weight:700;${gananciaColor}">${fmt(o.ganancia)}</td>
+      </tr>`;
+
+    return itemRows + totalRow;
   }).join('');
 
   const totOrd = ordenes?.totales ?? { costo_venta: 0, costo_refacciones: 0, ganancia: 0 };
@@ -121,27 +183,7 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   // Sección 5 — Equipo y gastos (appendix)
   // -----------------------------------------------------------------------
   const empleadosActivos = empleados.filter(e => Number(e.dias_trabajados ?? 5) > 0);
-  const filasEmpleados = empleadosActivos.length === 0
-    ? '<p style="font-size:12px;color:#8a9e90">Sin empleados registrados.</p>'
-    : empleadosActivos.map(e => `
-      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e3e8e0;font-size:12px">
-        <span style="color:#111a13">${escapeHtml(e.nombre)}${e.puesto ? ` <span style="color:#8a9e90">(${escapeHtml(e.puesto)})</span>` : ''}</span>
-        <span style="color:#4a5e50;font-variant-numeric:tabular-nums">${fmt(pagoSemanalEmp(e) * (tipoPeriodo === 'semana' ? 1 : 4))}</span>
-      </div>`).join('');
-
   const fijosActivos = pagosFijos.filter(p => p.activo);
-  const filasFixos = fijosActivos.length === 0
-    ? '<p style="font-size:12px;color:#8a9e90">Sin pagos fijos registrados.</p>'
-    : fijosActivos.map(p => {
-        const montoPeriodo = p.frecuencia === 'semanal'
-          ? p.monto * (tipoPeriodo === 'semana' ? 1 : 4)
-          : (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
-        return `
-          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e3e8e0;font-size:12px">
-            <span style="color:#111a13">${escapeHtml(p.concepto)}</span>
-            <span style="color:#4a5e50;font-variant-numeric:tabular-nums">${fmt(montoPeriodo)}</span>
-          </div>`;
-      }).join('');
 
   // -----------------------------------------------------------------------
   // Caja chica
@@ -185,7 +227,7 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reporte SAG Garage &mdash; ${escapeHtml(labelPeriodo)}</title>
+<title>Reporte Financiero &mdash; ${escapeHtml(labelPeriodo)}</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -296,7 +338,7 @@ tr.fila-total td.lime { color: #CBF518; text-align: right; }
   <!-- CABECERA -->
   <div class="header">
     <div class="header-brand">
-      <div class="name">SAG GARAGE</div>
+      <div class="name">REPORTE FINANCIERO</div>
       <div class="sub">Gestión de Taller</div>
     </div>
     <div class="header-center">
@@ -332,23 +374,20 @@ tr.fila-total td.lime { color: #CBF518; text-align: right; }
       <thead>
         <tr>
           <th>Fecha</th>
-          <th>Cliente</th>
-          <th>Vehículo</th>
-          <th class="r">Ingreso</th>
-          <th class="r">Costo Refas</th>
+          <th>Unidad / Cliente</th>
+          <th>Concepto</th>
+          <th class="r">Costo Venta</th>
+          <th class="r">Costo Compra</th>
           <th class="r">Ganancia</th>
-          <th>Estado</th>
-          <th class="c">Tipo</th>
         </tr>
       </thead>
       <tbody>
-        ${filasOrdenes || '<tr><td colspan="8" style="padding:16px;text-align:center;color:#8a9e90">Sin órdenes en este período</td></tr>'}
+        ${filasOrdenes || '<tr><td colspan="6" style="padding:16px;text-align:center;color:#8a9e90">Sin órdenes en este período</td></tr>'}
         <tr class="fila-total">
-          <td colspan="3">TOTAL</td>
+          <td colspan="3">TOTAL PERÍODO &middot; ${(ordenes?.ordenes ?? []).length} ${(ordenes?.ordenes ?? []).length === 1 ? 'orden' : 'órdenes'}</td>
           <td class="lime">${fmt(totOrd.costo_venta)}</td>
           <td style="text-align:right;color:#9ab5a0">${fmt(totOrd.costo_refacciones)}</td>
           <td class="lime">${fmt(totOrd.ganancia)}</td>
-          <td colspan="2"></td>
         </tr>
       </tbody>
     </table>
@@ -447,34 +486,12 @@ tr.fila-total td.lime { color: #CBF518; text-align: right; }
 
   ${notaIVA ? `<div class="s">${notaIVA}</div>` : ''}
 
-  <!-- 5. EQUIPO Y GASTOS (referencia) -->
-  <div class="s">
-    <div class="col-2">
-      <div class="col-card">
-        <div class="col-title">Equipo</div>
-        ${filasEmpleados}
-        <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:12px;font-weight:700;color:#111a13;border-top:1px solid #e3e8e0;margin-top:6px">
-          <span>Total sueldos</span>
-          <span style="font-variant-numeric:tabular-nums">${fmt(totalSueldos)}</span>
-        </div>
-      </div>
-      <div class="col-card">
-        <div class="col-title">Costos fijos</div>
-        ${filasFixos}
-        <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:12px;font-weight:700;color:#111a13;border-top:1px solid #e3e8e0;margin-top:6px">
-          <span>Total fijos</span>
-          <span style="font-variant-numeric:tabular-nums">${fmt(totalFijos)}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 6. CAJA CHICA -->
+  <!-- 5. CAJA CHICA -->
   ${cajaChica ? `<div class="s">${cajaSectionHTML}</div>` : ''}
 
   <!-- PIE -->
   <div class="footer">
-    SAG Garage &times; AkLabs &nbsp;&middot;&nbsp; Reporte confidencial &nbsp;&middot;&nbsp; saggarage.com.mx
+    Reporte Financiero &times; Gestión de Taller &nbsp;&middot;&nbsp; Documento confidencial
   </div>
 
 </div>
@@ -485,7 +502,7 @@ tr.fila-total td.lime { color: #CBF518; text-align: right; }
   if (!win) return;
   win.document.write(htmlCompleto);
   win.document.close();
-  win.document.title = `Reporte SAG Garage — ${params.labelPeriodo}`;
+  win.document.title = `Reporte Financiero — ${params.labelPeriodo}`;
   setTimeout(() => win.print(), 600);
 }
 
