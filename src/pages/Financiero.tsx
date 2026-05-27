@@ -865,46 +865,45 @@ export const Financiero = () => {
       {/* ------------------------------------------------------------------ */}
       {/* Header con selector de período (tipo + flechas)                     */}
       {/* ------------------------------------------------------------------ */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white shrink-0">
             Ingresos
           </h1>
+
+          {/* Selector de semana centrado */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setOffset(o => o + 1)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title="Período anterior"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[148px] text-center capitalize">
+              {labelPeriodoActivo}
+            </span>
+            <button
+              onClick={() => setOffset(o => Math.max(0, o - 1))}
+              disabled={offset === 0}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Período siguiente"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
           <button
             onClick={handleDescargarReporte}
             disabled={sinDatos || isLoading || !gastosAdmin}
-            className="flex items-center gap-2 px-4 py-2 bg-sag-500 text-gray-900 rounded-lg text-sm font-semibold hover:bg-sag-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-sag-500 text-gray-900 rounded-lg text-sm font-semibold hover:bg-sag-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             <FontAwesomeIcon icon={faDownload} className="text-xs" />
             Descargar reporte
-          </button>
-        </div>
-
-        {/* Solo modo semanal — toggle mensual removido */}
-
-        {/* Selector de flechas */}
-        <div className="flex items-center justify-center gap-3">
-          <button
-            onClick={() => setOffset(o => o + 1)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title="Período anterior"
-          >
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[160px] text-center capitalize">
-            {labelPeriodoActivo}
-          </span>
-          <button
-            onClick={() => setOffset(o => Math.max(0, o - 1))}
-            disabled={offset === 0}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Período siguiente"
-          >
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
           </button>
         </div>
       </div>
