@@ -881,7 +881,7 @@ export const Financiero = () => {
                     />
 
                     {/* --------------------------------------------------- */}
-                    {/* 3. Detalle por orden — justo debajo de ¿A dónde fue? */}
+                    {/* 3+4. Detalle por orden + Balance fusionados           */}
                     {/* --------------------------------------------------- */}
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
                       <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
@@ -895,104 +895,114 @@ export const Financiero = () => {
                         totales={ordTotales}
                         loading={loadingOrdenes}
                       />
-                    </div>
 
-                    {/* --------------------------------------------------- */}
-                    {/* 4. Balance — hero number + cascada                    */}
-                    {/* --------------------------------------------------- */}
-                    <div>
-                      {/* Hero number */}
-                      <div className="bg-gray-900 rounded-2xl px-6 py-5 mb-1 border border-gray-700">
-                        <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">
-                          Ganancia neta del período
-                        </p>
-                        <p className={`text-5xl font-black tabular-nums leading-none ${gananciaNetaFinal >= 0 ? 'text-sag-500' : 'text-red-400'}`}>
-                          {formatMoneda(gananciaNetaFinal)}
-                        </p>
+                      {/* Separador */}
+                      <div className="mt-8 mb-6 border-t-2 border-dashed border-gray-200 dark:border-gray-700" />
+
+                      {/* Balance fusionado */}
+                      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-5">
+                        Balance &mdash; {tituloPeriodo}
+                      </h2>
+
+                      {/* Grupo 1: de facturado a ingreso neto */}
+                      <div className="space-y-2 mb-2">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">Total facturado</span>
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-300 tabular-nums">
+                            {formatMoneda(totalFacturado)}
+                          </span>
+                        </div>
+                        {costoRefas !== 0 && (
+                          <div className="flex items-baseline justify-between pl-5">
+                            <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Costo refacciones</span>
+                            <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(costoRefas)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-700 pt-2 font-semibold text-gray-700 dark:text-gray-200">
+                          <span className="text-sm">Ingreso neto operativo</span>
+                          <span className="text-sm tabular-nums">{formatMoneda(ingresoNeto)}</span>
+                        </div>
                       </div>
 
-                      {/* Cascada detallada */}
-                      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5">
-                        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-5">
-                          Balance &mdash; {tituloPeriodo}
-                        </h2>
+                      <div className="my-4 border-t border-dashed border-gray-200 dark:border-gray-700" />
 
-                        {/* Grupo 1: de facturado a ingreso neto */}
-                        <div className="space-y-2 mb-2">
-                          <div className="flex items-baseline justify-between">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Total facturado</span>
-                            <span className="text-sm font-medium text-gray-600 dark:text-gray-300 tabular-nums">
-                              {formatMoneda(totalFacturado)}
-                            </span>
-                          </div>
-
-                          {costoRefas !== 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">
-                                &minus; Costo refacciones
-                              </span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">
-                                &minus;{formatMoneda(costoRefas)}
-                              </span>
+                      {/* Grupo 2: deducciones expandidas */}
+                      <div className="space-y-1">
+                        {/* Sueldos — línea por empleado + subtotal */}
+                        {totalSueldosActivos > 0 && (
+                          <>
+                            {empleadosVigentes.map(e => (
+                              <div key={e.id} className="flex items-baseline justify-between pl-5">
+                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                  {e.nombre}{e.puesto ? ` (${e.puesto})` : ''}
+                                </span>
+                                <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                                  &minus;{formatMoneda(pagoSemanalEmpleado(e))}
+                                </span>
+                              </div>
+                            ))}
+                            <div className="flex items-baseline justify-between pl-5 pt-1 border-t border-gray-100 dark:border-gray-800">
+                              <span className="text-sm text-gray-400 dark:text-gray-500 font-medium">&minus; Sueldos del equipo</span>
+                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums font-medium">&minus;{formatMoneda(totalSueldosActivos)}</span>
                             </div>
-                          )}
+                          </>
+                        )}
 
-                          <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-700 pt-2 font-semibold text-gray-700 dark:text-gray-200">
-                            <span className="text-sm">Ingreso neto operativo</span>
-                            <span className="text-sm tabular-nums">{formatMoneda(ingresoNeto)}</span>
+                        {/* Pagos fijos — línea por concepto + subtotal */}
+                        {totalPagosFijosActivos > 0 && (
+                          <>
+                            {pagosFijos.filter(p => p.activo).map(p => {
+                              const montoPeriodo = p.frecuencia === 'semanal'
+                                ? p.monto * (tipoPeriodo === 'semana' ? 1 : 4)
+                                : (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
+                              return (
+                                <div key={p.id} className="flex items-baseline justify-between pl-5">
+                                  <span className="text-xs text-gray-400 dark:text-gray-500">{p.concepto}</span>
+                                  <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(montoPeriodo)}</span>
+                                </div>
+                              );
+                            })}
+                            <div className="flex items-baseline justify-between pl-5 pt-1 border-t border-gray-100 dark:border-gray-800">
+                              <span className="text-sm text-gray-400 dark:text-gray-500 font-medium">&minus; Costos fijos</span>
+                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums font-medium">&minus;{formatMoneda(totalPagosFijosActivos)}</span>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Gastos variables — agrupado */}
+                        {gastosVarsRaw > 0 && (
+                          <div className="flex items-baseline justify-between pl-5">
+                            <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Gastos variables</span>
+                            <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosVarsRaw)}</span>
                           </div>
+                        )}
+
+                        {/* Costos internos de órdenes — agrupado */}
+                        {gastosOrdenesVal > 0 && (
+                          <div className="flex items-baseline justify-between pl-5">
+                            <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Costos internos de órdenes</span>
+                            <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosOrdenesVal)}</span>
+                          </div>
+                        )}
+
+                        {/* Ganancia neta */}
+                        <div className="flex items-baseline justify-between border-t-2 border-gray-300 dark:border-gray-600 pt-3 mt-2">
+                          <span className="text-sm font-bold text-gray-800 dark:text-gray-100">Ganancia neta</span>
+                          <span className={`text-lg font-black tabular-nums ${gananciaNetaFinal >= 0 ? 'text-sag-500' : 'text-red-500 dark:text-red-400'}`}>
+                            {formatMoneda(gananciaNetaFinal)}
+                          </span>
                         </div>
 
-                        <div className="my-4 border-t border-dashed border-gray-200 dark:border-gray-700" />
-
-                        {/* Grupo 2: deducciones */}
-                        <div className="space-y-2">
-                          {totalSueldosActivos > 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Sueldos del equipo</span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(totalSueldosActivos)}</span>
-                            </div>
-                          )}
-                          {totalPagosFijosActivos > 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Costos fijos</span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(totalPagosFijosActivos)}</span>
-                            </div>
-                          )}
-                          {gastosVarsRaw > 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">
-                                &minus; Gastos variables
-                              </span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosVarsRaw)}</span>
-                            </div>
-                          )}
-                          {gastosOrdenesVal > 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Costos internos de órdenes</span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosOrdenesVal)}</span>
-                            </div>
-                          )}
-
-                          {/* Línea final — Ganancia neta */}
-                          <div className="flex items-baseline justify-between border-t-2 border-gray-300 dark:border-gray-600 pt-3 mt-2">
-                            <span className="text-sm font-bold text-gray-800 dark:text-gray-100">Ganancia neta</span>
-                            <span className={`text-lg font-black tabular-nums ${gananciaNetaFinal >= 0 ? 'text-sag-500' : 'text-red-500 dark:text-red-400'}`}>
-                              {formatMoneda(gananciaNetaFinal)}
-                            </span>
-                          </div>
-
-                          {/* Nota IVA */}
-                          {ivaDelPeriodo > 0 && (
-                            <p className="text-xs text-blue-500 dark:text-blue-400 mt-3 leading-relaxed border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2">
-                              IVA recaudado este período: {formatMoneda(ivaDelPeriodo)} — no es ganancia, va al SAT.
-                            </p>
-                          )}
-
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
-                            Utilidad estimada. No incluye otros impuestos ni deducciones fiscales.
+                        {/* Nota IVA */}
+                        {ivaDelPeriodo > 0 && (
+                          <p className="text-xs text-blue-500 dark:text-blue-400 mt-3 leading-relaxed border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2">
+                            IVA recaudado este período: {formatMoneda(ivaDelPeriodo)} — no es ganancia, va al SAT.
                           </p>
-                        </div>
+                        )}
+
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
+                          Utilidad estimada. No incluye otros impuestos ni deducciones fiscales.
+                        </p>
                       </div>
                     </div>
 
