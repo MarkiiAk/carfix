@@ -1271,7 +1271,7 @@ class FinancieroController {
             $sql = "
                 SELECT es.id, es.usuario_id, es.nombre, es.puesto, es.sueldo_diario, es.tipo_sueldo,
                        es.fecha_inicio, es.fecha_fin, es.activo,
-                       COALESCE(ea.dias_trabajados, 5) AS dias_trabajados
+                       COALESCE(ea.dias_trabajados, IF(es.tipo_sueldo = 'semanal', 7, 5)) AS dias_trabajados
                 FROM empleados_sueldos es
                 LEFT JOIN empleado_asistencia ea
                   ON ea.empleado_id = es.id

@@ -516,9 +516,10 @@ export const Financiero = () => {
   const toggleEmpleado = async (id: number) => {
     const emp = empleados.find(e => e.id === id);
     if (!emp || !periodoFechaInicio) return;
-    // Toggle week-specific: dias>0 → apagar (0); dias=0 → encender (5 default)
-    const diasActuales = Number(emp.dias_trabajados ?? 5);
-    const nuevosDias   = diasActuales > 0 ? 0 : 5;
+    // Toggle week-specific: dias>0 → apagar (0); dias=0 → encender (7 semanal, 5 diario)
+    const esSemanal    = (emp.tipo_sueldo ?? 'diario') === 'semanal';
+    const diasActuales = Number(emp.dias_trabajados ?? (esSemanal ? 7 : 5));
+    const nuevosDias   = diasActuales > 0 ? 0 : (esSemanal ? 7 : 5);
     setSavingDias(prev => new Set(prev).add(id));
     try {
       await empleadosFinancieroAPI.asistencia(id, periodoFechaInicio, nuevosDias);
@@ -671,13 +672,14 @@ export const Financiero = () => {
   // Pago real de la semana por empleado:
   // - activo=false (baja permanente o dato legacy)   → $0
   // - dias_trabajados=0 (toggle OFF esta semana)      → $0
-  // - semanal → sueldo_diario es el monto semanal flat
+  // - semanal → sueldo_diario × dias_trabajados/7 (descuenta faltas; default 7 = semana completa)
   // - diario  → sueldo_diario × dias_trabajados (default 5 si no hay registro)
   const pagoSemanalEmpleado = (e: EmpleadoSueldo): number => {
     if (!e.activo) return 0;
-    const dias = Number(e.dias_trabajados ?? 5);
+    const esSemanal = (e.tipo_sueldo ?? 'diario') === 'semanal';
+    const dias = Number(e.dias_trabajados ?? (esSemanal ? 7 : 5));
     if (dias === 0) return 0;
-    if ((e.tipo_sueldo ?? 'diario') === 'semanal') return Number(e.sueldo_diario);
+    if (esSemanal) return Number(e.sueldo_diario) * dias / 7;
     return Number(e.sueldo_diario) * dias;
   };
 
@@ -1191,7 +1193,8 @@ export const Financiero = () => {
                         <tbody>
                           {empleadosVigentes.map(e => {
                             const esSemanal   = (e.tipo_sueldo ?? 'diario') === 'semanal';
-                            const diasVal     = Number(e.dias_trabajados ?? 5);
+                            const diasVal     = Number(e.dias_trabajados ?? (esSemanal ? 7 : 5));
+                            const faltas      = esSemanal ? Math.max(0, 7 - diasVal) : 0;
                             const guardando   = savingDias.has(e.id);
                             // activoSemana: trabajó esta semana (dias>0).
                             // No usamos e.activo aquí — activo=false legacy queda limpiado al primer toggle ON.
@@ -1212,10 +1215,29 @@ export const Financiero = () => {
                                   <span>{formatMoneda(Number(e.sueldo_diario))}/día</span>
                                 )}
                               </td>
-                              {/* Columna Días — editable solo para empleados diarios */}
+                              {/* Columna Días / Faltas */}
                               <td className="py-2 pr-3 text-center">
                                 {esSemanal ? (
-                                  <span className="text-xs text-gray-400">—</span>
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => { if (activoSemana && faltas > 0) cambiarDias(e, diasVal + 1); }}
+                                        disabled={!activoSemana || faltas <= 0 || guardando}
+                                        className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
+                                        title="Quitar una falta"
+                                      >−</button>
+                                      <span className="w-4 text-center text-sm tabular-nums font-medium text-gray-700 dark:text-gray-200">
+                                        {guardando ? '…' : faltas}
+                                      </span>
+                                      <button
+                                        onClick={() => { if (activoSemana && faltas < 6) cambiarDias(e, diasVal - 1); }}
+                                        disabled={!activoSemana || faltas >= 6 || guardando}
+                                        className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
+                                        title="Agregar una falta"
+                                      >+</button>
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-none">faltas</span>
+                                  </div>
                                 ) : (
                                   <div className="flex items-center justify-center gap-1">
                                     <button
