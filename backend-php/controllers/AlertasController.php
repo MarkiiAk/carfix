@@ -97,6 +97,7 @@ class AlertasController {
             $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
+            $stmt->execute();
             $alertas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Procesar cada alerta para formatear los datos JSON
@@ -132,10 +133,13 @@ class AlertasController {
                     'error' => 'No autorizado - Acceso denegado a las alertas'
                 ];
             }
-            // Verificar que la alerta existe y está pendiente
-            $checkQuery = "SELECT id, estado FROM alertas_servicio WHERE id = ?";
+
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
+            // Verificar que la alerta existe, está pendiente y pertenece a esta sucursal
+            $checkQuery = "SELECT id, estado FROM alertas_servicio WHERE id = ? AND sucursal_id = ?";
             $checkStmt = $this->db->prepare($checkQuery);
-            $checkStmt->execute([$alertaId]);
+            $checkStmt->execute([$alertaId, $sucursalId]);
             $alerta = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$alerta) {
@@ -152,25 +156,26 @@ class AlertasController {
                 ];
             }
 
-            // Marcar como leída
+            // Marcar como leída (filtro de sucursal incluido en WHERE)
             $updateQuery = "
-                UPDATE alertas_servicio 
-                SET 
+                UPDATE alertas_servicio
+                SET
                     estado = 'leida',
                     fecha_marcada_leida = CURRENT_TIMESTAMP,
                     usuario_marco_leida = ?
                 WHERE id = ?
+                  AND sucursal_id = ?
             ";
 
             $updateStmt = $this->db->prepare($updateQuery);
             $userId = $userData['id'] ?? $userData['user_id'] ?? null;
-            
+
             // Si no podemos obtener un ID válido de usuario, usar NULL
             if (!$userId || !is_numeric($userId)) {
                 $userId = null;
             }
-            
-            $updateStmt->execute([$userId, $alertaId]);
+
+            $updateStmt->execute([$userId, $alertaId, $sucursalId]);
 
             return [
                 'success' => true,
@@ -447,16 +452,21 @@ class AlertasController {
                     'error' => 'No autorizado - Acceso denegado a las alertas'
                 ];
             }
+
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             $query = "
-                SELECT 
+                SELECT
                     COUNT(*) as total_alertas,
                     SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
                     SUM(CASE WHEN estado = 'leida' THEN 1 ELSE 0 END) as leidas,
                     AVG(dias_desde_servicio) as promedio_dias_servicio
                 FROM alertas_servicio
+                WHERE sucursal_id = :sucursal_id
             ";
 
             $stmt = $this->db->prepare($query);
+            $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->execute();
             $stats = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -488,9 +498,11 @@ class AlertasController {
                 ];
             }
 
-            // Verificar que la alerta existe
-            $checkStmt = $this->db->prepare("SELECT id FROM alertas_servicio WHERE id = ?");
-            $checkStmt->execute([(int)$alertaId]);
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
+            // Verificar que la alerta existe y pertenece a esta sucursal
+            $checkStmt = $this->db->prepare("SELECT id FROM alertas_servicio WHERE id = ? AND sucursal_id = ?");
+            $checkStmt->execute([(int)$alertaId, $sucursalId]);
             if (!$checkStmt->fetch()) {
                 return [
                     'success' => false,

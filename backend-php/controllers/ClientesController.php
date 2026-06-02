@@ -67,11 +67,7 @@ class ClientesController {
                 $stmt = $this->db->prepare($sql);
             }
 
-            // Bind del filtro de sucursal si aplica
-            if ($filtrarSucursal) {
-                $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
-            }
-
+            $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->execute();
             $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -107,7 +103,8 @@ class ClientesController {
      */
     public function buscarPorTelefono() {
         try {
-            requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $tel = isset($_GET['tel']) ? trim($_GET['tel']) : '';
 
@@ -134,12 +131,14 @@ class ClientesController {
                 LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v        ON v.cliente_id = c.id
                 WHERE c.activo = 1
+                  AND c.sucursal_id = :sucursal_id
                   AND c.telefono LIKE :tel
                 GROUP BY c.id
                 ORDER BY ultima_visita DESC
             ";
             $stmt = $this->db->prepare($sql);
             $like = '%' . $tel . '%';
+            $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->bindParam(':tel', $like, PDO::PARAM_STR);
             $stmt->execute();
             $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -194,7 +193,8 @@ class ClientesController {
      */
     public function buscar() {
         try {
-            requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $q = isset($_GET['q']) ? trim($_GET['q']) : '';
 
@@ -219,12 +219,14 @@ class ClientesController {
                 LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v        ON v.cliente_id = c.id
                 WHERE c.activo = 1
+                  AND c.sucursal_id = :sucursal_id
                   AND (c.nombre LIKE :q_nombre OR c.telefono LIKE :q_tel)
                 GROUP BY c.id
                 ORDER BY total_visitas DESC, ultima_visita DESC
                 LIMIT 6
             ";
             $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->bindValue(':q_nombre', $like, PDO::PARAM_STR);
             $stmt->bindValue(':q_tel',    $like, PDO::PARAM_STR);
             $stmt->execute();
@@ -300,7 +302,8 @@ class ClientesController {
      */
     public function update($id) {
         try {
-            requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $clienteId = (int) $id;
             $data = json_decode(file_get_contents('php://input'), true);
@@ -321,11 +324,13 @@ class ClientesController {
                     email     = :email
                 WHERE id = :id
                   AND activo = 1
+                  AND sucursal_id = :sucursal_id
             ");
-            $stmt->bindValue(':nombre',   trim($data['nombre']),             PDO::PARAM_STR);
-            $stmt->bindValue(':telefono', isset($data['telefono']) ? trim($data['telefono']) : null, PDO::PARAM_STR);
-            $stmt->bindValue(':email',    isset($data['email'])    ? trim($data['email'])    : null, PDO::PARAM_STR);
-            $stmt->bindValue(':id',       $clienteId,                        PDO::PARAM_INT);
+            $stmt->bindValue(':nombre',      trim($data['nombre']),             PDO::PARAM_STR);
+            $stmt->bindValue(':telefono',    isset($data['telefono']) ? trim($data['telefono']) : null, PDO::PARAM_STR);
+            $stmt->bindValue(':email',       isset($data['email'])    ? trim($data['email'])    : null, PDO::PARAM_STR);
+            $stmt->bindValue(':id',          $clienteId,                        PDO::PARAM_INT);
+            $stmt->bindValue(':sucursal_id', $sucursalId,                       PDO::PARAM_INT);
             $stmt->execute();
 
             if ($stmt->rowCount() === 0) {
@@ -369,11 +374,12 @@ class ClientesController {
      */
     public function perfil($id) {
         try {
-            requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $clienteId = (int) $id;
 
-            // 1. Datos básicos del cliente + métricas
+            // 1. Datos básicos del cliente + métricas (filtrado por sucursal)
             $stmtC = $this->db->prepare("
                 SELECT
                     c.id,
@@ -386,9 +392,11 @@ class ClientesController {
                 LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
                 WHERE c.id = :id
                   AND c.activo = 1
+                  AND c.sucursal_id = :sucursal_id
                 GROUP BY c.id
             ");
-            $stmtC->bindParam(':id', $clienteId, PDO::PARAM_INT);
+            $stmtC->bindParam(':id',          $clienteId,  PDO::PARAM_INT);
+            $stmtC->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmtC->execute();
             $cliente = $stmtC->fetch(PDO::FETCH_ASSOC);
 

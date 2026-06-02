@@ -70,9 +70,8 @@ class OrdenesController {
      */
     public function getById($id) {
         try {
-            $userData     = requireAuth();
-            $sucursalId   = (int) ($userData['sucursal_activa_id'] ?? 1);
-            $esSuperAdmin = in_array($userData['rol'] ?? '', ['sistemas', 'superusuario'], true);
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $stmt = $this->db->prepare('
                 SELECT o.*,
@@ -85,20 +84,14 @@ class OrdenesController {
                 LEFT JOIN clientes c ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v ON o.vehiculo_id = v.id
                 WHERE o.id = ?
+                  AND o.sucursal_id = ?
             ');
-            $stmt->execute([(int) $id]);
+            $stmt->execute([(int) $id, $sucursalId]);
             $orden = $stmt->fetch();
 
             if (!$orden) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Orden no encontrada']);
-                return;
-            }
-
-            // Verificar acceso por sucursal para admin_sucursal
-            if (!$esSuperAdmin && (int) $orden['sucursal_id'] !== $sucursalId) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Sin acceso a esta orden']);
                 return;
             }
 
@@ -329,12 +322,13 @@ class OrdenesController {
      */
     public function update($id) {
         try {
-            $userData = requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
             $data = json_decode(file_get_contents('php://input'), true);
-            
-            // Verificar que la orden existe
-            $stmt = $this->db->prepare('SELECT id FROM ordenes_servicio WHERE id = ?');
-            $stmt->execute([$id]);
+
+            // Verificar que la orden existe y pertenece a esta sucursal
+            $stmt = $this->db->prepare('SELECT id FROM ordenes_servicio WHERE id = ? AND sucursal_id = ?');
+            $stmt->execute([$id, $sucursalId]);
             if (!$stmt->fetch()) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Orden no encontrada']);
@@ -772,10 +766,11 @@ class OrdenesController {
      */
     public function delete($id) {
         try {
-            requireAuth();
-            
-            $stmt = $this->db->prepare('DELETE FROM ordenes_servicio WHERE id = ?');
-            $stmt->execute([$id]);
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
+            $stmt = $this->db->prepare('DELETE FROM ordenes_servicio WHERE id = ? AND sucursal_id = ?');
+            $stmt->execute([$id, $sucursalId]);
             
             if ($stmt->rowCount() === 0) {
                 http_response_code(404);
