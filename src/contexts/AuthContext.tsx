@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (!['sistemas', 'superusuario'].includes(rol)) return [];
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL || ''}/backend-php/admin/sucursales`,
+        `${import.meta.env.VITE_API_URL || ''}/admin/sucursales`,
         { headers: { Authorization: `Bearer ${localStorage.getItem('token') ?? ''}` } },
       );
       if (!res.ok) return [];

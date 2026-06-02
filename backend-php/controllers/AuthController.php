@@ -58,22 +58,23 @@ class AuthController {
             // Determinar sucursales permitidas según rol
             [$sucursalActivaId, $sucursalesPermitidas] = $this->getSucursalesParaUsuario($user['id'], $rol);
 
+            // Cargar nombre de sucursal activa (antes del token para incluirlo en el payload)
+            $sucursalNombre = $this->getNombreSucursal($sucursalActivaId);
+
             // Generar token JWT
             $payload = [
-                'userId'               => $user['id'],
-                'email'                => $user['email'],
-                'username'             => $user['username'] ?? $user['email'],
-                'rol'                  => $rol,
-                'sucursal_activa_id'   => $sucursalActivaId,
+                'userId'                => $user['id'],
+                'email'                 => $user['email'],
+                'username'              => $user['username'] ?? $user['email'],
+                'rol'                   => $rol,
+                'sucursal_activa_id'    => $sucursalActivaId,
+                'sucursal_nombre'       => $sucursalNombre,
                 'sucursales_permitidas' => $sucursalesPermitidas,
-                'iat'                  => time(),
-                'exp'                  => time() + (24 * 60 * 60) // 24 horas
+                'iat'                   => time(),
+                'exp'                   => time() + (24 * 60 * 60)
             ];
 
             $token = JWT::encode($payload);
-
-            // Cargar nombre de sucursal activa
-            $sucursalNombre = $this->getNombreSucursal($sucursalActivaId);
 
             // Preparar respuesta
             $response = [
@@ -127,12 +128,12 @@ class AuthController {
             }
 
             // Generar nuevo token manteniendo el exp original
+            $sucursalNombre = $this->getNombreSucursal($sucursalId);
             $nuevoPayload = $userData;
             $nuevoPayload['sucursal_activa_id'] = $sucursalId;
-            // Preservar exp: no se resetea el timer de 24 h
+            $nuevoPayload['sucursal_nombre']    = $sucursalNombre;
 
             $nuevoToken = JWT::encode($nuevoPayload);
-            $sucursalNombre = $this->getNombreSucursal($sucursalId);
 
             echo json_encode([
                 'token'    => $nuevoToken,
