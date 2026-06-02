@@ -32,6 +32,9 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
 
 // Manejar preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -42,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Cargar configuración
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/jwt.php';
+require_once __DIR__ . '/config/helpers.php';
 
 // Cargar controladores
 require_once __DIR__ . '/controllers/AuthController.php';
@@ -235,6 +239,7 @@ try {
 
     // Módulo Financiero / Ingresos
     elseif ($path === 'financiero' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en resumen()
         $controller = new FinancieroController();
         $controller->resumen();
     }
@@ -280,12 +285,14 @@ try {
 
     // Órdenes desglosadas por período
     elseif ($path === 'financiero/ordenes' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en ordenesDesglosadas()
         $controller = new FinancieroController();
         $controller->ordenesDesglosadas();
     }
 
     // Empleados y sueldos
     elseif ($path === 'financiero/empleados' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en empleadosSueldos()
         $controller = new FinancieroController();
         $controller->empleadosSueldos();
     }
@@ -315,6 +322,7 @@ try {
 
     // Pagos fijos del taller
     elseif ($path === 'financiero/pagos-fijos' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en pagosFijos()
         $controller = new FinancieroController();
         $controller->pagosFijos();
     }
@@ -338,14 +346,17 @@ try {
 
     // Caja chica
     elseif ($path === 'financiero/caja-chica' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en cajaChica()
         $controller = new FinancieroController();
         $controller->cajaChica();
     }
     elseif ($path === 'financiero/caja-chica' && $request_method === 'POST') {
+        // requireAuth() se llama internamente en crearMovimientoCajaChica()
         $controller = new FinancieroController();
         $controller->crearMovimientoCajaChica();
     }
     elseif (preg_match('#^financiero/caja-chica/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        // requireAuth() se llama internamente en eliminarMovimientoCajaChica()
         $controller = new FinancieroController();
         $controller->eliminarMovimientoCajaChica((int) $matches[1]);
     }
@@ -398,8 +409,9 @@ try {
         $controller->removerSucursal((int) $matches[1], (int) $matches[2]);
     }
 
-    // Ruta de salud
+    // Ruta de salud (requiere autenticación para no exponer información a usuarios anónimos)
     elseif ($path === 'health' && $request_method === 'GET') {
+        requireAuth();
         echo json_encode([
             'status' => 'ok',
             'database' => 'MySQL conectado',
@@ -414,9 +426,5 @@ try {
     }
     
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode([
-        'error' => 'Error interno del servidor',
-        'message' => $e->getMessage()
-    ]);
+    jsonError('Error interno del servidor', $e, 500);
 }

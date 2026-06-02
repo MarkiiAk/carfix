@@ -1,11 +1,9 @@
 <?php
 class AlertasController {
     private $db;
-    private $jwt_secret;
 
     public function __construct($db) {
         $this->db = $db;
-        $this->jwt_secret = $_ENV['JWT_SECRET'] ?? 'sag_garage_jwt_secret_key_2024';
     }
 
     /**

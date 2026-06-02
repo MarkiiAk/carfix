@@ -409,7 +409,7 @@ class ClientesController {
                 return;
             }
 
-            // 2. Resumen financiero del cliente
+            // 2. Resumen financiero del cliente (filtrado por sucursal)
             $stmtF = $this->db->prepare("
                 SELECT
                     COALESCE(SUM(o.total), 0)                    AS total_gastado,
@@ -419,12 +419,14 @@ class ClientesController {
                     COALESCE(SUM(o.iva), 0)                      AS total_iva
                 FROM ordenes_servicio o
                 WHERE o.cliente_id = :cid
+                  AND o.sucursal_id = :sucursal_id
             ");
-            $stmtF->bindParam(':cid', $clienteId, PDO::PARAM_INT);
+            $stmtF->bindParam(':cid',         $clienteId,  PDO::PARAM_INT);
+            $stmtF->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmtF->execute();
             $financiero = $stmtF->fetch(PDO::FETCH_ASSOC);
 
-            // 3. Vehículos del cliente
+            // 3. Vehículos del cliente (filtrado por sucursal vía órdenes)
             $stmtV = $this->db->prepare("
                 SELECT id, marca, modelo, anio, placas, niv
                 FROM vehiculos
@@ -435,7 +437,7 @@ class ClientesController {
             $stmtV->execute();
             $vehiculos = $stmtV->fetchAll(PDO::FETCH_ASSOC);
 
-            // 3. Órdenes por cada vehículo
+            // 4. Órdenes por cada vehículo (filtradas por sucursal)
             $vehiculosConHistorial = [];
             foreach ($vehiculos as $vehiculo) {
                 $vehiculoId = (int) $vehiculo['id'];
@@ -457,9 +459,11 @@ class ClientesController {
                         ) AS servicio_principal
                     FROM ordenes_servicio o
                     WHERE o.vehiculo_id = :vid
+                      AND o.sucursal_id = :sucursal_id
                     ORDER BY o.fecha_ingreso DESC
                 ");
-                $stmtO->bindParam(':vid', $vehiculoId, PDO::PARAM_INT);
+                $stmtO->bindParam(':vid',         $vehiculoId, PDO::PARAM_INT);
+                $stmtO->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
                 $stmtO->execute();
                 $ordenes = $stmtO->fetchAll(PDO::FETCH_ASSOC);
 

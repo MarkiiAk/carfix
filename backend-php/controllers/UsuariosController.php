@@ -65,8 +65,7 @@ class UsuariosController {
             echo json_encode(['success' => true, 'usuarios' => $usuarios]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error al obtener usuarios', $e, 500);
         }
     }
 
@@ -114,14 +113,13 @@ class UsuariosController {
             ]);
 
         } catch (Exception $e) {
-            // Clave duplicada (username/email)
+            // Clave duplicada (username/email) — este mensaje es seguro exponer al cliente
             if (str_contains($e->getMessage(), '1062')) {
                 http_response_code(409);
                 echo json_encode(['success' => false, 'error' => 'username o email ya existe']);
                 return;
             }
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error al crear usuario', $e, 500);
         }
     }
 
@@ -185,8 +183,7 @@ class UsuariosController {
             echo json_encode(['success' => true]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error al actualizar usuario', $e, 500);
         }
     }
 
@@ -209,8 +206,7 @@ class UsuariosController {
             echo json_encode(['success' => true]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error al eliminar usuario', $e, 500);
         }
     }
 
@@ -241,8 +237,7 @@ class UsuariosController {
             echo json_encode(['success' => true]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error al asignar sucursal', $e, 500);
         }
     }
 
@@ -261,8 +256,7 @@ class UsuariosController {
             echo json_encode(['success' => true]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error al remover acceso a sucursal', $e, 500);
         }
     }
 }

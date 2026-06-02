@@ -5,47 +5,58 @@
  */
 
 class JWT {
-    private static $secret_key = 'sag-garage-secret-key-2026-change-in-production';
     private static $algorithm = 'HS256';
-    
+
+    /**
+     * Lee el secret JWT desde el entorno.
+     * Lanza excepción si no está configurado — nunca usa un fallback hardcodeado.
+     */
+    private static function getSecretKey(): string {
+        $secret = $_ENV['JWT_SECRET'] ?? null;
+        if (!$secret) {
+            throw new Exception('JWT_SECRET no configurado en el entorno');
+        }
+        return $secret;
+    }
+
     /**
      * Genera un token JWT
      */
     public static function encode($payload) {
         $header = json_encode(['typ' => 'JWT', 'alg' => self::$algorithm]);
         $payload = json_encode($payload);
-        
+
         $base64UrlHeader = self::base64UrlEncode($header);
         $base64UrlPayload = self::base64UrlEncode($payload);
-        
+
         $signature = hash_hmac(
             'sha256',
             $base64UrlHeader . "." . $base64UrlPayload,
-            self::$secret_key,
+            self::getSecretKey(),
             true
         );
         $base64UrlSignature = self::base64UrlEncode($signature);
-        
+
         return $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
     }
-    
+
     /**
      * Decodifica y verifica un token JWT
      */
     public static function decode($jwt) {
         $tokenParts = explode('.', $jwt);
-        
+
         if (count($tokenParts) !== 3) {
             throw new Exception('Token inválido');
         }
-        
+
         list($header, $payload, $signature) = $tokenParts;
-        
+
         // Verificar firma
         $expectedSignature = hash_hmac(
             'sha256',
             $header . "." . $payload,
-            self::$secret_key,
+            self::getSecretKey(),
             true
         );
         $expectedSignature = self::base64UrlEncode($expectedSignature);

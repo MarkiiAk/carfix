@@ -42,8 +42,7 @@ class SucursalesController {
             echo json_encode(['success' => true, 'sucursales' => $sucursales]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error en operación de sucursal', $e, 500);
         }
     }
 
@@ -81,8 +80,7 @@ class SucursalesController {
             ]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error en operación de sucursal', $e, 500);
         }
     }
 
@@ -125,8 +123,7 @@ class SucursalesController {
             echo json_encode(['success' => true]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error en operación de sucursal', $e, 500);
         }
     }
 
@@ -168,8 +165,7 @@ class SucursalesController {
             echo json_encode(['success' => true]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            jsonError('Error en operación de sucursal', $e, 500);
         }
     }
 }

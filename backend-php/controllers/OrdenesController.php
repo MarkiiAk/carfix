@@ -54,13 +54,7 @@ class OrdenesController {
             echo json_encode($ordenes);
             
         } catch (Exception $e) {
-            error_log("ERROR en getAll(): " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al obtener órdenes',
-                'message' => $e->getMessage(),
-                'timestamp' => time()
-            ]);
+            jsonError('Error al obtener órdenes', $e, 500);
         }
     }
     
@@ -100,11 +94,7 @@ class OrdenesController {
             echo json_encode($orden);
             
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al obtener orden',
-                'message' => $e->getMessage()
-            ]);
+            jsonError('Error al obtener orden', $e, 500);
         }
     }
     
@@ -311,14 +301,10 @@ class OrdenesController {
             
         } catch (Exception $e) {
             $this->db->rollBack();
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al crear orden',
-                'message' => $e->getMessage()
-            ]);
+            jsonError('Error al crear orden', $e, 500);
         }
     }
-    
+
     /**
      * Actualizar orden - PUT /api/ordenes/:id
      */
@@ -755,14 +741,10 @@ class OrdenesController {
             
         } catch (Exception $e) {
             $this->db->rollBack();
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al actualizar orden',
-                'message' => $e->getMessage()
-            ]);
+            jsonError('Error al actualizar orden', $e, 500);
         }
     }
-    
+
     /**
      * Eliminar orden - DELETE /api/ordenes/:id
      */
@@ -783,11 +765,7 @@ class OrdenesController {
             http_response_code(204);
             
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al eliminar orden',
-                'message' => $e->getMessage()
-            ]);
+            jsonError('Error al eliminar orden', $e, 500);
         }
     }
     

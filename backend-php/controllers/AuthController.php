@@ -94,14 +94,10 @@ class AuthController {
             echo json_encode($response);
             
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al procesar login',
-                'message' => $e->getMessage()
-            ]);
+            jsonError('Error al procesar login', $e, 500);
         }
     }
-    
+
     /**
      * Cambiar sucursal activa — POST /api/auth/switch-sucursal
      * Genera un nuevo token con sucursal_activa_id actualizado.
@@ -144,8 +140,7 @@ class AuthController {
             ]);
 
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Error al cambiar sucursal', 'message' => $e->getMessage()]);
+            jsonError('Error al cambiar sucursal', $e, 500);
         }
     }
 
