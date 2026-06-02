@@ -121,21 +121,43 @@ class JWT {
 }
 
 /**
- * Middleware para verificar autenticación
+ * Middleware para verificar autenticación.
+ *
+ * @param array $rolesPermitidos  Lista de roles con acceso. Vacío = cualquier rol autenticado.
+ * @return array  Payload completo del JWT (incluye sucursal_activa_id, rol, userId, etc.)
  */
-function requireAuth() {
+function requireAuth(array $rolesPermitidos = []): array {
     try {
         $token = JWT::getBearerToken();
-        
+
         if (!$token) {
             http_response_code(401);
             echo json_encode(['error' => 'No autorizado - Token no proporcionado']);
             exit();
         }
-        
+
         $payload = JWT::decode($token);
+
+        // Retrocompatibilidad: tokens generados antes de multi-sucursal no tienen estos campos.
+        if (!isset($payload['sucursal_activa_id'])) {
+            $payload['sucursal_activa_id'] = 1;
+        }
+        if (!isset($payload['sucursales_permitidas'])) {
+            $payload['sucursales_permitidas'] = [1];
+        }
+        // Retrocompatibilidad: rol 'admin' antiguo se trata como superusuario.
+        if (($payload['rol'] ?? '') === 'admin') {
+            $payload['rol'] = 'superusuario';
+        }
+
+        if (!empty($rolesPermitidos) && !in_array($payload['rol'] ?? '', $rolesPermitidos, true)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Sin permisos para esta acción']);
+            exit();
+        }
+
         return $payload;
-        
+
     } catch (Exception $e) {
         http_response_code(401);
         echo json_encode(['error' => 'No autorizado - ' . $e->getMessage()]);

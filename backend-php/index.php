@@ -51,6 +51,8 @@ require_once __DIR__ . '/controllers/PuntosSeguridadController.php';
 require_once __DIR__ . '/controllers/AlertasController.php';
 require_once __DIR__ . '/controllers/ClientesController.php';
 require_once __DIR__ . '/controllers/FinancieroController.php';
+require_once __DIR__ . '/controllers/SucursalesController.php';
+require_once __DIR__ . '/controllers/UsuariosController.php';
 // require_once __DIR__ . '/controllers/WhatsappController.php'; // No necesario - usando TwilioConversationalBot
 
 // Obtener conexión a base de datos
@@ -81,6 +83,10 @@ try {
     elseif ($path === 'auth/me' && $request_method === 'GET') {
         $controller = new AuthController();
         $controller->me();
+    }
+    elseif ($path === 'auth/switch-sucursal' && $request_method === 'POST') {
+        $controller = new AuthController();
+        $controller->switchSucursal();
     }
     
     // Rutas de órdenes
@@ -342,6 +348,54 @@ try {
     elseif (preg_match('#^financiero/caja-chica/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
         $controller = new FinancieroController();
         $controller->eliminarMovimientoCajaChica((int) $matches[1]);
+    }
+
+    // -----------------------------------------------------------------------
+    // Admin — Sucursales (requiere rol sistemas)
+    // -----------------------------------------------------------------------
+    elseif ($path === 'admin/sucursales' && $request_method === 'GET') {
+        $controller = new SucursalesController();
+        $controller->listar();
+    }
+    elseif ($path === 'admin/sucursales' && $request_method === 'POST') {
+        $controller = new SucursalesController();
+        $controller->crear();
+    }
+    elseif (preg_match('#^admin/sucursales/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $controller = new SucursalesController();
+        $controller->actualizar((int) $matches[1]);
+    }
+    elseif (preg_match('#^admin/sucursales/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new SucursalesController();
+        $controller->eliminar((int) $matches[1]);
+    }
+
+    // -----------------------------------------------------------------------
+    // Admin — Usuarios (requiere rol sistemas)
+    // -----------------------------------------------------------------------
+    elseif ($path === 'admin/usuarios' && $request_method === 'GET') {
+        $controller = new UsuariosController();
+        $controller->listar();
+    }
+    elseif ($path === 'admin/usuarios' && $request_method === 'POST') {
+        $controller = new UsuariosController();
+        $controller->crear();
+    }
+    elseif (preg_match('#^admin/usuarios/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $controller = new UsuariosController();
+        $controller->actualizar((int) $matches[1]);
+    }
+    elseif (preg_match('#^admin/usuarios/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new UsuariosController();
+        $controller->eliminar((int) $matches[1]);
+    }
+    elseif (preg_match('#^admin/usuarios/([0-9]+)/sucursal$#', $path, $matches) && $request_method === 'POST') {
+        $controller = new UsuariosController();
+        $controller->asignarSucursal((int) $matches[1]);
+    }
+    elseif (preg_match('#^admin/usuarios/([0-9]+)/sucursal/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new UsuariosController();
+        $controller->removerSucursal((int) $matches[1], (int) $matches[2]);
     }
 
     // Ruta de salud

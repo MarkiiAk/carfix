@@ -5,6 +5,7 @@ import { isAlertasAuthorized } from '../utils/alertsAuth';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
 import type { Alerta } from '../services/alertasAutoService';
+import type { Sucursal } from '../types';
 
 // --- Iconos SVG inline para no depender de paquetes adicionales ---
 
@@ -36,6 +37,74 @@ const IconBell = () => (
   </svg>
 );
 
+const IconSwitch = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+      d="M8 7h12m0 0l-4-4m4 4l-4 4M4 17h12m0 0l-4-4m4 4l-4 4" />
+  </svg>
+);
+
+const IconSistemas = () => (
+  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+// ---------------------------------------------------------------------------
+// BranchSwitcher — dropdown de sucursales para sistemas/superusuario
+// ---------------------------------------------------------------------------
+interface BranchSwitcherProps {
+  sucursalActiva: Sucursal | null;
+  sucursalesPermitidas: Sucursal[];
+  onSwitch: (id: number) => void;
+}
+
+const BranchSwitcher = ({ sucursalActiva, sucursalesPermitidas, onSwitch }: BranchSwitcherProps) => {
+  const [open, setOpen] = useState(false);
+
+  if (sucursalesPermitidas.length <= 1) return null;
+
+  return (
+    <div className="relative mx-3 mb-3">
+      <button
+        onClick={() => setOpen((p) => !p)}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white/5 border border-gray-700 hover:bg-white/10 transition-colors text-xs text-gray-300"
+      >
+        <span className="flex items-center gap-2 truncate">
+          <IconSwitch />
+          <span className="truncate font-medium">{sucursalActiva?.nombre ?? 'Sucursal'}</span>
+        </span>
+        <svg
+          className={`w-3 h-3 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-lg border border-gray-700 bg-gray-900 shadow-xl overflow-hidden">
+          {sucursalesPermitidas.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => { onSwitch(s.id); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-xs transition-colors
+                ${sucursalActiva?.id === s.id
+                  ? 'bg-sag-500/20 text-sag-400 font-semibold'
+                  : 'text-gray-300 hover:bg-white/5'
+                }`}
+            >
+              {s.nombre}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface SidebarProps {
   alertasPendientes?: number;
 }
@@ -43,6 +112,7 @@ interface SidebarProps {
 export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, sucursalActiva, sucursalesPermitidas, switchSucursal } = useAuth();
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
 
@@ -55,7 +125,16 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
   const inactiveClasses =
     'text-gray-400 hover:bg-white/5 hover:text-gray-200 border-l-[3px] border-transparent pl-[9px]';
 
+  const esSuperAdmin = user?.rol === 'sistemas' || user?.rol === 'superusuario';
 
+  const handleSwitch = async (id: number) => {
+    try {
+      await switchSucursal(id);
+      navigate('/dashboard');
+    } catch {
+      // silencioso — el contexto ya maneja el error
+    }
+  };
 
   // --- Desktop Sidebar ---
   const DesktopSidebar = () => (
@@ -75,6 +154,17 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
           <p className="text-gray-500 text-xs leading-tight">Gestión de taller</p>
         </div>
       </div>
+
+      {/* Branch Switcher — solo sistemas/superusuario con 2+ sucursales */}
+      {esSuperAdmin && (
+        <div className="pt-3">
+          <BranchSwitcher
+            sucursalActiva={sucursalActiva}
+            sucursalesPermitidas={sucursalesPermitidas}
+            onSwitch={handleSwitch}
+          />
+        </div>
+      )}
 
       {/* Nav items */}
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -120,6 +210,28 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
           </span>
           <span className="flex-1">Alertas WhatsApp</span>
         </button>
+
+        {/* Sección Sistemas — solo rol sistemas */}
+        {user?.rol === 'sistemas' && (
+          <>
+            <div className="border-t border-gray-800 my-2" />
+            <p className="px-3 text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Sistemas</p>
+            <button
+              onClick={() => navigate('/sistemas/sucursales')}
+              className={`${navItemBase} w-full text-left ${isActive('/sistemas/sucursales') ? activeClasses : inactiveClasses}`}
+            >
+              <IconSistemas />
+              <span>Sucursales</span>
+            </button>
+            <button
+              onClick={() => navigate('/sistemas/usuarios')}
+              className={`${navItemBase} w-full text-left ${isActive('/sistemas/usuarios') ? activeClasses : inactiveClasses}`}
+            >
+              <IconClientes />
+              <span>Usuarios</span>
+            </button>
+          </>
+        )}
       </nav>
     </aside>
   );

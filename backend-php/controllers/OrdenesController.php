@@ -13,60 +13,55 @@ class OrdenesController {
     
     /**
      * Obtener todas las órdenes - GET /api/ordenes
-     * CORRIGE: Cache busting y logging para debug
+     * Multi-sucursal: admin_sucursal solo ve su sucursal; sistemas/superusuario ven todo
+     * o filtran con ?sucursal_id=N
      */
     public function getAll() {
         try {
-            requireAuth();
-            
-            // LOG CRÍTICO: Para debugging del problema de cache
-            error_log("=== DEBUG ORDENES GET ===");
-            error_log("Timestamp: " . date('Y-m-d H:i:s'));
-            error_log("User: " . json_encode($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'));
-            
-            // FORZAR NUEVA CONEXIÓN para evitar cache de PDO
-            $freshDb = Database::getInstance()->getConnection();
-            
-            // Query con timestamp para evitar cache de query
-            $stmt = $freshDb->prepare('
-                SELECT o.*, 
-                       c.nombre as cliente_nombre,
-                       c.telefono as cliente_telefono,
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+            $esSuperAdmin = in_array($userData['rol'] ?? '', ['sistemas', 'superusuario'], true);
+
+            // superusuario/sistemas pueden filtrar por sucursal_id vía query param
+            if ($esSuperAdmin && isset($_GET['sucursal_id'])) {
+                $sucursalId     = (int) $_GET['sucursal_id'];
+                $filtrarSucursal = true;
+            } elseif ($esSuperAdmin) {
+                $filtrarSucursal = false; // ve todas
+            } else {
+                $filtrarSucursal = true;  // admin_sucursal siempre filtra
+            }
+
+            $whereClause = $filtrarSucursal ? 'WHERE o.sucursal_id = ?' : 'WHERE 1=1';
+            $params      = $filtrarSucursal ? [$sucursalId] : [];
+
+            $sql = "
+                SELECT o.*,
+                       c.nombre  AS cliente_nombre,
+                       c.telefono AS cliente_telefono,
                        v.marca, v.modelo, v.anio, v.placas,
-                       NOW() as query_timestamp
+                       NOW() AS query_timestamp
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v ON o.vehiculo_id = v.id
+                $whereClause
                 ORDER BY o.id DESC
-            ');
-            $stmt->execute();
+            ";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
             $ordenes = $stmt->fetchAll();
-            
-            // LOG: IDs encontrados
-            $ids = array_column($ordenes, 'id');
-            error_log("IDs encontrados en BD: " . json_encode($ids));
-            error_log("Total órdenes: " . count($ordenes));
-            
-            // Verificación específica para 1720 y 1721
-            foreach ($ordenes as $orden) {
-                if ($orden['id'] == '1720') {
-                    error_log("PROBLEMA: Orden 1720 AÚN EXISTE en BD - " . json_encode($orden));
-                }
-                if ($orden['id'] == '1721') {
-                    error_log("CORRECTO: Orden 1721 encontrada - " . json_encode($orden));
-                }
-            }
-            
+
             // Procesar cada orden para incluir datos relacionados
             foreach ($ordenes as &$orden) {
                 $orden = $this->enrichOrdenData($orden);
             }
-            
+
             // Headers anti-cache
             header('Cache-Control: no-cache, no-store, must-revalidate');
             header('Pragma: no-cache');
             header('Expires: 0');
-            
+
             echo json_encode($ordenes);
             
         } catch (Exception $e) {
@@ -82,34 +77,44 @@ class OrdenesController {
     
     /**
      * Obtener una orden por ID - GET /api/ordenes/:id
+     * Multi-sucursal: admin_sucursal solo puede ver órdenes de su sucursal.
      */
     public function getById($id) {
         try {
-            requireAuth();
-            
+            $userData     = requireAuth();
+            $sucursalId   = (int) ($userData['sucursal_activa_id'] ?? 1);
+            $esSuperAdmin = in_array($userData['rol'] ?? '', ['sistemas', 'superusuario'], true);
+
             $stmt = $this->db->prepare('
-                SELECT o.*, 
-                       c.nombre as cliente_nombre,
-                       c.telefono as cliente_telefono,
-                       c.email as cliente_email,
-                       c.direccion as cliente_direccion,
+                SELECT o.*,
+                       c.nombre    AS cliente_nombre,
+                       c.telefono  AS cliente_telefono,
+                       c.email     AS cliente_email,
+                       c.direccion AS cliente_direccion,
                        v.marca, v.modelo, v.anio, v.placas, v.color, v.niv
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v ON o.vehiculo_id = v.id
                 WHERE o.id = ?
             ');
-            $stmt->execute([$id]);
+            $stmt->execute([(int) $id]);
             $orden = $stmt->fetch();
-            
+
             if (!$orden) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Orden no encontrada']);
                 return;
             }
-            
+
+            // Verificar acceso por sucursal para admin_sucursal
+            if (!$esSuperAdmin && (int) $orden['sucursal_id'] !== $sucursalId) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Sin acceso a esta orden']);
+                return;
+            }
+
             $orden = $this->enrichOrdenData($orden);
-            
+
             echo json_encode($orden);
             
         } catch (Exception $e) {
@@ -159,7 +164,7 @@ class OrdenesController {
             // NOTA: numero_orden se generará DESPUÉS del insert usando el ID real
             $stmt = $this->db->prepare('
                 INSERT INTO ordenes_servicio (
-                    numero_orden, cliente_id, vehiculo_id, usuario_id,
+                    numero_orden, cliente_id, vehiculo_id, usuario_id, sucursal_id,
                     problema_reportado, diagnostico,
                     kilometraje_entrada, kilometraje_salida,
                     nivel_combustible,
@@ -177,7 +182,7 @@ class OrdenesController {
                     incluir_iva, iva, total, anticipo, fecha_anticipo,
                     fecha_promesa_entrega,
                     estado
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ');
             
             $vehiculoData = $data['vehiculo'] ?? [];
@@ -191,12 +196,14 @@ class OrdenesController {
             
             // Generar numero_orden temporal (se actualizará después)
             $numero_orden_temp = 'TEMP-' . time();
-            
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             $stmt->execute([
                 $numero_orden_temp,
                 $cliente_id,
                 $vehiculo_id,
                 $userData['userId'],
+                $sucursalId,
                 $data['problemaReportado'] ?? '',
                 $data['diagnosticoTecnico'] ?? '',
                 $vehiculoData['kilometrajeEntrada'] ?? '',
@@ -250,7 +257,7 @@ class OrdenesController {
             $orden_id = $this->db->lastInsertId();
             
             // 5. Generar numero_orden real usando el ID obtenido
-            $numero_orden_real = $this->generateNumeroOrden($orden_id);
+            $numero_orden_real = $this->generateNumeroOrden($orden_id, $sucursalId);
             
             // 6. Actualizar la orden con el numero_orden correcto
             $updateStmt = $this->db->prepare('UPDATE ordenes_servicio SET numero_orden = ? WHERE id = ?');
@@ -1188,13 +1195,14 @@ class OrdenesController {
         }
     }
     
-    private function generateNumeroOrden($id) {
-        $prefix = 'OS-';
-        $year = date('Y');
-        
-        // Formato: OS-YYYY-ID_REAL
-        // Ejemplo: OS-2026-1650, OS-2026-1651, etc.
-        return $prefix . $year . '-' . $id;
+    /**
+     * Genera el número de orden con prefijo de sucursal para evitar colisiones UNIQUE.
+     * Formato: S{sucursal_id}-YYMMDD-{id}
+     * Ejemplo: S1-260602-1650 / S2-260602-1651
+     */
+    private function generateNumeroOrden(int $id, int $sucursalId = 1): string {
+        $yymmdd = date('ymd');
+        return "S{$sucursalId}-{$yymmdd}-{$id}";
     }
     
     /**

@@ -204,11 +204,22 @@ export interface Orden {
   puntosSeguridad?: PuntoSeguridadOrden[];
 }
 
+export interface Sucursal {
+  id: number;
+  nombre: string;
+  direccion?: string | null;
+  telefono?: string | null;
+  activo?: boolean;
+}
+
 export interface Usuario {
   id: string;
   username: string;
   nombre: string;
-  rol: 'admin' | 'mecanico' | 'recepcionista';
+  rol: 'sistemas' | 'superusuario' | 'admin_sucursal' | 'admin';
+  sucursal_activa_id?: number;
+  sucursales_permitidas?: number[];
+  sucursal_nombre?: string;
 }
 
 export interface AuthContextType {
@@ -218,6 +229,9 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
+  sucursalActiva: Sucursal | null;
+  sucursalesPermitidas: Sucursal[];
+  switchSucursal: (sucursalId: number) => Promise<void>;
 }
 
 // Tipos para el módulo de Clientes y Vehículos (Mes 1 Roadmap Q2 2026)

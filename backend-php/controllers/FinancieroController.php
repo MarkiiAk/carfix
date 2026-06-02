@@ -20,12 +20,12 @@ class FinancieroController {
     // -----------------------------------------------------------------------
     public function resumen(): void {
         try {
-            $userData = requireAuth();
+            $userData = requireAuth(['sistemas', 'superusuario', 'admin_sucursal', 'admin']);
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
-                return;
+            $rol = $userData['rol'] ?? '';
+            // Retrocompatibilidad con rol 'admin' antiguo
+            if ($rol === 'admin') {
+                $rol = 'superusuario';
             }
 
             $tipo   = isset($_GET['tipo'])   ? trim($_GET['tipo'])   : 'mes';

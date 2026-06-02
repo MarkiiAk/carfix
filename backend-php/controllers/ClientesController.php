@@ -18,9 +18,21 @@ class ClientesController {
      */
     public function listar() {
         try {
-            requireAuth();
+            $userData     = requireAuth();
+            $sucursalId   = (int) ($userData['sucursal_activa_id'] ?? 1);
+            $esSuperAdmin = in_array($userData['rol'] ?? '', ['sistemas', 'superusuario'], true);
 
             $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+
+            // superusuario/sistemas pueden filtrar por sucursal_id explícito
+            $filtrarSucursal = true;
+            if ($esSuperAdmin && isset($_GET['sucursal_id'])) {
+                $sucursalId = (int) $_GET['sucursal_id'];
+            } elseif ($esSuperAdmin) {
+                $filtrarSucursal = false;
+            }
+
+            $sucursalClause = $filtrarSucursal ? 'AND c.sucursal_id = :sucursal_id' : '';
 
             $baseSelect = "
                 SELECT
@@ -34,7 +46,7 @@ class ClientesController {
                 FROM clientes c
                 LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v        ON v.cliente_id = c.id
-                WHERE c.activo = 1
+                WHERE c.activo = 1 $sucursalClause
             ";
 
             if ($q !== '') {
@@ -62,6 +74,11 @@ class ClientesController {
                     ORDER BY total_visitas DESC, ultima_visita DESC
                 ";
                 $stmt = $this->db->prepare($sql);
+            }
+
+            // Bind del filtro de sucursal si aplica
+            if ($filtrarSucursal) {
+                $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             }
 
             $stmt->execute();
