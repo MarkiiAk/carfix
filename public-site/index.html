@@ -30,7 +30,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
     
     <!-- Custom Styles with Cache Busting -->
-    <link rel="stylesheet" href="css/styles.css?v=20260205-1958">
+    <link rel="stylesheet" href="css/styles.css?v=20260527-001">
     
     <!-- Cache Control Meta Tags -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -88,6 +88,7 @@
             <h1 class="hero-subtitle" data-aos="fade-up" data-aos-delay="200">SAG GARAGE</h1>
             <p class="hero-tagline" data-aos="fade-up" data-aos-delay="300">Servicio Automotriz Gudiño</p>
             <div class="hero-cta" data-aos="fade-up" data-aos-delay="400">
+                <button id="btnSolicitarCita" class="btn btn-primary" type="button" hidden>Solicitar Cita</button>
                 <a href="#contacto" class="btn btn-primary">Solicitar Cotización</a>
                 <a href="#servicios" class="btn btn-secondary">Nuestros Servicios</a>
             </div>
@@ -406,13 +407,138 @@
         </div>
     </footer>
 
+    <!-- ==============================
+         MODAL — SOLICITAR CITA
+    ============================== -->
+    <div class="cita-overlay" id="citaOverlay" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="citaModalTitle">
+        <div class="cita-modal" id="citaModal">
+
+            <!-- Header -->
+            <div class="cita-header">
+                <div class="cita-header-left">
+                    <span class="cita-step-label" id="citaStepLabel">Paso 1 de 3</span>
+                    <h2 class="cita-title" id="citaModalTitle">Tu Vehículo</h2>
+                </div>
+                <button class="cita-close" id="citaClose" aria-label="Cerrar modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Progress -->
+            <div class="cita-progress">
+                <div class="cita-progress-track">
+                    <div class="cita-progress-fill" id="citaProgressFill"></div>
+                </div>
+                <div class="cita-progress-dots">
+                    <div class="cita-dot active" data-step="1"><span>1</span></div>
+                    <div class="cita-dot" data-step="2"><span>2</span></div>
+                    <div class="cita-dot" data-step="3"><span>3</span></div>
+                </div>
+            </div>
+
+            <!-- Steps -->
+            <div class="cita-body" id="citaBody">
+
+                <!-- Paso 1: Vehículo -->
+                <div class="cita-step active" id="citaStep1">
+                    <div class="cita-fields">
+                        <div class="cita-field-group">
+                            <label class="cita-label" for="citaNombre">Nombre completo <span class="req">*</span></label>
+                            <input class="cita-input" type="text" id="citaNombre" placeholder="Ej. Juan Pérez" autocomplete="name">
+                        </div>
+                        <div class="cita-field-group">
+                            <label class="cita-label" for="citaTel">Teléfono <span class="req">*</span></label>
+                            <input class="cita-input" type="tel" id="citaTel" placeholder="55 1234 5678" autocomplete="tel">
+                        </div>
+                        <div class="cita-field-group">
+                            <label class="cita-label" for="citaMarca">Marca del auto</label>
+                            <div class="cita-auto-wrap" id="marcaAutoWrap">
+                                <input class="cita-input cita-input-dd" type="text" id="citaMarca" placeholder="Selecciona o escribe tu marca" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="marcaDropdown">
+                                <span class="cita-dd-arrow" aria-hidden="true"><i class="fas fa-chevron-down"></i></span>
+                                <ul class="cita-dropdown" id="marcaDropdown" role="listbox"></ul>
+                            </div>
+                        </div>
+                        <div class="cita-field-group">
+                            <label class="cita-label" for="citaModelo">
+                                Modelo
+                                <span class="cita-loading-inline" id="modeloLoading">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                </span>
+                            </label>
+                            <select class="cita-input cita-select" id="citaModelo" disabled>
+                                <option value="">Selecciona la marca primero</option>
+                            </select>
+                        </div>
+                        <div class="cita-field-group">
+                            <label class="cita-label" for="citaAnio">Año del vehículo</label>
+                            <select class="cita-input cita-select" id="citaAnio">
+                                <option value="">Selecciona el año</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paso 2: Servicio -->
+                <div class="cita-step" id="citaStep2">
+                    <p class="cita-step-desc">Selecciona el servicio que necesitas</p>
+                    <div class="cita-servicios-grid" id="citaServiciosGrid"></div>
+                </div>
+
+                <!-- Paso 3: Fecha y hora -->
+                <div class="cita-step" id="citaStep3">
+                    <div id="citaCalendario"></div>
+                    <div class="cita-horarios-wrap" id="citaHorariosWrap">
+                        <p class="cita-horarios-title">Elige tu horario</p>
+                        <div class="cita-horarios" id="citaHorarios"></div>
+                    </div>
+                </div>
+
+                <!-- Paso 4: Confirmación -->
+                <div class="cita-step" id="citaStep4">
+                    <div class="cita-success">
+                        <div class="cita-success-icon">
+                            <svg viewBox="0 0 52 52" class="cita-check-svg">
+                                <circle class="cita-check-circle" cx="26" cy="26" r="25" fill="none"/>
+                                <path class="cita-check-path" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                            </svg>
+                        </div>
+                        <h3 class="cita-success-title">¡Cita Programada!</h3>
+                        <p class="cita-success-sub">Te esperamos 10 minutos antes de tu hora</p>
+                        <div class="cita-resumen" id="citaResumen"></div>
+                        <a class="btn btn-primary cita-wa-btn" id="citaWABtn" href="#" target="_blank" rel="noopener">
+                            <i class="fab fa-whatsapp"></i> Confirmar por WhatsApp
+                        </a>
+                        <button class="cita-nueva-btn" id="citaNuevaBtn">Agendar otra cita</button>
+                    </div>
+                </div>
+
+            </div><!-- /cita-body -->
+
+            <!-- Error global -->
+            <div class="cita-error-banner" id="citaErrorBanner"></div>
+
+            <!-- Footer -->
+            <div class="cita-footer" id="citaFooter">
+                <button class="cita-back-btn" id="citaBack" type="button">
+                    <i class="fas fa-chevron-left"></i> Atrás
+                </button>
+                <button class="btn btn-primary cita-next-btn" id="citaNext" type="button">
+                    Continuar <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+
+        </div><!-- /cita-modal -->
+    </div><!-- /cita-overlay -->
+
     <!-- AOS Library -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     
     <!-- Swiper JS -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     
+    <!-- Dataset vehículos México -->
+    <script src="js/vehiculos-mx.js?v=20260527-001"></script>
     <!-- Main JavaScript with Cache Busting -->
-    <script src="js/main.js?v=20260205-1958"></script>
+    <script src="js/main.js?v=20260527-002"></script>
 </body>
 </html>
