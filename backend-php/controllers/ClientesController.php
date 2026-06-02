@@ -20,19 +20,10 @@ class ClientesController {
         try {
             $userData     = requireAuth();
             $sucursalId   = (int) ($userData['sucursal_activa_id'] ?? 1);
-            $esSuperAdmin = in_array($userData['rol'] ?? '', ['sistemas', 'superusuario'], true);
-
             $q = isset($_GET['q']) ? trim($_GET['q']) : '';
 
-            // superusuario/sistemas pueden filtrar por sucursal_id explícito
-            $filtrarSucursal = true;
-            if ($esSuperAdmin && isset($_GET['sucursal_id'])) {
-                $sucursalId = (int) $_GET['sucursal_id'];
-            } elseif ($esSuperAdmin) {
-                $filtrarSucursal = false;
-            }
-
-            $sucursalClause = $filtrarSucursal ? 'AND c.sucursal_id = :sucursal_id' : '';
+            // Todos los roles filtran por sucursal_activa_id del token
+            $sucursalClause = 'AND c.sucursal_id = :sucursal_id';
 
             $baseSelect = "
                 SELECT

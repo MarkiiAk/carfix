@@ -20,20 +20,9 @@ class OrdenesController {
         try {
             $userData   = requireAuth();
             $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
-            $esSuperAdmin = in_array($userData['rol'] ?? '', ['sistemas', 'superusuario'], true);
-
-            // superusuario/sistemas pueden filtrar por sucursal_id vía query param
-            if ($esSuperAdmin && isset($_GET['sucursal_id'])) {
-                $sucursalId     = (int) $_GET['sucursal_id'];
-                $filtrarSucursal = true;
-            } elseif ($esSuperAdmin) {
-                $filtrarSucursal = false; // ve todas
-            } else {
-                $filtrarSucursal = true;  // admin_sucursal siempre filtra
-            }
-
-            $whereClause = $filtrarSucursal ? 'WHERE o.sucursal_id = ?' : 'WHERE 1=1';
-            $params      = $filtrarSucursal ? [$sucursalId] : [];
+            // Todos los roles filtran por sucursal_activa_id del token
+            $whereClause = 'WHERE o.sucursal_id = ?';
+            $params      = [$sucursalId];
 
             $sql = "
                 SELECT o.*,

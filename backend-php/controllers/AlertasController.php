@@ -80,9 +80,10 @@ class AlertasController {
                 FROM alertas_servicio a
                 INNER JOIN clientes c ON a.cliente_id = c.id
                 INNER JOIN vehiculos v ON a.vehiculo_id = v.id
-                ORDER BY 
+                WHERE a.sucursal_id = :sucursal_id
+                ORDER BY
                     -- PRIORIZAR POR ATENCIÓN REQUERIDA Y ESTADO WHATSAPP
-                    CASE 
+                    CASE
                         WHEN a.requiere_atencion = TRUE AND a.estado_whatsapp = 'pre_agendado' THEN 1
                         WHEN a.requiere_atencion = TRUE AND a.estado_whatsapp = 'requiere_contacto' THEN 2
                         WHEN a.estado = 'pendiente' THEN 3
@@ -93,8 +94,9 @@ class AlertasController {
                     a.fecha_generada DESC
             ";
 
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
             $stmt = $this->db->prepare($query);
-            $stmt->execute();
+            $stmt->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $alertas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Procesar cada alerta para formatear los datos JSON

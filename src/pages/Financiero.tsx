@@ -291,12 +291,7 @@ export const Financiero = () => {
   const [cajaFecha, setCajaFecha]         = useState(() => new Date().toISOString().split('T')[0]);
   const [cajaError, setCajaError]         = useState('');
 
-  // Redirigir si no es admin
-  useEffect(() => {
-    if (user && user.rol !== 'admin') {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, navigate]);
+  // Financiero accesible para todos los roles autenticados (ProtectedRoute ya garantiza auth)
 
   const cargar = useCallback(async () => {
     setIsLoading(true);
