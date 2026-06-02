@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTrash, faSpinner, faPencil, faCheck, faXmark, faDownload, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { financieroAPI, gastosAdminAPI, empleadosFinancieroAPI, pagosFijosAPI, cajaChicaAPI } from '../services/api';
@@ -177,8 +176,6 @@ const CATEGORIA_OPTIONS: GastoAdmin['categoria'][] = ['renta', 'salario', 'servi
 
 export const Financiero = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-
   // Solo modo semanal — la opción mensual fue removida
   const tipoPeriodo: 'semana' | 'mes' = 'semana';
   const [offset, setOffset] = useState(0);
