@@ -81,7 +81,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setSucursalActiva({ id: activaId, nombre });
 
     const lista = await cargarCatalogoSucursales(usuarioRol, permitidas);
-    setSucursalesPermitidas(lista.length ? lista : [{ id: activaId, nombre }]);
+    if (lista.length) {
+      setSucursalesPermitidas(lista);
+      const activa = lista.find(s => s.id === activaId);
+      if (activa) setSucursalActiva(activa);
+    } else {
+      setSucursalesPermitidas([{ id: activaId, nombre }]);
+    }
   }, [cargarCatalogoSucursales]);
 
   // ---------------------------------------------------------------------------
