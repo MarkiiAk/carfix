@@ -23,7 +23,7 @@ class SucursalesController {
     // -------------------------------------------------------------------------
     public function listar(): void {
         try {
-            requireAuth(['sistemas']);
+            requireAuth(['sistemas', 'superusuario']);
 
             $stmt = $this->db->prepare(
                 'SELECT id, nombre, direccion, telefono, activo, created_at, updated_at
