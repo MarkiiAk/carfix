@@ -130,12 +130,14 @@ class OrdenesController {
             
             // Iniciar transacción
             $this->db->beginTransaction();
-            
+
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             // 1. Insertar o actualizar cliente
-            $cliente_id = $this->upsertCliente($data['cliente']);
-            
+            $cliente_id = $this->upsertCliente($data['cliente'], $sucursalId);
+
             // 2. Insertar o actualizar vehículo
-            $vehiculo_id = $this->upsertVehiculo($data['vehiculo'], $cliente_id);
+            $vehiculo_id = $this->upsertVehiculo($data['vehiculo'], $cliente_id, $sucursalId);
             
             // 3. Preparar datos de inspección desde frontend - TODOS los campos
             $inspeccionData = $data['inspeccion'] ?? [];
@@ -995,7 +997,7 @@ class OrdenesController {
         return $orden;
     }
     
-    private function upsertCliente($clienteData) {
+    private function upsertCliente($clienteData, int $sucursalId) {
         $nombre    = $clienteData['nombreCompleto'] ?? $clienteData['nombre'] ?? null;
         $telefono  = $clienteData['telefono'] ?? null;
         $email     = $clienteData['email'] ?? null;
@@ -1006,82 +1008,77 @@ class OrdenesController {
             throw new Exception('Nombre y teléfono del cliente son requeridos');
         }
 
-        // Normalizar teléfono: solo dígitos, sin prefijo 52
         $telNormalizado = preg_replace('/[^0-9]/', '', $telefono);
         $telNormalizado = preg_replace('/^52/', '', $telNormalizado);
 
-        // 1. El frontend identificó explícitamente al cliente (selección de sugerencia)
+        // 1. El frontend identificó explícitamente al cliente (solo buscar en esta sucursal)
         if ($clienteId) {
             $stmt = $this->db->prepare(
-                'UPDATE clientes SET ultima_visita = NOW() WHERE id = ? AND activo = 1'
+                'UPDATE clientes SET ultima_visita = NOW() WHERE id = ? AND activo = 1 AND sucursal_id = ?'
             );
-            $stmt->execute([$clienteId]);
+            $stmt->execute([$clienteId, $sucursalId]);
             if ($stmt->rowCount() > 0) {
                 return $clienteId;
             }
         }
 
-        // 2. Buscar por teléfono normalizado — solo si hay un único match (número no compartido)
+        // 2. Buscar por teléfono normalizado DENTRO de la misma sucursal
         if ($telNormalizado) {
             $stmt = $this->db->prepare(
-                'SELECT id FROM clientes WHERE telefono_normalizado = ? AND activo = 1'
+                'SELECT id FROM clientes WHERE telefono_normalizado = ? AND activo = 1 AND sucursal_id = ?'
             );
-            $stmt->execute([$telNormalizado]);
+            $stmt->execute([$telNormalizado, $sucursalId]);
             $existentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (count($existentes) === 1) {
                 $existingId = (int)$existentes[0]['id'];
                 $stmt = $this->db->prepare(
-                    'UPDATE clientes SET nombre = ?, email = ?, ultima_visita = NOW() WHERE id = ?'
+                    'UPDATE clientes SET nombre = ?, email = ?, ultima_visita = NOW() WHERE id = ? AND sucursal_id = ?'
                 );
-                $stmt->execute([$nombre, $email, $existingId]);
+                $stmt->execute([$nombre, $email, $existingId, $sucursalId]);
                 return $existingId;
             }
-            // Número compartido (>1 match) sin cliente_id explícito → crear nuevo
         }
 
-        // 3. Cliente nuevo
+        // 3. Cliente nuevo — asignar a la sucursal activa
         $stmt = $this->db->prepare(
-            'INSERT INTO clientes (nombre, telefono, email, direccion, telefono_normalizado)
-             VALUES (?, ?, ?, ?, ?)'
+            'INSERT INTO clientes (nombre, telefono, email, direccion, telefono_normalizado, sucursal_id)
+             VALUES (?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$nombre, $telefono, $email, $direccion, $telNormalizado]);
+        $stmt->execute([$nombre, $telefono, $email, $direccion, $telNormalizado, $sucursalId]);
         return $this->db->lastInsertId();
     }
     
-    private function upsertVehiculo($vehiculoData, $cliente_id) {
-        $marca = $vehiculoData['marca'] ?? null;
+    private function upsertVehiculo($vehiculoData, $cliente_id, int $sucursalId) {
+        $marca  = $vehiculoData['marca']  ?? null;
         $modelo = $vehiculoData['modelo'] ?? null;
-        $anio = $vehiculoData['anio'] ?? null;
-        $color = $vehiculoData['color'] ?? null;
+        $anio   = $vehiculoData['anio']   ?? null;
+        $color  = $vehiculoData['color']  ?? null;
         $placas = $vehiculoData['placas'] ?? null;
-        $niv = $vehiculoData['niv'] ?? null;
-        
+        $niv    = $vehiculoData['niv']    ?? null;
+
         if (!$marca || !$modelo || !$placas) {
             throw new Exception('Marca, modelo y placas del vehículo son requeridos');
         }
-        
-        // Buscar vehículo existente por placas
-        $stmt = $this->db->prepare('SELECT id FROM vehiculos WHERE placas = ? LIMIT 1');
-        $stmt->execute([$placas]);
+
+        // Buscar vehículo existente por placas DENTRO de la misma sucursal
+        $stmt = $this->db->prepare('SELECT id FROM vehiculos WHERE placas = ? AND sucursal_id = ? LIMIT 1');
+        $stmt->execute([$placas, $sucursalId]);
         $existing = $stmt->fetch();
-        
+
         if ($existing) {
-            // Actualizar solo datos técnicos — NO tocar cliente_id para preservar al dueño original
             $stmt = $this->db->prepare('
-                UPDATE vehiculos SET marca = ?, modelo = ?, anio = ?,
-                       color = ?, niv = ?
-                WHERE id = ?
+                UPDATE vehiculos SET marca = ?, modelo = ?, anio = ?, color = ?, niv = ?
+                WHERE id = ? AND sucursal_id = ?
             ');
-            $stmt->execute([$marca, $modelo, $anio, $color, $niv, $existing['id']]);
+            $stmt->execute([$marca, $modelo, $anio, $color, $niv, $existing['id'], $sucursalId]);
             return $existing['id'];
         } else {
-            // Insertar
             $stmt = $this->db->prepare('
-                INSERT INTO vehiculos (marca, modelo, anio, color, placas, niv, cliente_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO vehiculos (marca, modelo, anio, color, placas, niv, cliente_id, sucursal_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ');
-            $stmt->execute([$marca, $modelo, $anio, $color, $placas, $niv, $cliente_id]);
+            $stmt->execute([$marca, $modelo, $anio, $color, $placas, $niv, $cliente_id, $sucursalId]);
             return $this->db->lastInsertId();
         }
     }
