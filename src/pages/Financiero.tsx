@@ -1550,7 +1550,7 @@ export const Financiero = () => {
               className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               <div className="text-left">
-                <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Caja chica — Mayte</p>
+                <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Caja chica</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Efectivo físico en caja · Saldo se arrastra semana a semana</p>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
