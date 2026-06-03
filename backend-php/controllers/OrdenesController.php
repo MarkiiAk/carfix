@@ -377,10 +377,8 @@ class OrdenesController {
             $updateFields = [];
             $updateValues = [];
             
-            // Log para debugging
-            error_log('=== UPDATE ORDEN ===');
-            error_log('ID: ' . $id);
-            error_log('Data recibida: ' . json_encode($data));
+            // Log para debugging (sin datos del cliente por seguridad)
+            error_log('=== UPDATE ORDEN ID: ' . $id . ' ===');
             
             // AGREGAR: Actualizar problema reportado
             if (isset($data['problemaReportado'])) {
@@ -632,8 +630,7 @@ class OrdenesController {
             if (!empty($updateFields)) {
                 $updateValues[] = $id;
                 $sql = 'UPDATE ordenes_servicio SET ' . implode(', ', $updateFields) . ' WHERE id = ?';
-                error_log('SQL: ' . $sql);
-                error_log('Values: ' . json_encode($updateValues));
+                error_log('SQL (campos): ' . count($updateFields) . ' campos a actualizar');
                 
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute($updateValues);

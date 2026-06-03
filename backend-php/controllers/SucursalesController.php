@@ -52,7 +52,12 @@ class SucursalesController {
     public function crear(): void {
         try {
             requireAuth(['sistemas']);
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($data)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'JSON inválido o malformado']);
+                return;
+            }
 
             $nombre = trim($data['nombre'] ?? '');
             if ($nombre === '') {
@@ -90,7 +95,12 @@ class SucursalesController {
     public function actualizar(int $id): void {
         try {
             requireAuth(['sistemas']);
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($data)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'JSON inválido o malformado']);
+                return;
+            }
 
             $nombre    = trim($data['nombre']    ?? '');
             $direccion = trim($data['direccion'] ?? '');

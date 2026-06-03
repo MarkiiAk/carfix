@@ -13,9 +13,11 @@ class PuntosSeguridadController {
      */
     public function getCatalogo() {
         try {
-            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo 
-                      FROM puntos_seguridad_catalogo 
-                      WHERE activo = 1 
+            requireAuth();
+
+            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo
+                      FROM puntos_seguridad_catalogo
+                      WHERE activo = 1
                       ORDER BY orden_visualizacion ASC";
             
             $stmt = $this->db->prepare($query);
@@ -53,8 +55,10 @@ class PuntosSeguridadController {
      */
     public function getPuntoById($id) {
         try {
-            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo 
-                      FROM puntos_seguridad_catalogo 
+            requireAuth();
+
+            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo
+                      FROM puntos_seguridad_catalogo
                       WHERE id = :id";
             
             $stmt = $this->db->prepare($query);
@@ -98,7 +102,9 @@ class PuntosSeguridadController {
      */
     public function getPuntosByOrden($ordenId) {
         try {
-            $query = "SELECT 
+            requireAuth();
+
+            $query = "SELECT
                         ops.id,
                         ops.punto_seguridad_id as puntoId,
                         ops.estado_id as estadoId,
@@ -151,6 +157,8 @@ class PuntosSeguridadController {
      */
     public function savePuntosByOrden($ordenId, $data) {
         try {
+            requireAuth();
+
             // Validar que vengan datos (puede ser array directo o envuelto en 'puntos')
             $puntos = isset($data['puntos']) ? $data['puntos'] : $data;
             

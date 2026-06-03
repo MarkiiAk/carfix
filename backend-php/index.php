@@ -35,6 +35,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('X-XSS-Protection: 1; mode=block');
+header("Content-Security-Policy: default-src 'self'");
 
 // Manejar preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -73,6 +74,32 @@ $path = parse_url($request_uri, PHP_URL_PATH);
 $path = preg_replace('#^.*/backend-php/#', '', $path);
 $path = trim($path, '/');
 
+// ── Middleware de autenticación en el router ─────────────────────────────────
+// Red de seguridad: cualquier ruta que no esté en $rutasPublicas ya tiene el
+// token verificado ANTES de entrar al controller. Los controllers pueden seguir
+// llamando requireAuth() internamente para verificaciones de rol específico.
+$rutasPublicas = [
+    'auth/login',
+    'auth/logout',
+    // Los webhooks de Twilio/WhatsApp no envían JWT — agregarlos aquí si se activan:
+    // 'twilio/webhook',
+    // 'whatsapp/webhook',
+];
+
+$esCorsPreflightRequest = ($request_method === 'OPTIONS');
+$esRutaPublica = in_array($path, $rutasPublicas, true);
+
+if (!$esCorsPreflightRequest && !$esRutaPublica) {
+    try {
+        $routerAuth = requireAuth();
+    } catch (Exception $e) {
+        http_response_code(401);
+        echo json_encode(['error' => 'No autorizado']);
+        exit();
+    }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Router simple
 try {
     // Rutas de autenticación
@@ -87,6 +114,10 @@ try {
     elseif ($path === 'auth/me' && $request_method === 'GET') {
         $controller = new AuthController();
         $controller->me();
+    }
+    elseif ($path === 'auth/logout' && $request_method === 'POST') {
+        $controller = new AuthController();
+        $controller->logout();
     }
     elseif ($path === 'auth/switch-sucursal' && $request_method === 'POST') {
         $controller = new AuthController();

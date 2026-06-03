@@ -16,9 +16,14 @@ class AuthController {
     public function login() {
         try {
             $data = json_decode(file_get_contents('php://input'), true);
-            
-            // Log para debug
-            
+
+            // Validar que el JSON sea un array (no nulo ni mal formado)
+            if (!is_array($data)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'JSON inválido o malformado']);
+                return;
+            }
+
             // Aceptar tanto 'username' como 'email'
             $username = $data['username'] ?? $data['email'] ?? null;
             $password = $data['password'] ?? null;
@@ -44,6 +49,7 @@ class AuthController {
             
             // Verificar contraseña (el campo es password_hash en la tabla usuarios)
             if (!password_verify($password, $user['password_hash'])) {
+                sleep(1); // delay mínimo anti-fuerza-bruta en contraseña incorrecta
                 http_response_code(401);
                 echo json_encode(['error' => 'Credenciales inválidas']);
                 return;
@@ -95,6 +101,30 @@ class AuthController {
             
         } catch (Exception $e) {
             jsonError('Error al procesar login', $e, 500);
+        }
+    }
+
+    /**
+     * Logout - POST /api/auth/logout
+     *
+     * JWT es stateless — el cliente elimina el token localmente.
+     * Este endpoint existe para: (1) no dar 404, (2) punto de extensión
+     * para blacklist de tokens en el futuro si se necesita.
+     * Nota: auth/logout está en $rutasPublicas del router para permitir que
+     * tokens expirados puedan hacer logout sin ser bloqueados por el middleware.
+     * Sin embargo, si el token es válido se confirma con 200; si es inválido
+     * requireAuth() lanza excepción y retornamos 401 de todas formas — es el
+     * comportamiento correcto.
+     */
+    public function logout(): void {
+        try {
+            requireAuth(); // Validar que el token es válido antes de procesar
+            http_response_code(200);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            // Token inválido o expirado — el cliente debe eliminar el token igualmente
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Token inválido o expirado']);
         }
     }
 

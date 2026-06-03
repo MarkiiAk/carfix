@@ -13,9 +13,11 @@ class EstadosSeguridadController {
      */
     public function getEstados() {
         try {
-            $query = "SELECT id, nombre, color, descripcion, orden_visualizacion, activo 
-                      FROM estados_seguridad 
-                      WHERE activo = 1 
+            requireAuth();
+
+            $query = "SELECT id, nombre, color, descripcion, orden_visualizacion, activo
+                      FROM estados_seguridad
+                      WHERE activo = 1
                       ORDER BY orden_visualizacion ASC";
             
             $stmt = $this->db->prepare($query);
@@ -69,8 +71,10 @@ class EstadosSeguridadController {
      */
     public function getEstadoById($id) {
         try {
-            $query = "SELECT id, nombre, color, descripcion, orden_visualizacion, activo 
-                      FROM estados_seguridad 
+            requireAuth();
+
+            $query = "SELECT id, nombre, color, descripcion, orden_visualizacion, activo
+                      FROM estados_seguridad
                       WHERE id = :id";
             
             $stmt = $this->db->prepare($query);

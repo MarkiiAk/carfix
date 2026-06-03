@@ -75,7 +75,12 @@ class UsuariosController {
     public function crear(): void {
         try {
             requireAuth(['sistemas']);
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($data)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'JSON inválido o malformado']);
+                return;
+            }
 
             $username = trim($data['username'] ?? '');
             $password = $data['password'] ?? '';
@@ -129,7 +134,12 @@ class UsuariosController {
     public function actualizar(int $id): void {
         try {
             requireAuth(['sistemas']);
-            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($data)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'JSON inválido o malformado']);
+                return;
+            }
 
             $nombre = trim($data['nombre_completo'] ?? '');
             $email  = trim($data['email'] ?? '');
