@@ -114,13 +114,11 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => 'Error al obtener alertas: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
-    
+
     // PUT /alertas/{id}/marcar-leida - Marcar una alerta como leída
     public function marcarComoLeida($alertaId, $userData = null) {
         try {
@@ -181,10 +179,8 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => 'Error al marcar alerta: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 
@@ -220,10 +216,11 @@ class AlertasController {
                     os.id as orden_id,
                     os.cliente_id,
                     os.vehiculo_id,
+                    os.sucursal_id,
                     os.fecha_ingreso,
                     GROUP_CONCAT(so.descripcion) as servicios_realizados,
                     DATEDIFF(NOW(), os.fecha_ingreso) as dias_desde_servicio
-                    
+
                 FROM ordenes_servicio os
                 INNER JOIN servicios_orden so ON os.id = so.orden_id
                 LEFT JOIN alertas_servicio a ON os.id = a.orden_id
@@ -238,7 +235,7 @@ class AlertasController {
                         AND so2.descripcion REGEXP ?
                     )
                     
-                GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.fecha_ingreso
+                GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.sucursal_id, os.fecha_ingreso
                 HAVING dias_desde_servicio >= 180 -- 6 meses (180 días) o más
                 ORDER BY os.fecha_ingreso DESC
             ";
@@ -292,12 +289,13 @@ class AlertasController {
                             orden_id,
                             cliente_id,
                             vehiculo_id,
+                            sucursal_id,
                             fecha_ultimo_servicio,
                             servicios_que_dispararon,
                             todos_los_servicios,
                             dias_desde_servicio,
                             estado
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente')
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')
                     ";
 
                     $insertStmt = $this->db->prepare($insertQuery);
@@ -305,6 +303,7 @@ class AlertasController {
                         $orden['orden_id'],
                         $orden['cliente_id'],
                         $orden['vehiculo_id'],
+                        $orden['sucursal_id'],
                         $orden['fecha_ingreso'],
                         json_encode($serviciosQueDispararon),
                         json_encode($todosServicios),
@@ -322,10 +321,8 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => 'Error al generar alertas: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 
@@ -432,11 +429,8 @@ class AlertasController {
                 // Silenciar errores de log para evitar loops
             }
 
-            return [
-                'success' => false,
-                'error' => 'Error en generación automática: ' . $e->getMessage(),
-                'alertas_generadas' => 0
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor', 'alertas_generadas' => 0];
         }
     }
 
@@ -479,10 +473,8 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Error al obtener alertas: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 
@@ -531,10 +523,8 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => 'Error al obtener conversación: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 
@@ -707,10 +697,8 @@ class AlertasController {
             ];
             
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Error al obtener estadísticas: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 }

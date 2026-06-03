@@ -426,14 +426,16 @@ class ClientesController {
             $stmtF->execute();
             $financiero = $stmtF->fetch(PDO::FETCH_ASSOC);
 
-            // 3. Vehículos del cliente (filtrado por sucursal vía órdenes)
+            // 3. Vehículos del cliente (filtrado por sucursal)
             $stmtV = $this->db->prepare("
                 SELECT id, marca, modelo, anio, placas, niv
                 FROM vehiculos
                 WHERE cliente_id = :cid
+                  AND sucursal_id = :sucursal_id
                 ORDER BY id ASC
             ");
-            $stmtV->bindParam(':cid', $clienteId, PDO::PARAM_INT);
+            $stmtV->bindParam(':cid',         $clienteId,  PDO::PARAM_INT);
+            $stmtV->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmtV->execute();
             $vehiculos = $stmtV->fetchAll(PDO::FETCH_ASSOC);
 
