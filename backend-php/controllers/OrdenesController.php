@@ -13,111 +13,88 @@ class OrdenesController {
     
     /**
      * Obtener todas las órdenes - GET /api/ordenes
-     * CORRIGE: Cache busting y logging para debug
+     * Multi-sucursal: admin_sucursal solo ve su sucursal; sistemas/superusuario ven todo
+     * o filtran con ?sucursal_id=N
      */
     public function getAll() {
         try {
-            requireAuth();
-            
-            // LOG CRÍTICO: Para debugging del problema de cache
-            error_log("=== DEBUG ORDENES GET ===");
-            error_log("Timestamp: " . date('Y-m-d H:i:s'));
-            error_log("User: " . json_encode($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'));
-            
-            // FORZAR NUEVA CONEXIÓN para evitar cache de PDO
-            $freshDb = Database::getInstance()->getConnection();
-            
-            // Query con timestamp para evitar cache de query
-            $stmt = $freshDb->prepare('
-                SELECT o.*, 
-                       c.nombre as cliente_nombre,
-                       c.telefono as cliente_telefono,
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+            // Todos los roles filtran por sucursal_activa_id del token
+            $whereClause = 'WHERE o.sucursal_id = ?';
+            $params      = [$sucursalId];
+
+            $sql = "
+                SELECT o.*,
+                       c.nombre  AS cliente_nombre,
+                       c.telefono AS cliente_telefono,
                        v.marca, v.modelo, v.anio, v.placas,
-                       NOW() as query_timestamp
+                       NOW() AS query_timestamp
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v ON o.vehiculo_id = v.id
+                $whereClause
                 ORDER BY o.id DESC
-            ');
-            $stmt->execute();
+            ";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
             $ordenes = $stmt->fetchAll();
-            
-            // LOG: IDs encontrados
-            $ids = array_column($ordenes, 'id');
-            error_log("IDs encontrados en BD: " . json_encode($ids));
-            error_log("Total órdenes: " . count($ordenes));
-            
-            // Verificación específica para 1720 y 1721
-            foreach ($ordenes as $orden) {
-                if ($orden['id'] == '1720') {
-                    error_log("PROBLEMA: Orden 1720 AÚN EXISTE en BD - " . json_encode($orden));
-                }
-                if ($orden['id'] == '1721') {
-                    error_log("CORRECTO: Orden 1721 encontrada - " . json_encode($orden));
-                }
-            }
-            
+
             // Procesar cada orden para incluir datos relacionados
             foreach ($ordenes as &$orden) {
                 $orden = $this->enrichOrdenData($orden);
             }
-            
+
             // Headers anti-cache
             header('Cache-Control: no-cache, no-store, must-revalidate');
             header('Pragma: no-cache');
             header('Expires: 0');
-            
+
             echo json_encode($ordenes);
             
         } catch (Exception $e) {
-            error_log("ERROR en getAll(): " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al obtener órdenes',
-                'message' => $e->getMessage(),
-                'timestamp' => time()
-            ]);
+            jsonError('Error al obtener órdenes', $e, 500);
         }
     }
     
     /**
      * Obtener una orden por ID - GET /api/ordenes/:id
+     * Multi-sucursal: admin_sucursal solo puede ver órdenes de su sucursal.
      */
     public function getById($id) {
         try {
-            requireAuth();
-            
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             $stmt = $this->db->prepare('
-                SELECT o.*, 
-                       c.nombre as cliente_nombre,
-                       c.telefono as cliente_telefono,
-                       c.email as cliente_email,
-                       c.direccion as cliente_direccion,
+                SELECT o.*,
+                       c.nombre    AS cliente_nombre,
+                       c.telefono  AS cliente_telefono,
+                       c.email     AS cliente_email,
+                       c.direccion AS cliente_direccion,
                        v.marca, v.modelo, v.anio, v.placas, v.color, v.niv
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v ON o.vehiculo_id = v.id
                 WHERE o.id = ?
+                  AND o.sucursal_id = ?
             ');
-            $stmt->execute([$id]);
+            $stmt->execute([(int) $id, $sucursalId]);
             $orden = $stmt->fetch();
-            
+
             if (!$orden) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Orden no encontrada']);
                 return;
             }
-            
+
             $orden = $this->enrichOrdenData($orden);
-            
+
             echo json_encode($orden);
             
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al obtener orden',
-                'message' => $e->getMessage()
-            ]);
+            jsonError('Error al obtener orden', $e, 500);
         }
     }
     
@@ -143,12 +120,14 @@ class OrdenesController {
             
             // Iniciar transacción
             $this->db->beginTransaction();
-            
+
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             // 1. Insertar o actualizar cliente
-            $cliente_id = $this->upsertCliente($data['cliente']);
-            
+            $cliente_id = $this->upsertCliente($data['cliente'], $sucursalId);
+
             // 2. Insertar o actualizar vehículo
-            $vehiculo_id = $this->upsertVehiculo($data['vehiculo'], $cliente_id);
+            $vehiculo_id = $this->upsertVehiculo($data['vehiculo'], $cliente_id, $sucursalId);
             
             // 3. Preparar datos de inspección desde frontend - TODOS los campos
             $inspeccionData = $data['inspeccion'] ?? [];
@@ -159,7 +138,7 @@ class OrdenesController {
             // NOTA: numero_orden se generará DESPUÉS del insert usando el ID real
             $stmt = $this->db->prepare('
                 INSERT INTO ordenes_servicio (
-                    numero_orden, cliente_id, vehiculo_id, usuario_id,
+                    numero_orden, cliente_id, vehiculo_id, usuario_id, sucursal_id,
                     problema_reportado, diagnostico,
                     kilometraje_entrada, kilometraje_salida,
                     nivel_combustible,
@@ -177,7 +156,7 @@ class OrdenesController {
                     incluir_iva, iva, total, anticipo, fecha_anticipo,
                     fecha_promesa_entrega,
                     estado
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ');
             
             $vehiculoData = $data['vehiculo'] ?? [];
@@ -191,12 +170,14 @@ class OrdenesController {
             
             // Generar numero_orden temporal (se actualizará después)
             $numero_orden_temp = 'TEMP-' . time();
-            
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             $stmt->execute([
                 $numero_orden_temp,
                 $cliente_id,
                 $vehiculo_id,
                 $userData['userId'],
+                $sucursalId,
                 $data['problemaReportado'] ?? '',
                 $data['diagnosticoTecnico'] ?? '',
                 $vehiculoData['kilometrajeEntrada'] ?? '',
@@ -250,7 +231,7 @@ class OrdenesController {
             $orden_id = $this->db->lastInsertId();
             
             // 5. Generar numero_orden real usando el ID obtenido
-            $numero_orden_real = $this->generateNumeroOrden($orden_id);
+            $numero_orden_real = $this->generateNumeroOrden($orden_id, $sucursalId);
             
             // 6. Actualizar la orden con el numero_orden correcto
             $updateStmt = $this->db->prepare('UPDATE ordenes_servicio SET numero_orden = ? WHERE id = ?');
@@ -320,25 +301,22 @@ class OrdenesController {
             
         } catch (Exception $e) {
             $this->db->rollBack();
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al crear orden',
-                'message' => $e->getMessage()
-            ]);
+            jsonError('Error al crear orden', $e, 500);
         }
     }
-    
+
     /**
      * Actualizar orden - PUT /api/ordenes/:id
      */
     public function update($id) {
         try {
-            $userData = requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
             $data = json_decode(file_get_contents('php://input'), true);
-            
-            // Verificar que la orden existe
-            $stmt = $this->db->prepare('SELECT id FROM ordenes_servicio WHERE id = ?');
-            $stmt->execute([$id]);
+
+            // Verificar que la orden existe y pertenece a esta sucursal
+            $stmt = $this->db->prepare('SELECT id FROM ordenes_servicio WHERE id = ? AND sucursal_id = ?');
+            $stmt->execute([$id, $sucursalId]);
             if (!$stmt->fetch()) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Orden no encontrada']);
@@ -399,10 +377,8 @@ class OrdenesController {
             $updateFields = [];
             $updateValues = [];
             
-            // Log para debugging
-            error_log('=== UPDATE ORDEN ===');
-            error_log('ID: ' . $id);
-            error_log('Data recibida: ' . json_encode($data));
+            // Log para debugging (sin datos del cliente por seguridad)
+            error_log('=== UPDATE ORDEN ID: ' . $id . ' ===');
             
             // AGREGAR: Actualizar problema reportado
             if (isset($data['problemaReportado'])) {
@@ -654,8 +630,7 @@ class OrdenesController {
             if (!empty($updateFields)) {
                 $updateValues[] = $id;
                 $sql = 'UPDATE ordenes_servicio SET ' . implode(', ', $updateFields) . ' WHERE id = ?';
-                error_log('SQL: ' . $sql);
-                error_log('Values: ' . json_encode($updateValues));
+                error_log('SQL (campos): ' . count($updateFields) . ' campos a actualizar');
                 
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute($updateValues);
@@ -763,23 +738,20 @@ class OrdenesController {
             
         } catch (Exception $e) {
             $this->db->rollBack();
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al actualizar orden',
-                'message' => $e->getMessage()
-            ]);
+            jsonError('Error al actualizar orden', $e, 500);
         }
     }
-    
+
     /**
      * Eliminar orden - DELETE /api/ordenes/:id
      */
     public function delete($id) {
         try {
-            requireAuth();
-            
-            $stmt = $this->db->prepare('DELETE FROM ordenes_servicio WHERE id = ?');
-            $stmt->execute([$id]);
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
+            $stmt = $this->db->prepare('DELETE FROM ordenes_servicio WHERE id = ? AND sucursal_id = ?');
+            $stmt->execute([$id, $sucursalId]);
             
             if ($stmt->rowCount() === 0) {
                 http_response_code(404);
@@ -790,11 +762,7 @@ class OrdenesController {
             http_response_code(204);
             
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Error al eliminar orden',
-                'message' => $e->getMessage()
-            ]);
+            jsonError('Error al eliminar orden', $e, 500);
         }
     }
     
@@ -1004,7 +972,7 @@ class OrdenesController {
         return $orden;
     }
     
-    private function upsertCliente($clienteData) {
+    private function upsertCliente($clienteData, int $sucursalId) {
         $nombre    = $clienteData['nombreCompleto'] ?? $clienteData['nombre'] ?? null;
         $telefono  = $clienteData['telefono'] ?? null;
         $email     = $clienteData['email'] ?? null;
@@ -1015,82 +983,77 @@ class OrdenesController {
             throw new Exception('Nombre y teléfono del cliente son requeridos');
         }
 
-        // Normalizar teléfono: solo dígitos, sin prefijo 52
         $telNormalizado = preg_replace('/[^0-9]/', '', $telefono);
         $telNormalizado = preg_replace('/^52/', '', $telNormalizado);
 
-        // 1. El frontend identificó explícitamente al cliente (selección de sugerencia)
+        // 1. El frontend identificó explícitamente al cliente (solo buscar en esta sucursal)
         if ($clienteId) {
             $stmt = $this->db->prepare(
-                'UPDATE clientes SET ultima_visita = NOW() WHERE id = ? AND activo = 1'
+                'UPDATE clientes SET ultima_visita = NOW() WHERE id = ? AND activo = 1 AND sucursal_id = ?'
             );
-            $stmt->execute([$clienteId]);
+            $stmt->execute([$clienteId, $sucursalId]);
             if ($stmt->rowCount() > 0) {
                 return $clienteId;
             }
         }
 
-        // 2. Buscar por teléfono normalizado — solo si hay un único match (número no compartido)
+        // 2. Buscar por teléfono normalizado DENTRO de la misma sucursal
         if ($telNormalizado) {
             $stmt = $this->db->prepare(
-                'SELECT id FROM clientes WHERE telefono_normalizado = ? AND activo = 1'
+                'SELECT id FROM clientes WHERE telefono_normalizado = ? AND activo = 1 AND sucursal_id = ?'
             );
-            $stmt->execute([$telNormalizado]);
+            $stmt->execute([$telNormalizado, $sucursalId]);
             $existentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (count($existentes) === 1) {
                 $existingId = (int)$existentes[0]['id'];
                 $stmt = $this->db->prepare(
-                    'UPDATE clientes SET nombre = ?, email = ?, ultima_visita = NOW() WHERE id = ?'
+                    'UPDATE clientes SET nombre = ?, email = ?, ultima_visita = NOW() WHERE id = ? AND sucursal_id = ?'
                 );
-                $stmt->execute([$nombre, $email, $existingId]);
+                $stmt->execute([$nombre, $email, $existingId, $sucursalId]);
                 return $existingId;
             }
-            // Número compartido (>1 match) sin cliente_id explícito → crear nuevo
         }
 
-        // 3. Cliente nuevo
+        // 3. Cliente nuevo — asignar a la sucursal activa
         $stmt = $this->db->prepare(
-            'INSERT INTO clientes (nombre, telefono, email, direccion, telefono_normalizado)
-             VALUES (?, ?, ?, ?, ?)'
+            'INSERT INTO clientes (nombre, telefono, email, direccion, telefono_normalizado, sucursal_id)
+             VALUES (?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$nombre, $telefono, $email, $direccion, $telNormalizado]);
+        $stmt->execute([$nombre, $telefono, $email, $direccion, $telNormalizado, $sucursalId]);
         return $this->db->lastInsertId();
     }
     
-    private function upsertVehiculo($vehiculoData, $cliente_id) {
-        $marca = $vehiculoData['marca'] ?? null;
+    private function upsertVehiculo($vehiculoData, $cliente_id, int $sucursalId) {
+        $marca  = $vehiculoData['marca']  ?? null;
         $modelo = $vehiculoData['modelo'] ?? null;
-        $anio = $vehiculoData['anio'] ?? null;
-        $color = $vehiculoData['color'] ?? null;
+        $anio   = $vehiculoData['anio']   ?? null;
+        $color  = $vehiculoData['color']  ?? null;
         $placas = $vehiculoData['placas'] ?? null;
-        $niv = $vehiculoData['niv'] ?? null;
-        
+        $niv    = $vehiculoData['niv']    ?? null;
+
         if (!$marca || !$modelo || !$placas) {
             throw new Exception('Marca, modelo y placas del vehículo son requeridos');
         }
-        
-        // Buscar vehículo existente por placas
-        $stmt = $this->db->prepare('SELECT id FROM vehiculos WHERE placas = ? LIMIT 1');
-        $stmt->execute([$placas]);
+
+        // Buscar vehículo existente por placas DENTRO de la misma sucursal
+        $stmt = $this->db->prepare('SELECT id FROM vehiculos WHERE placas = ? AND sucursal_id = ? LIMIT 1');
+        $stmt->execute([$placas, $sucursalId]);
         $existing = $stmt->fetch();
-        
+
         if ($existing) {
-            // Actualizar solo datos técnicos — NO tocar cliente_id para preservar al dueño original
             $stmt = $this->db->prepare('
-                UPDATE vehiculos SET marca = ?, modelo = ?, anio = ?,
-                       color = ?, niv = ?
-                WHERE id = ?
+                UPDATE vehiculos SET marca = ?, modelo = ?, anio = ?, color = ?, niv = ?
+                WHERE id = ? AND sucursal_id = ?
             ');
-            $stmt->execute([$marca, $modelo, $anio, $color, $niv, $existing['id']]);
+            $stmt->execute([$marca, $modelo, $anio, $color, $niv, $existing['id'], $sucursalId]);
             return $existing['id'];
         } else {
-            // Insertar
             $stmt = $this->db->prepare('
-                INSERT INTO vehiculos (marca, modelo, anio, color, placas, niv, cliente_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO vehiculos (marca, modelo, anio, color, placas, niv, cliente_id, sucursal_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ');
-            $stmt->execute([$marca, $modelo, $anio, $color, $placas, $niv, $cliente_id]);
+            $stmt->execute([$marca, $modelo, $anio, $color, $placas, $niv, $cliente_id, $sucursalId]);
             return $this->db->lastInsertId();
         }
     }
@@ -1188,13 +1151,14 @@ class OrdenesController {
         }
     }
     
-    private function generateNumeroOrden($id) {
-        $prefix = 'OS-';
-        $year = date('Y');
-        
-        // Formato: OS-YYYY-ID_REAL
-        // Ejemplo: OS-2026-1650, OS-2026-1651, etc.
-        return $prefix . $year . '-' . $id;
+    /**
+     * Genera el número de orden con prefijo de sucursal para evitar colisiones UNIQUE.
+     * Formato: S{sucursal_id}-YYMMDD-{id}
+     * Ejemplo: S1-260602-1650 / S2-260602-1651
+     */
+    private function generateNumeroOrden(int $id, int $sucursalId = 1): string {
+        $yymmdd = date('ymd');
+        return "S{$sucursalId}-{$yymmdd}-{$id}";
     }
     
     /**

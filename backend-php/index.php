@@ -32,6 +32,12 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
+header("Content-Security-Policy: default-src 'self'");
+header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 
 // Manejar preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -42,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Cargar configuración
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/jwt.php';
+require_once __DIR__ . '/config/helpers.php';
 
 // Cargar controladores
 require_once __DIR__ . '/controllers/AuthController.php';
@@ -51,6 +58,8 @@ require_once __DIR__ . '/controllers/PuntosSeguridadController.php';
 require_once __DIR__ . '/controllers/AlertasController.php';
 require_once __DIR__ . '/controllers/ClientesController.php';
 require_once __DIR__ . '/controllers/FinancieroController.php';
+require_once __DIR__ . '/controllers/SucursalesController.php';
+require_once __DIR__ . '/controllers/UsuariosController.php';
 // require_once __DIR__ . '/controllers/WhatsappController.php'; // No necesario - usando TwilioConversationalBot
 
 // Obtener conexión a base de datos
@@ -67,6 +76,32 @@ $path = parse_url($request_uri, PHP_URL_PATH);
 $path = preg_replace('#^.*/backend-php/#', '', $path);
 $path = trim($path, '/');
 
+// ── Middleware de autenticación en el router ─────────────────────────────────
+// Red de seguridad: cualquier ruta que no esté en $rutasPublicas ya tiene el
+// token verificado ANTES de entrar al controller. Los controllers pueden seguir
+// llamando requireAuth() internamente para verificaciones de rol específico.
+$rutasPublicas = [
+    'auth/login',
+    'auth/logout',
+    // Los webhooks de Twilio/WhatsApp no envían JWT — agregarlos aquí si se activan:
+    // 'twilio/webhook',
+    // 'whatsapp/webhook',
+];
+
+$esCorsPreflightRequest = ($request_method === 'OPTIONS');
+$esRutaPublica = in_array($path, $rutasPublicas, true);
+
+if (!$esCorsPreflightRequest && !$esRutaPublica) {
+    try {
+        $routerAuth = requireAuth();
+    } catch (Exception $e) {
+        http_response_code(401);
+        echo json_encode(['error' => 'No autorizado']);
+        exit();
+    }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Router simple
 try {
     // Rutas de autenticación
@@ -81,6 +116,14 @@ try {
     elseif ($path === 'auth/me' && $request_method === 'GET') {
         $controller = new AuthController();
         $controller->me();
+    }
+    elseif ($path === 'auth/logout' && $request_method === 'POST') {
+        $controller = new AuthController();
+        $controller->logout();
+    }
+    elseif ($path === 'auth/switch-sucursal' && $request_method === 'POST') {
+        $controller = new AuthController();
+        $controller->switchSucursal();
     }
     
     // Rutas de órdenes
@@ -229,6 +272,7 @@ try {
 
     // Módulo Financiero / Ingresos
     elseif ($path === 'financiero' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en resumen()
         $controller = new FinancieroController();
         $controller->resumen();
     }
@@ -274,12 +318,14 @@ try {
 
     // Órdenes desglosadas por período
     elseif ($path === 'financiero/ordenes' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en ordenesDesglosadas()
         $controller = new FinancieroController();
         $controller->ordenesDesglosadas();
     }
 
     // Empleados y sueldos
     elseif ($path === 'financiero/empleados' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en empleadosSueldos()
         $controller = new FinancieroController();
         $controller->empleadosSueldos();
     }
@@ -309,6 +355,7 @@ try {
 
     // Pagos fijos del taller
     elseif ($path === 'financiero/pagos-fijos' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en pagosFijos()
         $controller = new FinancieroController();
         $controller->pagosFijos();
     }
@@ -332,20 +379,72 @@ try {
 
     // Caja chica
     elseif ($path === 'financiero/caja-chica' && $request_method === 'GET') {
+        // requireAuth() se llama internamente en cajaChica()
         $controller = new FinancieroController();
         $controller->cajaChica();
     }
     elseif ($path === 'financiero/caja-chica' && $request_method === 'POST') {
+        // requireAuth() se llama internamente en crearMovimientoCajaChica()
         $controller = new FinancieroController();
         $controller->crearMovimientoCajaChica();
     }
     elseif (preg_match('#^financiero/caja-chica/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        // requireAuth() se llama internamente en eliminarMovimientoCajaChica()
         $controller = new FinancieroController();
         $controller->eliminarMovimientoCajaChica((int) $matches[1]);
     }
 
-    // Ruta de salud
+    // -----------------------------------------------------------------------
+    // Admin — Sucursales (requiere rol sistemas)
+    // -----------------------------------------------------------------------
+    elseif ($path === 'admin/sucursales' && $request_method === 'GET') {
+        $controller = new SucursalesController();
+        $controller->listar();
+    }
+    elseif ($path === 'admin/sucursales' && $request_method === 'POST') {
+        $controller = new SucursalesController();
+        $controller->crear();
+    }
+    elseif (preg_match('#^admin/sucursales/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $controller = new SucursalesController();
+        $controller->actualizar((int) $matches[1]);
+    }
+    elseif (preg_match('#^admin/sucursales/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new SucursalesController();
+        $controller->eliminar((int) $matches[1]);
+    }
+
+    // -----------------------------------------------------------------------
+    // Admin — Usuarios (requiere rol sistemas)
+    // -----------------------------------------------------------------------
+    elseif ($path === 'admin/usuarios' && $request_method === 'GET') {
+        $controller = new UsuariosController();
+        $controller->listar();
+    }
+    elseif ($path === 'admin/usuarios' && $request_method === 'POST') {
+        $controller = new UsuariosController();
+        $controller->crear();
+    }
+    elseif (preg_match('#^admin/usuarios/([0-9]+)$#', $path, $matches) && $request_method === 'PUT') {
+        $controller = new UsuariosController();
+        $controller->actualizar((int) $matches[1]);
+    }
+    elseif (preg_match('#^admin/usuarios/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new UsuariosController();
+        $controller->eliminar((int) $matches[1]);
+    }
+    elseif (preg_match('#^admin/usuarios/([0-9]+)/sucursal$#', $path, $matches) && $request_method === 'POST') {
+        $controller = new UsuariosController();
+        $controller->asignarSucursal((int) $matches[1]);
+    }
+    elseif (preg_match('#^admin/usuarios/([0-9]+)/sucursal/([0-9]+)$#', $path, $matches) && $request_method === 'DELETE') {
+        $controller = new UsuariosController();
+        $controller->removerSucursal((int) $matches[1], (int) $matches[2]);
+    }
+
+    // Ruta de salud (requiere autenticación para no exponer información a usuarios anónimos)
     elseif ($path === 'health' && $request_method === 'GET') {
+        requireAuth();
         echo json_encode([
             'status' => 'ok',
             'database' => 'MySQL conectado',
@@ -360,9 +459,5 @@ try {
     }
     
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode([
-        'error' => 'Error interno del servidor',
-        'message' => $e->getMessage()
-    ]);
+    jsonError('Error interno del servidor', $e, 500);
 }

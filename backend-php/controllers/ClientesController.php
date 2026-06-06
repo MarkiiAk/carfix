@@ -18,9 +18,12 @@ class ClientesController {
      */
     public function listar() {
         try {
-            requireAuth();
-
+            $userData     = requireAuth();
+            $sucursalId   = (int) ($userData['sucursal_activa_id'] ?? 1);
             $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+
+            // Todos los roles filtran por sucursal_activa_id del token
+            $sucursalClause = 'AND c.sucursal_id = :sucursal_id';
 
             $baseSelect = "
                 SELECT
@@ -34,7 +37,7 @@ class ClientesController {
                 FROM clientes c
                 LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v        ON v.cliente_id = c.id
-                WHERE c.activo = 1
+                WHERE c.activo = 1 $sucursalClause
             ";
 
             if ($q !== '') {
@@ -64,6 +67,7 @@ class ClientesController {
                 $stmt = $this->db->prepare($sql);
             }
 
+            $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->execute();
             $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -99,7 +103,8 @@ class ClientesController {
      */
     public function buscarPorTelefono() {
         try {
-            requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $tel = isset($_GET['tel']) ? trim($_GET['tel']) : '';
 
@@ -126,12 +131,14 @@ class ClientesController {
                 LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v        ON v.cliente_id = c.id
                 WHERE c.activo = 1
+                  AND c.sucursal_id = :sucursal_id
                   AND c.telefono LIKE :tel
                 GROUP BY c.id
                 ORDER BY ultima_visita DESC
             ";
             $stmt = $this->db->prepare($sql);
             $like = '%' . $tel . '%';
+            $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->bindParam(':tel', $like, PDO::PARAM_STR);
             $stmt->execute();
             $clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -186,7 +193,8 @@ class ClientesController {
      */
     public function buscar() {
         try {
-            requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $q = isset($_GET['q']) ? trim($_GET['q']) : '';
 
@@ -211,12 +219,14 @@ class ClientesController {
                 LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
                 LEFT JOIN vehiculos v        ON v.cliente_id = c.id
                 WHERE c.activo = 1
+                  AND c.sucursal_id = :sucursal_id
                   AND (c.nombre LIKE :q_nombre OR c.telefono LIKE :q_tel)
                 GROUP BY c.id
                 ORDER BY total_visitas DESC, ultima_visita DESC
                 LIMIT 6
             ";
             $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->bindValue(':q_nombre', $like, PDO::PARAM_STR);
             $stmt->bindValue(':q_tel',    $like, PDO::PARAM_STR);
             $stmt->execute();
@@ -292,7 +302,8 @@ class ClientesController {
      */
     public function update($id) {
         try {
-            requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $clienteId = (int) $id;
             $data = json_decode(file_get_contents('php://input'), true);
@@ -313,11 +324,13 @@ class ClientesController {
                     email     = :email
                 WHERE id = :id
                   AND activo = 1
+                  AND sucursal_id = :sucursal_id
             ");
-            $stmt->bindValue(':nombre',   trim($data['nombre']),             PDO::PARAM_STR);
-            $stmt->bindValue(':telefono', isset($data['telefono']) ? trim($data['telefono']) : null, PDO::PARAM_STR);
-            $stmt->bindValue(':email',    isset($data['email'])    ? trim($data['email'])    : null, PDO::PARAM_STR);
-            $stmt->bindValue(':id',       $clienteId,                        PDO::PARAM_INT);
+            $stmt->bindValue(':nombre',      trim($data['nombre']),             PDO::PARAM_STR);
+            $stmt->bindValue(':telefono',    isset($data['telefono']) ? trim($data['telefono']) : null, PDO::PARAM_STR);
+            $stmt->bindValue(':email',       isset($data['email'])    ? trim($data['email'])    : null, PDO::PARAM_STR);
+            $stmt->bindValue(':id',          $clienteId,                        PDO::PARAM_INT);
+            $stmt->bindValue(':sucursal_id', $sucursalId,                       PDO::PARAM_INT);
             $stmt->execute();
 
             if ($stmt->rowCount() === 0) {
@@ -361,11 +374,12 @@ class ClientesController {
      */
     public function perfil($id) {
         try {
-            requireAuth();
+            $userData   = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $clienteId = (int) $id;
 
-            // 1. Datos básicos del cliente + métricas
+            // 1. Datos básicos del cliente + métricas (filtrado por sucursal)
             $stmtC = $this->db->prepare("
                 SELECT
                     c.id,
@@ -378,9 +392,11 @@ class ClientesController {
                 LEFT JOIN ordenes_servicio o ON o.cliente_id = c.id
                 WHERE c.id = :id
                   AND c.activo = 1
+                  AND c.sucursal_id = :sucursal_id
                 GROUP BY c.id
             ");
-            $stmtC->bindParam(':id', $clienteId, PDO::PARAM_INT);
+            $stmtC->bindParam(':id',          $clienteId,  PDO::PARAM_INT);
+            $stmtC->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmtC->execute();
             $cliente = $stmtC->fetch(PDO::FETCH_ASSOC);
 
@@ -393,7 +409,7 @@ class ClientesController {
                 return;
             }
 
-            // 2. Resumen financiero del cliente
+            // 2. Resumen financiero del cliente (filtrado por sucursal)
             $stmtF = $this->db->prepare("
                 SELECT
                     COALESCE(SUM(o.total), 0)                    AS total_gastado,
@@ -403,23 +419,27 @@ class ClientesController {
                     COALESCE(SUM(o.iva), 0)                      AS total_iva
                 FROM ordenes_servicio o
                 WHERE o.cliente_id = :cid
+                  AND o.sucursal_id = :sucursal_id
             ");
-            $stmtF->bindParam(':cid', $clienteId, PDO::PARAM_INT);
+            $stmtF->bindParam(':cid',         $clienteId,  PDO::PARAM_INT);
+            $stmtF->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmtF->execute();
             $financiero = $stmtF->fetch(PDO::FETCH_ASSOC);
 
-            // 3. Vehículos del cliente
+            // 3. Vehículos del cliente (filtrado por sucursal)
             $stmtV = $this->db->prepare("
                 SELECT id, marca, modelo, anio, placas, niv
                 FROM vehiculos
                 WHERE cliente_id = :cid
+                  AND sucursal_id = :sucursal_id
                 ORDER BY id ASC
             ");
-            $stmtV->bindParam(':cid', $clienteId, PDO::PARAM_INT);
+            $stmtV->bindParam(':cid',         $clienteId,  PDO::PARAM_INT);
+            $stmtV->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmtV->execute();
             $vehiculos = $stmtV->fetchAll(PDO::FETCH_ASSOC);
 
-            // 3. Órdenes por cada vehículo
+            // 4. Órdenes por cada vehículo (filtradas por sucursal)
             $vehiculosConHistorial = [];
             foreach ($vehiculos as $vehiculo) {
                 $vehiculoId = (int) $vehiculo['id'];
@@ -441,9 +461,11 @@ class ClientesController {
                         ) AS servicio_principal
                     FROM ordenes_servicio o
                     WHERE o.vehiculo_id = :vid
+                      AND o.sucursal_id = :sucursal_id
                     ORDER BY o.fecha_ingreso DESC
                 ");
-                $stmtO->bindParam(':vid', $vehiculoId, PDO::PARAM_INT);
+                $stmtO->bindParam(':vid',         $vehiculoId, PDO::PARAM_INT);
+                $stmtO->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
                 $stmtO->execute();
                 $ordenes = $stmtO->fetchAll(PDO::FETCH_ASSOC);
 

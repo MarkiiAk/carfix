@@ -20,12 +20,12 @@ class FinancieroController {
     // -----------------------------------------------------------------------
     public function resumen(): void {
         try {
-            $userData = requireAuth();
+            $userData = requireAuth(['sistemas', 'superusuario', 'admin_sucursal', 'admin']);
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
-                return;
+            $rol = $userData['rol'] ?? '';
+            // Retrocompatibilidad con rol 'admin' antiguo
+            if ($rol === 'admin') {
+                $rol = 'superusuario';
             }
 
             $tipo   = isset($_GET['tipo'])   ? trim($_GET['tipo'])   : 'mes';
@@ -43,13 +43,15 @@ class FinancieroController {
                 return;
             }
 
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             [$fechaInicio, $fechaFin, $label] = $this->calcularPeriodo($tipo, $offset);
 
-            $resumen      = $this->queryResumen($fechaInicio, $fechaFin);
-            $refacciones  = $this->queryRefacciones($fechaInicio, $fechaFin);
-            $topServicios = $this->queryTopServicios($fechaInicio, $fechaFin);
-            $topClientes  = $this->queryTopClientes($fechaInicio, $fechaFin);
-            $porDia       = $this->queryPorDia($fechaInicio, $fechaFin);
+            $resumen      = $this->queryResumen($fechaInicio, $fechaFin, $sucursalId);
+            $refacciones  = $this->queryRefacciones($fechaInicio, $fechaFin, $sucursalId);
+            $topServicios = $this->queryTopServicios($fechaInicio, $fechaFin, $sucursalId);
+            $topClientes  = $this->queryTopClientes($fechaInicio, $fechaFin, $sucursalId);
+            $porDia       = $this->queryPorDia($fechaInicio, $fechaFin, $sucursalId);
 
             http_response_code(200);
             echo json_encode([
@@ -264,7 +266,7 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Solo el administrador puede eliminar costos internos']);
                 return;
@@ -429,7 +431,7 @@ class FinancieroController {
     // -----------------------------------------------------------------------
     // Queries
     // -----------------------------------------------------------------------
-    private function queryResumen(string $fechaInicio, string $fechaFin): array {
+    private function queryResumen(string $fechaInicio, string $fechaFin, int $sucursalId): array {
         // UNION de 3 partes (modelo flujo de caja real):
         // A. Órdenes ABIERTAS       → fecha_ingreso,   ingreso = anticipo
         // B. Órdenes CERRADAS c/ant → fecha_ingreso,   ingreso = anticipo
@@ -452,6 +454,7 @@ class FinancieroController {
                     0 AS ingresos_refacciones, 0 AS total_iva
                 FROM ordenes_servicio
                 WHERE fecha_ingreso BETWEEN :fi_a AND :ff_a
+                  AND sucursal_id = :suc_a
                   AND estado NOT IN ('completado','completada','entregado','entregada','cerrada')
 
                 UNION ALL
@@ -463,6 +466,7 @@ class FinancieroController {
                     0 AS ingresos_refacciones, 0 AS total_iva
                 FROM ordenes_servicio
                 WHERE fecha_ingreso BETWEEN :fi_b AND :ff_b
+                  AND sucursal_id = :suc_b
                   AND estado IN ('completado','completada','entregado','entregada','cerrada')
                   AND COALESCE(anticipo, 0) > 0
 
@@ -481,6 +485,7 @@ class FinancieroController {
                     COALESCE(iva, 0)                  AS total_iva
                 FROM ordenes_servicio
                 WHERE COALESCE(fecha_entregada, fecha_completada, fecha_ingreso) BETWEEN :fi_c AND :ff_c
+                  AND sucursal_id = :suc_c
                   AND estado IN ('completado','completada','entregado','entregada','cerrada')
             ) q
         ";
@@ -491,6 +496,9 @@ class FinancieroController {
         $stmt->bindParam(':ff_b', $fechaFin,    PDO::PARAM_STR);
         $stmt->bindParam(':fi_c', $fechaInicio, PDO::PARAM_STR);
         $stmt->bindParam(':ff_c', $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindValue(':suc_a', $sucursalId, PDO::PARAM_INT);
+        $stmt->bindValue(':suc_b', $sucursalId, PDO::PARAM_INT);
+        $stmt->bindValue(':suc_c', $sucursalId, PDO::PARAM_INT);
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -504,7 +512,7 @@ class FinancieroController {
         ];
     }
 
-    private function queryRefacciones(string $fechaInicio, string $fechaFin): array {
+    private function queryRefacciones(string $fechaInicio, string $fechaFin, int $sucursalId): array {
         // precio_unitario = precioVenta. Para órdenes ≥ 2026-05-25, precio_costo está almacenado.
         // Para órdenes antiguas (precio_costo IS NULL) se estima como subtotal / 1.30.
         $sql = "
@@ -520,12 +528,14 @@ class FinancieroController {
             FROM refacciones_orden r
             INNER JOIN ordenes_servicio o ON r.orden_id = o.id
             WHERE o.fecha_ingreso BETWEEN :fi AND :ff
+              AND o.sucursal_id = :sucursal_id
             -- Todas las órdenes por fecha_ingreso: la refacción se compra cuando entra el coche,
             -- independientemente de cuándo se cierra la orden (consistente con el modelo 3-partes)
         ";
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':fi', $fechaInicio, PDO::PARAM_STR);
         $stmt->bindParam(':ff', $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -542,7 +552,7 @@ class FinancieroController {
         ];
     }
 
-    private function queryTopServicios(string $fechaInicio, string $fechaFin): array {
+    private function queryTopServicios(string $fechaInicio, string $fechaFin, int $sucursalId): array {
         $sql = "
             SELECT
                 s.descripcion,
@@ -551,6 +561,7 @@ class FinancieroController {
             FROM servicios_orden s
             INNER JOIN ordenes_servicio o ON s.orden_id = o.id
             WHERE o.estado IN ('completado','completada','entregado','entregada','cerrada')
+              AND o.sucursal_id = :sucursal_id
               AND COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
               AND s.tipo != 'mano_obra'
             GROUP BY s.descripcion
@@ -560,6 +571,7 @@ class FinancieroController {
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
         $stmt->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -572,13 +584,14 @@ class FinancieroController {
         }, $rows);
     }
 
-    private function queryPorDia(string $fechaInicio, string $fechaFin): array {
+    private function queryPorDia(string $fechaInicio, string $fechaFin, int $sucursalId): array {
         $sql = "
             SELECT
                 DATE(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)) AS dia,
                 COALESCE(SUM(o.total), 0)                                              AS total
             FROM ordenes_servicio o
             WHERE o.estado IN ('completado','completada','entregado','entregada','cerrada')
+              AND o.sucursal_id = :sucursal_id
               AND COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
             GROUP BY DATE(COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso))
             ORDER BY dia ASC
@@ -586,6 +599,7 @@ class FinancieroController {
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
         $stmt->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -597,7 +611,7 @@ class FinancieroController {
         }, $rows);
     }
 
-    private function queryTopClientes(string $fechaInicio, string $fechaFin): array {
+    private function queryTopClientes(string $fechaInicio, string $fechaFin, int $sucursalId): array {
         $sql = "
             SELECT
                 c.id,
@@ -608,6 +622,7 @@ class FinancieroController {
             FROM ordenes_servicio o
             INNER JOIN clientes c ON c.id = o.cliente_id
             WHERE o.estado IN ('completado','completada','entregado','entregada','cerrada')
+              AND o.sucursal_id = :sucursal_id
               AND c.activo = 1
               AND COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
             GROUP BY c.id
@@ -617,6 +632,7 @@ class FinancieroController {
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
         $stmt->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+        $stmt->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -644,11 +660,13 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
             }
+
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             // Soporte dual: tipo+offset (nuevo) o mes+anio (retrocompatible)
             if (isset($_GET['tipo'])) {
@@ -684,11 +702,13 @@ class FinancieroController {
                 FROM gastos_administrativos g
                 INNER JOIN usuarios u ON u.id = g.registrado_por
                 WHERE DATE(g.created_at) BETWEEN :fecha_inicio AND :fecha_fin
+                  AND g.sucursal_id = :sucursal_id
                 ORDER BY g.created_at ASC
             ";
             $stmtGastos = $this->db->prepare($sqlGastos);
             $stmtGastos->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
             $stmtGastos->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmtGastos->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
             $stmtGastos->execute();
             $rows = $stmtGastos->fetchAll(PDO::FETCH_ASSOC);
 
@@ -724,12 +744,14 @@ class FinancieroController {
                   GROUP BY orden_id
                 ) rc ON rc.orden_id = o.id
                 WHERE o.estado IN ('cerrada', 'entregada', 'completada')
+                  AND o.sucursal_id = :sucursal_id
                   AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)
                       BETWEEN :fecha_inicio AND :fecha_fin
             ";
             $stmtIngresos = $this->db->prepare($sqlIngresos);
             $stmtIngresos->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
             $stmtIngresos->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmtIngresos->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
             $stmtIngresos->execute();
             $rowIngresos = $stmtIngresos->fetch(PDO::FETCH_ASSOC);
 
@@ -751,11 +773,13 @@ class FinancieroController {
                 FROM ordenes_servicio
                 WHERE COALESCE(fecha_completada, fecha_entregada, fecha_ingreso)
                       BETWEEN :fecha_inicio AND :fecha_fin
+                  AND sucursal_id = :sucursal_id
                   AND costo_interno_total > 0
             ";
             $stmtGO = $this->db->prepare($sqlGastosOrdenes);
             $stmtGO->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
             $stmtGO->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmtGO->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
             $stmtGO->execute();
             $rowGO = $stmtGO->fetch(PDO::FETCH_ASSOC);
             $gastosOrdenesMes = (float) ($rowGO['gastos_ordenes_mes'] ?? 0);
@@ -770,12 +794,14 @@ class FinancieroController {
                 SELECT sueldo_diario, tipo_sueldo
                 FROM empleados_sueldos
                 WHERE activo = 1
+                  AND sucursal_id = :sucursal_id
                   AND fecha_inicio <= :fecha_fin
                   AND (fecha_fin IS NULL OR fecha_fin >= :fecha_inicio)
             ";
             $stmtSueldos = $this->db->prepare($sqlSueldos);
             $stmtSueldos->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
             $stmtSueldos->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmtSueldos->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
             $stmtSueldos->execute();
             $rowsSueldos = $stmtSueldos->fetchAll(PDO::FETCH_ASSOC);
 
@@ -799,12 +825,14 @@ class FinancieroController {
                 SELECT id, monto, frecuencia
                 FROM pagos_fijos
                 WHERE activo = 1
+                  AND sucursal_id = :sucursal_id
                   AND fecha_inicio <= :fecha_fin
                   AND (fecha_fin IS NULL OR fecha_fin >= :fecha_inicio)
             ";
             $stmtFijos = $this->db->prepare($sqlFijos);
             $stmtFijos->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
             $stmtFijos->bindParam(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
+            $stmtFijos->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
             $stmtFijos->execute();
             $rowsFijos = $stmtFijos->fetchAll(PDO::FETCH_ASSOC);
 
@@ -866,12 +894,13 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
             }
 
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
             $mes       = isset($body['mes'])       ? (int)   $body['mes']                   : 0;
             $anio      = isset($body['anio'])      ? (int)   $body['anio']                  : 0;
             $concepto  = isset($body['concepto'])  ? trim((string) $body['concepto'])        : '';
@@ -908,8 +937,8 @@ class FinancieroController {
             $registradoPor = (int) ($userData['userId'] ?? $userData['id'] ?? 0);
 
             $sqlInsert = "
-                INSERT INTO gastos_administrativos (mes, anio, concepto, monto, categoria, registrado_por)
-                VALUES (:mes, :anio, :concepto, :monto, :categoria, :registrado_por)
+                INSERT INTO gastos_administrativos (mes, anio, concepto, monto, categoria, registrado_por, sucursal_id)
+                VALUES (:mes, :anio, :concepto, :monto, :categoria, :registrado_por, :sucursal_id)
             ";
             $stmtInsert = $this->db->prepare($sqlInsert);
             $stmtInsert->bindParam(':mes',           $mes,          PDO::PARAM_INT);
@@ -918,6 +947,7 @@ class FinancieroController {
             $stmtInsert->bindParam(':monto',         $monto);
             $stmtInsert->bindParam(':categoria',     $categoria,    PDO::PARAM_STR);
             $stmtInsert->bindParam(':registrado_por',$registradoPor,PDO::PARAM_INT);
+            $stmtInsert->bindValue(':sucursal_id',   $sucursalId,   PDO::PARAM_INT);
             $stmtInsert->execute();
 
             $nuevoId = (int) $this->db->lastInsertId();
@@ -962,7 +992,7 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Solo el administrador puede eliminar gastos administrativos']);
                 return;
@@ -1006,11 +1036,13 @@ class FinancieroController {
         try {
             $userData = requireAuth();
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
             }
+
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $tipo   = isset($_GET['tipo'])   ? trim($_GET['tipo'])   : 'mes';
             $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
@@ -1060,11 +1092,12 @@ class FinancieroController {
                 LEFT JOIN clientes c ON os.cliente_id = c.id
                 LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
                 WHERE os.fecha_ingreso BETWEEN ? AND ?
+                  AND os.sucursal_id = ?
                   AND os.estado $estadosAbiertos
                 ORDER BY fecha ASC
             ";
             $stmtA = $this->db->prepare($sqlA);
-            $stmtA->execute([$fechaInicio, $fechaFin]);
+            $stmtA->execute([$fechaInicio, $fechaFin, $sucursalId]);
             $rowsA = $stmtA->fetchAll(PDO::FETCH_ASSOC);
 
             // ── Query B: cerradas con anticipo, por fecha_ingreso (histórico anticipo) ──
@@ -1088,12 +1121,13 @@ class FinancieroController {
                 LEFT JOIN clientes c ON os.cliente_id = c.id
                 LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
                 WHERE os.fecha_ingreso BETWEEN ? AND ?
+                  AND os.sucursal_id = ?
                   AND os.estado $estadosCerrados
                   AND COALESCE(os.anticipo, 0) > 0
                 ORDER BY fecha ASC
             ";
             $stmtB   = $this->db->prepare($sqlB);
-            $stmtB->execute([$fechaInicio, $fechaFin]);
+            $stmtB->execute([$fechaInicio, $fechaFin, $sucursalId]);
             $rowsB = $stmtB->fetchAll(PDO::FETCH_ASSOC);
 
             // ── Query C: cerradas por fecha_entregada (solo el restante) ──────────────
@@ -1130,11 +1164,12 @@ class FinancieroController {
                 LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
                 WHERE COALESCE(os.fecha_entregada, os.fecha_completada, os.fecha_ingreso)
                       BETWEEN ? AND ?
+                  AND os.sucursal_id = ?
                   AND os.estado $estadosCerrados
                 ORDER BY fecha ASC
             ";
             $stmtC = $this->db->prepare($sqlC);
-            $stmtC->execute([$fechaInicio, $fechaFin]);
+            $stmtC->execute([$fechaInicio, $fechaFin, $sucursalId]);
             $rowsC = $stmtC->fetchAll(PDO::FETCH_ASSOC);
 
             // Merge A + B + C y ordenar por fecha ASC
@@ -1260,6 +1295,8 @@ class FinancieroController {
                 return;
             }
 
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             // Sin filtro de fechas: devuelve TODOS los empleados (vigentes y ex-empleados).
             // El frontend separa:
             //   - empleadosVigentes: sin fecha_fin o fecha_fin > hoy → aparecen en tabla principal
@@ -1271,16 +1308,17 @@ class FinancieroController {
             $sql = "
                 SELECT es.id, es.usuario_id, es.nombre, es.puesto, es.sueldo_diario, es.tipo_sueldo,
                        es.fecha_inicio, es.fecha_fin, es.activo,
-                       COALESCE(ea.dias_trabajados, 5) AS dias_trabajados
+                       COALESCE(ea.dias_trabajados, IF(es.tipo_sueldo = 'semanal', 7, 5)) AS dias_trabajados
                 FROM empleados_sueldos es
                 LEFT JOIN empleado_asistencia ea
                   ON ea.empleado_id = es.id
                  AND ea.semana_inicio = :semana_inicio
-                WHERE 1=1
+                WHERE es.sucursal_id = :sucursal_id
                 ORDER BY es.activo DESC, (es.fecha_fin IS NULL) DESC, es.nombre ASC
             ";
             $stmt = $this->db->prepare($sql);
             $stmt->bindValue(':semana_inicio', $semanaInicio, $semanaInicio !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stmt->bindValue(':sucursal_id',   $sucursalId,   PDO::PARAM_INT);
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1371,12 +1409,13 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
             }
 
+            $sucursalId   = (int) ($userData['sucursal_activa_id'] ?? 1);
             $nombre       = isset($body['nombre'])       ? trim((string) $body['nombre'])       : '';
             $puesto       = isset($body['puesto'])       ? trim((string) $body['puesto'])       : null;
             $sueldoDiario = isset($body['sueldo_diario']) ? (float) $body['sueldo_diario']      : 0;
@@ -1396,8 +1435,8 @@ class FinancieroController {
             }
 
             $sql = "
-                INSERT INTO empleados_sueldos (nombre, puesto, sueldo_diario, tipo_sueldo, fecha_inicio, usuario_id)
-                VALUES (:nombre, :puesto, :sueldo_diario, :tipo_sueldo, :fecha_inicio, :usuario_id)
+                INSERT INTO empleados_sueldos (nombre, puesto, sueldo_diario, tipo_sueldo, fecha_inicio, usuario_id, sucursal_id)
+                VALUES (:nombre, :puesto, :sueldo_diario, :tipo_sueldo, :fecha_inicio, :usuario_id, :sucursal_id)
             ";
             $stmt = $this->db->prepare($sql);
             $stmt->bindParam(':nombre',        $nombre,       PDO::PARAM_STR);
@@ -1405,6 +1444,7 @@ class FinancieroController {
             $stmt->bindParam(':sueldo_diario',  $sueldoDiario);
             $stmt->bindParam(':tipo_sueldo',    $tipoSueldo,   PDO::PARAM_STR);
             $stmt->bindParam(':fecha_inicio',   $fechaInicio,  PDO::PARAM_STR);
+            $stmt->bindValue(':sucursal_id',    $sucursalId,   PDO::PARAM_INT);
             if ($usuarioId !== null) {
                 $stmt->bindParam(':usuario_id', $usuarioId, PDO::PARAM_INT);
             } else {
@@ -1449,14 +1489,14 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
             }
 
             $stmtCheck = $this->db->prepare(
-                'SELECT id, nombre, puesto, sueldo_diario, tipo_sueldo, usuario_id, activo FROM empleados_sueldos WHERE id = :id LIMIT 1'
+                'SELECT id, nombre, puesto, sueldo_diario, tipo_sueldo, usuario_id, sucursal_id, activo FROM empleados_sueldos WHERE id = :id LIMIT 1'
             );
             $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
             $stmtCheck->execute();
@@ -1541,20 +1581,22 @@ class FinancieroController {
                     $stmtCierre->bindParam(':id',        $id,               PDO::PARAM_INT);
                     $stmtCierre->execute();
 
-                    // Crear nuevo registro vigente
-                    $usuarioId = $existente['usuario_id'] !== null ? (int) $existente['usuario_id'] : null;
+                    // Crear nuevo registro vigente (hereda sucursal del registro existente)
+                    $usuarioId         = $existente['usuario_id'] !== null ? (int) $existente['usuario_id'] : null;
+                    $sucursalIdEmp     = (int) ($existente['sucursal_id'] ?? ($userData['sucursal_activa_id'] ?? 1));
                     $sqlNuevo  = "
                         INSERT INTO empleados_sueldos
-                            (nombre, puesto, sueldo_diario, tipo_sueldo, fecha_inicio, usuario_id, activo)
+                            (nombre, puesto, sueldo_diario, tipo_sueldo, fecha_inicio, usuario_id, sucursal_id, activo)
                         VALUES
-                            (:nombre, :puesto, :sueldo_diario, :tipo_sueldo, :fecha_inicio, :usuario_id, 1)
+                            (:nombre, :puesto, :sueldo_diario, :tipo_sueldo, :fecha_inicio, :usuario_id, :sucursal_id, 1)
                     ";
                     $stmtNuevo = $this->db->prepare($sqlNuevo);
-                    $stmtNuevo->bindParam(':nombre',        $nuevoNombre,     PDO::PARAM_STR);
-                    $stmtNuevo->bindParam(':puesto',         $nuevoPuesto,     PDO::PARAM_STR);
+                    $stmtNuevo->bindParam(':nombre',        $nuevoNombre,      PDO::PARAM_STR);
+                    $stmtNuevo->bindParam(':puesto',         $nuevoPuesto,      PDO::PARAM_STR);
                     $stmtNuevo->bindParam(':sueldo_diario',  $nuevoSueldo);
-                    $stmtNuevo->bindParam(':tipo_sueldo',    $nuevoTipoSueldo, PDO::PARAM_STR);
+                    $stmtNuevo->bindParam(':tipo_sueldo',    $nuevoTipoSueldo,  PDO::PARAM_STR);
                     $stmtNuevo->bindParam(':fecha_inicio',   $nuevaFechaInicio, PDO::PARAM_STR);
+                    $stmtNuevo->bindValue(':sucursal_id',    $sucursalIdEmp,    PDO::PARAM_INT);
                     if ($usuarioId !== null) {
                         $stmtNuevo->bindParam(':usuario_id', $usuarioId, PDO::PARAM_INT);
                     } else {
@@ -1690,7 +1732,7 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
@@ -1735,6 +1777,8 @@ class FinancieroController {
                 return;
             }
 
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             // Filtrado por vigencia. Si no se pasan fechas, se usa CURDATE() para ambas
             // (devuelve solo los registros vigentes hoy).
             $fechaConsultaInicio = isset($_GET['fecha_inicio']) ? trim($_GET['fecha_inicio']) : date('Y-m-d');
@@ -1745,11 +1789,13 @@ class FinancieroController {
             $sql = "
                 SELECT id, concepto, monto, fecha_inicio, fecha_fin, frecuencia, categoria, activo
                 FROM pagos_fijos
-                WHERE fecha_inicio <= :fecha_consulta_fin
+                WHERE sucursal_id = :sucursal_id
+                  AND fecha_inicio <= :fecha_consulta_fin
                   AND (fecha_fin IS NULL OR fecha_fin >= :fecha_consulta_inicio)
                 ORDER BY activo DESC, concepto ASC
             ";
             $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(':sucursal_id',           $sucursalId,          PDO::PARAM_INT);
             $stmt->bindParam(':fecha_consulta_inicio', $fechaConsultaInicio, PDO::PARAM_STR);
             $stmt->bindParam(':fecha_consulta_fin',    $fechaConsultaFin,    PDO::PARAM_STR);
             $stmt->execute();
@@ -1791,12 +1837,13 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
             }
 
+            $sucursalId  = (int) ($userData['sucursal_activa_id'] ?? 1);
             $concepto    = isset($body['concepto'])      ? trim((string) $body['concepto'])      : '';
             $monto       = isset($body['monto'])         ? (float) $body['monto']               : 0;
             $frecuencia  = isset($body['frecuencia'])    ? trim((string) $body['frecuencia'])    : 'mensual';
@@ -1825,8 +1872,8 @@ class FinancieroController {
             }
 
             $sql = "
-                INSERT INTO pagos_fijos (concepto, monto, fecha_inicio, frecuencia, categoria)
-                VALUES (:concepto, :monto, :fecha_inicio, :frecuencia, :categoria)
+                INSERT INTO pagos_fijos (concepto, monto, fecha_inicio, frecuencia, categoria, sucursal_id)
+                VALUES (:concepto, :monto, :fecha_inicio, :frecuencia, :categoria, :sucursal_id)
             ";
             $stmt = $this->db->prepare($sql);
             $stmt->bindParam(':concepto',    $concepto,    PDO::PARAM_STR);
@@ -1834,6 +1881,7 @@ class FinancieroController {
             $stmt->bindParam(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
             $stmt->bindParam(':frecuencia',  $frecuencia,  PDO::PARAM_STR);
             $stmt->bindParam(':categoria',   $categoria,   PDO::PARAM_STR);
+            $stmt->bindValue(':sucursal_id', $sucursalId,  PDO::PARAM_INT);
             $stmt->execute();
             $nuevoId = (int) $this->db->lastInsertId();
 
@@ -1872,14 +1920,14 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
             }
 
             $stmtCheck = $this->db->prepare(
-                'SELECT id, concepto, monto, frecuencia, categoria, activo FROM pagos_fijos WHERE id = :id LIMIT 1'
+                'SELECT id, concepto, monto, frecuencia, categoria, sucursal_id, activo FROM pagos_fijos WHERE id = :id LIMIT 1'
             );
             $stmtCheck->bindParam(':id', $id, PDO::PARAM_INT);
             $stmtCheck->execute();
@@ -1965,18 +2013,20 @@ class FinancieroController {
                     $stmtCierre->bindParam(':id',        $id,               PDO::PARAM_INT);
                     $stmtCierre->execute();
 
+                    $sucursalIdPF = (int) ($existente['sucursal_id'] ?? ($userData['sucursal_activa_id'] ?? 1));
                     $sqlNuevo = "
                         INSERT INTO pagos_fijos
-                            (concepto, monto, fecha_inicio, frecuencia, categoria, activo)
+                            (concepto, monto, fecha_inicio, frecuencia, categoria, sucursal_id, activo)
                         VALUES
-                            (:concepto, :monto, :fecha_inicio, :frecuencia, :categoria, 1)
+                            (:concepto, :monto, :fecha_inicio, :frecuencia, :categoria, :sucursal_id, 1)
                     ";
                     $stmtNuevo = $this->db->prepare($sqlNuevo);
-                    $stmtNuevo->bindParam(':concepto',    $nuevoConcepto,   PDO::PARAM_STR);
+                    $stmtNuevo->bindParam(':concepto',    $nuevoConcepto,    PDO::PARAM_STR);
                     $stmtNuevo->bindParam(':monto',       $nuevoMonto);
                     $stmtNuevo->bindParam(':fecha_inicio', $nuevaFechaInicio, PDO::PARAM_STR);
                     $stmtNuevo->bindParam(':frecuencia',  $nuevaFrecuencia,  PDO::PARAM_STR);
                     $stmtNuevo->bindParam(':categoria',   $nuevaCategoria,   PDO::PARAM_STR);
+                    $stmtNuevo->bindValue(':sucursal_id', $sucursalIdPF,     PDO::PARAM_INT);
                     $stmtNuevo->execute();
                     $nuevoId = (int) $this->db->lastInsertId();
 
@@ -2059,7 +2109,7 @@ class FinancieroController {
                 return;
             }
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
@@ -2099,11 +2149,13 @@ class FinancieroController {
         try {
             $userData = requireAuth();
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
             }
+
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
 
             $tipo   = isset($_GET['tipo'])   ? trim($_GET['tipo'])   : 'semana';
             $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
@@ -2118,9 +2170,10 @@ class FinancieroController {
 
             $stmtAnterior = $this->db->prepare(
                 'SELECT COALESCE(SUM(CASE WHEN tipo = :ing THEN monto ELSE -monto END), 0) AS saldo_anterior
-                 FROM caja_chica WHERE fecha < :fecha_inicio'
+                 FROM caja_chica WHERE sucursal_id = :sucursal_id AND fecha < :fecha_inicio'
             );
             $stmtAnterior->bindValue(':ing',          'ingreso',    PDO::PARAM_STR);
+            $stmtAnterior->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
             $stmtAnterior->bindValue(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
             $stmtAnterior->execute();
             $saldoAnterior = (float) $stmtAnterior->fetchColumn();
@@ -2128,9 +2181,11 @@ class FinancieroController {
             $stmtMov = $this->db->prepare(
                 'SELECT id, fecha, tipo, concepto, monto, notas, gasto_admin_id
                  FROM caja_chica
-                 WHERE fecha BETWEEN :fecha_inicio AND :fecha_fin
+                 WHERE sucursal_id = :sucursal_id
+                   AND fecha BETWEEN :fecha_inicio AND :fecha_fin
                  ORDER BY fecha ASC, id ASC'
             );
+            $stmtMov->bindValue(':sucursal_id',  $sucursalId,  PDO::PARAM_INT);
             $stmtMov->bindValue(':fecha_inicio', $fechaInicio, PDO::PARAM_STR);
             $stmtMov->bindValue(':fecha_fin',    $fechaFin,    PDO::PARAM_STR);
             $stmtMov->execute();
@@ -2181,12 +2236,13 @@ class FinancieroController {
         try {
             $userData = requireAuth();
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;
             }
 
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
             $body = json_decode(file_get_contents('php://input'), true) ?? [];
 
             $fecha    = trim($body['fecha']    ?? '');
@@ -2219,14 +2275,15 @@ class FinancieroController {
             $this->db->beginTransaction();
 
             $stmt = $this->db->prepare(
-                'INSERT INTO caja_chica (fecha, tipo, concepto, monto, notas)
-                 VALUES (:fecha, :tipo, :concepto, :monto, :notas)'
+                'INSERT INTO caja_chica (fecha, tipo, concepto, monto, notas, sucursal_id)
+                 VALUES (:fecha, :tipo, :concepto, :monto, :notas, :sucursal_id)'
             );
-            $stmt->bindValue(':fecha',    $fecha,    PDO::PARAM_STR);
-            $stmt->bindValue(':tipo',     $tipo,     PDO::PARAM_STR);
-            $stmt->bindValue(':concepto', $concepto, PDO::PARAM_STR);
-            $stmt->bindValue(':monto',    $monto);
-            $stmt->bindValue(':notas',    $notas,    $notas === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+            $stmt->bindValue(':fecha',       $fecha,      PDO::PARAM_STR);
+            $stmt->bindValue(':tipo',        $tipo,       PDO::PARAM_STR);
+            $stmt->bindValue(':concepto',    $concepto,   PDO::PARAM_STR);
+            $stmt->bindValue(':monto',       $monto);
+            $stmt->bindValue(':notas',       $notas,      $notas === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+            $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->execute();
 
             $nuevoId = (int) $this->db->lastInsertId();
@@ -2240,8 +2297,8 @@ class FinancieroController {
                 $conceptoAdmin = 'Caja chica: ' . $concepto;
 
                 $stmtAdmin = $this->db->prepare(
-                    'INSERT INTO gastos_administrativos (mes, anio, concepto, monto, categoria, registrado_por)
-                     VALUES (:mes, :anio, :concepto, :monto, :categoria, :registrado_por)'
+                    'INSERT INTO gastos_administrativos (mes, anio, concepto, monto, categoria, registrado_por, sucursal_id)
+                     VALUES (:mes, :anio, :concepto, :monto, :categoria, :registrado_por, :sucursal_id)'
                 );
                 $stmtAdmin->bindValue(':mes',           $mes,          PDO::PARAM_INT);
                 $stmtAdmin->bindValue(':anio',          $anio,         PDO::PARAM_INT);
@@ -2249,6 +2306,7 @@ class FinancieroController {
                 $stmtAdmin->bindValue(':monto',         $monto);
                 $stmtAdmin->bindValue(':categoria',     'otro',        PDO::PARAM_STR);
                 $stmtAdmin->bindValue(':registrado_por',$registradoPor, PDO::PARAM_INT);
+                $stmtAdmin->bindValue(':sucursal_id',   $sucursalId,   PDO::PARAM_INT);
                 $stmtAdmin->execute();
 
                 $gastoAdminId = (int) $this->db->lastInsertId();
@@ -2291,7 +2349,7 @@ class FinancieroController {
         try {
             $userData = requireAuth();
 
-            if (($userData['rol'] ?? $userData['role'] ?? '') !== 'admin') {
+            if (!in_array($userData['rol'] ?? $userData['role'] ?? '', ['sistemas', 'superusuario', 'admin_sucursal'])) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Acceso restringido a administradores']);
                 return;

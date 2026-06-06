@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTrash, faSpinner, faPencil, faCheck, faXmark, faDownload, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { financieroAPI, gastosAdminAPI, empleadosFinancieroAPI, pagosFijosAPI, cajaChicaAPI } from '../services/api';
@@ -8,8 +7,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { TablaOrdenesDesglosada } from '../components/financiero/TablaOrdenesDesglosada';
 import type {
   ResumenFinancieroResponse,
-  TopServicio,
-  TopCliente,
   GastoAdmin,
   GastosAdminResponse,
   OrdenFinanciero,
@@ -124,95 +121,6 @@ const BarraDistribucion = ({ totalSueldos, costoRefacciones, totalFijos, gastosV
 };
 
 
-// ---------------------------------------------------------------------------
-// Top servicios
-// ---------------------------------------------------------------------------
-
-interface TopServiciosProps {
-  servicios: TopServicio[];
-}
-
-const TopServicios = ({ servicios }: TopServiciosProps) => {
-  if (servicios.length === 0) {
-    return (
-      <p className="text-sm text-gray-400 dark:text-gray-500 py-4">
-        Sin servicios registrados en este periodo.
-      </p>
-    );
-  }
-
-  const maximo = servicios[0].total_generado;
-
-  return (
-    <div className="space-y-3">
-      {servicios.map((s) => {
-        const pct = maximo > 0 ? (s.total_generado / maximo) * 100 : 0;
-        return (
-          <div key={s.descripcion}>
-            <div className="flex items-center justify-between mb-1 gap-2">
-              <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">
-                {s.descripcion}
-              </span>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  {formatMoneda(s.total_generado)}
-                </span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 w-12 text-right">
-                  {s.veces}x
-                </span>
-              </div>
-            </div>
-            <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-sag-500 rounded-full transition-all duration-500"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Top clientes
-// ---------------------------------------------------------------------------
-
-interface TopClientesProps { clientes: TopCliente[]; }
-
-const TopClientes = ({ clientes }: TopClientesProps) => {
-  if (clientes.length === 0) {
-    return <p className="text-sm text-gray-400 dark:text-gray-500 py-4">Sin clientes en este periodo.</p>;
-  }
-  const maximo = clientes[0].total_gastado;
-  return (
-    <div className="space-y-3">
-      {clientes.map((c, i) => {
-        const pct = maximo > 0 ? Math.round((c.total_gastado / maximo) * 100) : 0;
-        return (
-          <div key={c.id} className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 w-4">{i + 1}</span>
-                <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{c.nombre}</span>
-                <span className="text-xs text-gray-400 hidden sm:inline">· {c.num_visitas} {c.num_visitas === 1 ? 'visita' : 'visitas'}</span>
-              </div>
-              <span className="font-semibold text-gray-700 dark:text-gray-300 flex-shrink-0 ml-2">
-                {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(c.total_gastado)}
-              </span>
-            </div>
-            <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-              <div className="bg-sag-500 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-
 // Calcula el label de una semana dado un offset (0 = semana actual)
 const labelSemana = (offset: number): string => {
   const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
@@ -268,8 +176,6 @@ const CATEGORIA_OPTIONS: GastoAdmin['categoria'][] = ['renta', 'salario', 'servi
 
 export const Financiero = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-
   // Solo modo semanal — la opción mensual fue removida
   const tipoPeriodo: 'semana' | 'mes' = 'semana';
   const [offset, setOffset] = useState(0);
@@ -382,12 +288,7 @@ export const Financiero = () => {
   const [cajaFecha, setCajaFecha]         = useState(() => new Date().toISOString().split('T')[0]);
   const [cajaError, setCajaError]         = useState('');
 
-  // Redirigir si no es admin
-  useEffect(() => {
-    if (user && user.rol !== 'admin') {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, navigate]);
+  // Financiero accesible para todos los roles autenticados (ProtectedRoute ya garantiza auth)
 
   const cargar = useCallback(async () => {
     setIsLoading(true);
@@ -607,9 +508,10 @@ export const Financiero = () => {
   const toggleEmpleado = async (id: number) => {
     const emp = empleados.find(e => e.id === id);
     if (!emp || !periodoFechaInicio) return;
-    // Toggle week-specific: dias>0 → apagar (0); dias=0 → encender (5 default)
-    const diasActuales = Number(emp.dias_trabajados ?? 5);
-    const nuevosDias   = diasActuales > 0 ? 0 : 5;
+    // Toggle week-specific: dias>0 → apagar (0); dias=0 → encender (7 semanal, 5 diario)
+    const esSemanal    = (emp.tipo_sueldo ?? 'diario') === 'semanal';
+    const diasActuales = Number(emp.dias_trabajados ?? (esSemanal ? 7 : 5));
+    const nuevosDias   = diasActuales > 0 ? 0 : (esSemanal ? 7 : 5);
     setSavingDias(prev => new Set(prev).add(id));
     try {
       await empleadosFinancieroAPI.asistencia(id, periodoFechaInicio, nuevosDias);
@@ -762,13 +664,14 @@ export const Financiero = () => {
   // Pago real de la semana por empleado:
   // - activo=false (baja permanente o dato legacy)   → $0
   // - dias_trabajados=0 (toggle OFF esta semana)      → $0
-  // - semanal → sueldo_diario es el monto semanal flat
+  // - semanal → sueldo_diario × dias_trabajados/7 (descuenta faltas; default 7 = semana completa)
   // - diario  → sueldo_diario × dias_trabajados (default 5 si no hay registro)
   const pagoSemanalEmpleado = (e: EmpleadoSueldo): number => {
     if (!e.activo) return 0;
-    const dias = Number(e.dias_trabajados ?? 5);
+    const esSemanal = (e.tipo_sueldo ?? 'diario') === 'semanal';
+    const dias = Number(e.dias_trabajados ?? (esSemanal ? 7 : 5));
     if (dias === 0) return 0;
-    if ((e.tipo_sueldo ?? 'diario') === 'semanal') return Number(e.sueldo_diario);
+    if (esSemanal) return Number(e.sueldo_diario) * dias / 7;
     return Number(e.sueldo_diario) * dias;
   };
 
@@ -845,7 +748,7 @@ export const Financiero = () => {
 
   if (!datos) return null;
 
-  const { periodo, resumen, top_servicios, top_clientes } = datos;
+  const { periodo, resumen } = datos;
   // sinDatos = true solo cuando NO hay órdenes Y tampoco hay costos operativos.
   // Si hay sueldos, pagos fijos o gastos variables aunque sea sin ingresos,
   // se debe mostrar el balance (quedará en déficit).
@@ -865,46 +768,45 @@ export const Financiero = () => {
       {/* ------------------------------------------------------------------ */}
       {/* Header con selector de período (tipo + flechas)                     */}
       {/* ------------------------------------------------------------------ */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white shrink-0">
             Ingresos
           </h1>
+
+          {/* Selector de semana centrado */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setOffset(o => o + 1)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title="Período anterior"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[148px] text-center capitalize">
+              {labelPeriodoActivo}
+            </span>
+            <button
+              onClick={() => setOffset(o => Math.max(0, o - 1))}
+              disabled={offset === 0}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Período siguiente"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
           <button
             onClick={handleDescargarReporte}
             disabled={sinDatos || isLoading || !gastosAdmin}
-            className="flex items-center gap-2 px-4 py-2 bg-sag-500 text-gray-900 rounded-lg text-sm font-semibold hover:bg-sag-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-sag-500 text-gray-900 rounded-lg text-sm font-semibold hover:bg-sag-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             <FontAwesomeIcon icon={faDownload} className="text-xs" />
             Descargar reporte
-          </button>
-        </div>
-
-        {/* Solo modo semanal — toggle mensual removido */}
-
-        {/* Selector de flechas */}
-        <div className="flex items-center justify-center gap-3">
-          <button
-            onClick={() => setOffset(o => o + 1)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title="Período anterior"
-          >
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 min-w-[160px] text-center capitalize">
-            {labelPeriodoActivo}
-          </span>
-          <button
-            onClick={() => setOffset(o => Math.max(0, o - 1))}
-            disabled={offset === 0}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Período siguiente"
-          >
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
           </button>
         </div>
       </div>
@@ -943,22 +845,7 @@ export const Financiero = () => {
           ) : (
             <>
               {/* ----------------------------------------------------------- */}
-              {/* 1. Cards KPI                                                  */}
-              {/* ----------------------------------------------------------- */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <KpiCard
-                  label="Total facturado"
-                  value={resumen.total_facturado}
-                  highlight
-                  sub={`${resumen.num_ordenes} ${resumen.num_ordenes === 1 ? 'orden' : 'ordenes'}`}
-                />
-                <KpiCard label="Servicios" value={resumen.ingresos_servicios} />
-                <KpiCard label="Mano de obra" value={resumen.ingresos_mano_obra} />
-                <KpiCard label="Refacciones" value={resumen.ingresos_refacciones} />
-              </div>
-
-              {/* ----------------------------------------------------------- */}
-              {/* 2. Barra de distribución + Balance (requieren gastosAdmin)    */}
+              {/* Barra de distribución + Balance (requieren gastosAdmin)       */}
               {/* ----------------------------------------------------------- */}
               {gastosAdmin !== null && !loadingAdmin && (() => {
                 const totalFacturado    = datos?.resumen.total_facturado ?? 0;
@@ -988,7 +875,7 @@ export const Financiero = () => {
                     />
 
                     {/* --------------------------------------------------- */}
-                    {/* 3. Detalle por orden — justo debajo de ¿A dónde fue? */}
+                    {/* 3+4. Detalle por orden + Balance fusionados           */}
                     {/* --------------------------------------------------- */}
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
                       <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
@@ -1002,131 +889,135 @@ export const Financiero = () => {
                         totales={ordTotales}
                         loading={loadingOrdenes}
                       />
+
+                      {/* Separador */}
+                      <div className="mt-8 mb-6 border-t-2 border-dashed border-gray-200 dark:border-gray-700" />
+
+                      {/* Balance fusionado */}
+                      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-5">
+                        Balance &mdash; {tituloPeriodo}
+                      </h2>
+
+                      {/* Grupo 1: de facturado a ingreso neto */}
+                      <div className="space-y-2 mb-2">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">Total facturado</span>
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-300 tabular-nums">
+                            {formatMoneda(totalFacturado)}
+                          </span>
+                        </div>
+                        {costoRefas !== 0 && (
+                          <div className="flex items-baseline justify-between pl-5">
+                            <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Costo refacciones</span>
+                            <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(costoRefas)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-700 pt-2 font-semibold text-gray-700 dark:text-gray-200">
+                          <span className="text-sm">Ingreso neto operativo</span>
+                          <span className="text-sm tabular-nums">{formatMoneda(ingresoNeto)}</span>
+                        </div>
+                      </div>
+
+                      <div className="my-4 border-t border-dashed border-gray-200 dark:border-gray-700" />
+
+                      {/* Grupo 2: deducciones expandidas */}
+                      <div className="space-y-1">
+                        {/* Sueldos — línea por empleado + subtotal */}
+                        {totalSueldosActivos > 0 && (
+                          <>
+                            {empleadosVigentes.map(e => (
+                              <div key={e.id} className="flex items-baseline justify-between pl-5">
+                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                  {e.nombre}{e.puesto ? ` (${e.puesto})` : ''}
+                                </span>
+                                <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                                  &minus;{formatMoneda(pagoSemanalEmpleado(e))}
+                                </span>
+                              </div>
+                            ))}
+                            <div className="flex items-baseline justify-between pl-5 pt-1 border-t border-gray-100 dark:border-gray-800">
+                              <span className="text-sm text-gray-400 dark:text-gray-500 font-medium">&minus; Sueldos del equipo</span>
+                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums font-medium">&minus;{formatMoneda(totalSueldosActivos)}</span>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Pagos fijos — línea por concepto + subtotal */}
+                        {totalPagosFijosActivos > 0 && (
+                          <>
+                            {pagosFijos.filter(p => p.activo).map(p => {
+                              const montoPeriodo = p.frecuencia === 'semanal'
+                                ? p.monto * (tipoPeriodo === 'semana' ? 1 : 4)
+                                : (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
+                              return (
+                                <div key={p.id} className="flex items-baseline justify-between pl-5">
+                                  <span className="text-xs text-gray-400 dark:text-gray-500">{p.concepto}</span>
+                                  <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(montoPeriodo)}</span>
+                                </div>
+                              );
+                            })}
+                            <div className="flex items-baseline justify-between pl-5 pt-1 border-t border-gray-100 dark:border-gray-800">
+                              <span className="text-sm text-gray-400 dark:text-gray-500 font-medium">&minus; Costos fijos</span>
+                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums font-medium">&minus;{formatMoneda(totalPagosFijosActivos)}</span>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Gastos variables — agrupado */}
+                        {gastosVarsRaw > 0 && (
+                          <div className="flex items-baseline justify-between pl-5">
+                            <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Gastos variables</span>
+                            <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosVarsRaw)}</span>
+                          </div>
+                        )}
+
+                        {/* Costos internos de órdenes — agrupado */}
+                        {gastosOrdenesVal > 0 && (
+                          <div className="flex items-baseline justify-between pl-5">
+                            <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Costos internos de órdenes</span>
+                            <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosOrdenesVal)}</span>
+                          </div>
+                        )}
+
+                        {/* Ganancia neta */}
+                        <div className="flex items-baseline justify-between border-t-2 border-gray-300 dark:border-gray-600 pt-3 mt-2">
+                          <span className="text-sm font-bold text-gray-800 dark:text-gray-100">Ganancia neta</span>
+                          <span className={`text-lg font-black tabular-nums ${gananciaNetaFinal >= 0 ? 'text-sag-500' : 'text-red-500 dark:text-red-400'}`}>
+                            {formatMoneda(gananciaNetaFinal)}
+                          </span>
+                        </div>
+
+                        {/* Nota IVA */}
+                        {ivaDelPeriodo > 0 && (
+                          <p className="text-xs text-blue-500 dark:text-blue-400 mt-3 leading-relaxed border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2">
+                            IVA recaudado este período: {formatMoneda(ivaDelPeriodo)} — no es ganancia, va al SAT.
+                          </p>
+                        )}
+
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
+                          Utilidad estimada. No incluye otros impuestos ni deducciones fiscales.
+                        </p>
+                      </div>
                     </div>
 
                     {/* --------------------------------------------------- */}
-                    {/* 4. Balance — hero number + cascada                    */}
+                    {/* KPI — Total facturado + desglose por tipo             */}
                     {/* --------------------------------------------------- */}
-                    <div>
-                      {/* Hero number */}
-                      <div className="bg-gray-900 rounded-2xl px-6 py-5 mb-1 border border-gray-700">
-                        <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">
-                          Ganancia neta del período
-                        </p>
-                        <p className={`text-5xl font-black tabular-nums leading-none ${gananciaNetaFinal >= 0 ? 'text-sag-500' : 'text-red-400'}`}>
-                          {formatMoneda(gananciaNetaFinal)}
-                        </p>
-                      </div>
-
-                      {/* Cascada detallada */}
-                      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-5">
-                        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-5">
-                          Balance &mdash; {tituloPeriodo}
-                        </h2>
-
-                        {/* Grupo 1: de facturado a ingreso neto */}
-                        <div className="space-y-2 mb-2">
-                          <div className="flex items-baseline justify-between">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Total facturado</span>
-                            <span className="text-sm font-medium text-gray-600 dark:text-gray-300 tabular-nums">
-                              {formatMoneda(totalFacturado)}
-                            </span>
-                          </div>
-
-                          {costoRefas !== 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">
-                                &minus; Costo refacciones
-                              </span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">
-                                &minus;{formatMoneda(costoRefas)}
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-700 pt-2 font-semibold text-gray-700 dark:text-gray-200">
-                            <span className="text-sm">Ingreso neto operativo</span>
-                            <span className="text-sm tabular-nums">{formatMoneda(ingresoNeto)}</span>
-                          </div>
-                        </div>
-
-                        <div className="my-4 border-t border-dashed border-gray-200 dark:border-gray-700" />
-
-                        {/* Grupo 2: deducciones */}
-                        <div className="space-y-2">
-                          {totalSueldosActivos > 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Sueldos del equipo</span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(totalSueldosActivos)}</span>
-                            </div>
-                          )}
-                          {totalPagosFijosActivos > 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Costos fijos</span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(totalPagosFijosActivos)}</span>
-                            </div>
-                          )}
-                          {gastosVarsRaw > 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">
-                                &minus; Gastos variables
-                              </span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosVarsRaw)}</span>
-                            </div>
-                          )}
-                          {gastosOrdenesVal > 0 && (
-                            <div className="flex items-baseline justify-between pl-5">
-                              <span className="text-sm text-gray-400 dark:text-gray-500">&minus; Costos internos de órdenes</span>
-                              <span className="text-sm text-gray-400 dark:text-gray-500 tabular-nums">&minus;{formatMoneda(gastosOrdenesVal)}</span>
-                            </div>
-                          )}
-
-                          {/* Línea final — Ganancia neta */}
-                          <div className="flex items-baseline justify-between border-t-2 border-gray-300 dark:border-gray-600 pt-3 mt-2">
-                            <span className="text-sm font-bold text-gray-800 dark:text-gray-100">Ganancia neta</span>
-                            <span className={`text-lg font-black tabular-nums ${gananciaNetaFinal >= 0 ? 'text-sag-500' : 'text-red-500 dark:text-red-400'}`}>
-                              {formatMoneda(gananciaNetaFinal)}
-                            </span>
-                          </div>
-
-                          {/* Nota IVA */}
-                          {ivaDelPeriodo > 0 && (
-                            <p className="text-xs text-blue-500 dark:text-blue-400 mt-3 leading-relaxed border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2">
-                              IVA recaudado este período: {formatMoneda(ivaDelPeriodo)} — no es ganancia, va al SAT.
-                            </p>
-                          )}
-
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
-                            Utilidad estimada. No incluye otros impuestos ni deducciones fiscales.
-                          </p>
-                        </div>
-                      </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      <KpiCard
+                        label="Total facturado"
+                        value={resumen.total_facturado}
+                        highlight
+                        sub={`${resumen.num_ordenes} ${resumen.num_ordenes === 1 ? 'orden' : 'ordenes'}`}
+                      />
+                      <KpiCard label="Servicios" value={resumen.ingresos_servicios} />
+                      <KpiCard label="Mano de obra" value={resumen.ingresos_mano_obra} />
+                      <KpiCard label="Refacciones" value={resumen.ingresos_refacciones} />
                     </div>
                   </>
                 );
               })()}
 
-              {/* ----------------------------------------------------------- */}
-              {/* 5. Top servicios + Top clientes                              */}
-              {/* ----------------------------------------------------------- */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
-                  <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-0.5">
-                    Top 5 servicios
-                  </h2>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                    Solo ingresos — sin datos de costos operativos
-                  </p>
-                  <TopServicios servicios={top_servicios} />
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-5">
-                  <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
-                    Top 5 clientes
-                  </h2>
-                  <TopClientes clientes={top_clientes} />
-                </div>
-              </div>
             </>
           )}
         </>
@@ -1135,7 +1026,7 @@ export const Financiero = () => {
       {/* ================================================================== */}
       {/* TAB: CONFIGURACIÓN                                                   */}
       {/* ================================================================== */}
-      {tabActivo === 'config' && user?.rol === 'admin' && (
+      {tabActivo === 'config' && !!user && (
         <div className="space-y-3">
 
           {/* -------------------------------------------------------------- */}
@@ -1294,7 +1185,8 @@ export const Financiero = () => {
                         <tbody>
                           {empleadosVigentes.map(e => {
                             const esSemanal   = (e.tipo_sueldo ?? 'diario') === 'semanal';
-                            const diasVal     = Number(e.dias_trabajados ?? 5);
+                            const diasVal     = Number(e.dias_trabajados ?? (esSemanal ? 7 : 5));
+                            const faltas      = esSemanal ? Math.max(0, 7 - diasVal) : 0;
                             const guardando   = savingDias.has(e.id);
                             // activoSemana: trabajó esta semana (dias>0).
                             // No usamos e.activo aquí — activo=false legacy queda limpiado al primer toggle ON.
@@ -1315,10 +1207,29 @@ export const Financiero = () => {
                                   <span>{formatMoneda(Number(e.sueldo_diario))}/día</span>
                                 )}
                               </td>
-                              {/* Columna Días — editable solo para empleados diarios */}
+                              {/* Columna Días / Faltas */}
                               <td className="py-2 pr-3 text-center">
                                 {esSemanal ? (
-                                  <span className="text-xs text-gray-400">—</span>
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => { if (activoSemana && faltas > 0) cambiarDias(e, diasVal + 1); }}
+                                        disabled={!activoSemana || faltas <= 0 || guardando}
+                                        className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
+                                        title="Quitar una falta"
+                                      >−</button>
+                                      <span className="w-4 text-center text-sm tabular-nums font-medium text-gray-700 dark:text-gray-200">
+                                        {guardando ? '…' : faltas}
+                                      </span>
+                                      <button
+                                        onClick={() => { if (activoSemana && faltas < 6) cambiarDias(e, diasVal - 1); }}
+                                        disabled={!activoSemana || faltas >= 6 || guardando}
+                                        className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 text-sm leading-none"
+                                        title="Agregar una falta"
+                                      >+</button>
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-none">faltas</span>
+                                  </div>
                                 ) : (
                                   <div className="flex items-center justify-center gap-1">
                                     <button
@@ -1639,7 +1550,7 @@ export const Financiero = () => {
               className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               <div className="text-left">
-                <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Caja chica — Mayte</p>
+                <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Caja chica</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Efectivo físico en caja · Saldo se arrastra semana a semana</p>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">

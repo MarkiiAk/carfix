@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AppShell } from './components/Sidebar';
@@ -8,6 +9,19 @@ import { Login, Dashboard, NuevaOrden, DetalleOrden, Alertas } from './pages';
 import { Clientes } from './pages/Clientes';
 import { ClientePerfil } from './pages/ClientePerfil';
 import { Financiero } from './pages/Financiero';
+import { SucursalesPage } from './pages/sistemas/SucursalesPage';
+import { UsuariosPage } from './pages/sistemas/UsuariosPage';
+import type { ReactNode } from 'react';
+
+/** Guard para rutas exclusivas del rol 'sistemas'. */
+function SistemasRoute({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user || user.rol !== 'sistemas') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
 
 function App() {
   return (
@@ -94,6 +108,32 @@ function App() {
                   <AppShell moduleName="Ingresos">
                     <Financiero />
                   </AppShell>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Rutas Sistemas — solo rol 'sistemas' */}
+            <Route
+              path="/sistemas/sucursales"
+              element={
+                <ProtectedRoute>
+                  <SistemasRoute>
+                    <AppShell moduleName="Sistemas - Sucursales">
+                      <SucursalesPage />
+                    </AppShell>
+                  </SistemasRoute>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sistemas/usuarios"
+              element={
+                <ProtectedRoute>
+                  <SistemasRoute>
+                    <AppShell moduleName="Sistemas - Usuarios">
+                      <UsuariosPage />
+                    </AppShell>
+                  </SistemasRoute>
                 </ProtectedRoute>
               }
             />

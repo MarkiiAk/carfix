@@ -35,8 +35,7 @@ class Database {
             }
             
         } catch (PDOException $e) {
-            error_log('ERROR de conexión a BD: ' . $e->getMessage());
-            error_log('Host: ' . $this->host . ', DB: ' . $this->dbname . ', User: ' . $this->username);
+            error_log('SAG Garage: Error de conexión a base de datos');
             http_response_code(500);
             die(json_encode([
                 'success' => false,
@@ -74,7 +73,10 @@ class Database {
         if ($password === '' || $password === null || trim($password) === '') {
             $this->password = '';
         } else {
-            $this->password = $password ?: 'Kndiani2593!';
+            if (!$password) {
+                throw new Exception('DB_PASSWORD no configurado en el entorno. Verifica el archivo .env del servidor.');
+            }
+            $this->password = $password;
         }
     }
     

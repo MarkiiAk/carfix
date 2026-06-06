@@ -22,59 +22,41 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   const { resumen, ordenes, empleados, pagosFijos, gastos, cajaChica, labelPeriodo, tipoPeriodo } = params;
 
   // -----------------------------------------------------------------------
-  // Cálculos financieros
+  // Cálculos financieros (misma lógica que Financiero.tsx)
   // -----------------------------------------------------------------------
-  const ingresosBrutos = resumen?.resumen?.total_facturado ?? 0;
-  const costoRefacciones = resumen?.refacciones?.costo ?? 0;
-  const ingresoNeto = ingresosBrutos - costoRefacciones;
+  const ingresosBrutos    = resumen?.resumen?.total_facturado    ?? 0;
+  const ingresosServicios = resumen?.resumen?.ingresos_servicios ?? 0;
+  const ingresosMO        = resumen?.resumen?.ingresos_mano_obra ?? 0;
+  const ingresosRefas     = resumen?.resumen?.ingresos_refacciones ?? 0;
+  const numOrdenes        = resumen?.resumen?.num_ordenes ?? 0;
+  const costoRefacciones  = resumen?.refacciones?.costo ?? 0;
+  const ingresoNeto       = ingresosBrutos - costoRefacciones;
+  const ivaCobrado        = resumen?.resumen?.total_iva ?? 0;
 
-  // Misma lógica que pagoSemanalEmpleado() en Financiero.tsx:
-  //   activo=false o dias=0 → $0
-  //   semanal → sueldo_diario es el monto semanal flat
-  //   diario  → sueldo_diario × dias_trabajados (default 5)
   const pagoSemanalEmp = (e: EmpleadoSueldo): number => {
-    // Ya se reciben solo empleados vigentes (empleadosVigentes del componente)
     const dias = Number(e.dias_trabajados ?? 5);
-    if (dias === 0) return 0;   // desactivado esta semana
+    if (dias === 0) return 0;
     const tipo = e.tipo_sueldo ?? 'diario';
     if (tipo === 'semanal') return Number(e.sueldo_diario);
     return Number(e.sueldo_diario) * dias;
   };
 
-  // Recibimos ya empleadosVigentes (filtrados por fecha_inicio/fecha_fin en el componente)
   const totalSueldos = empleados
     .reduce((acc, e) => acc + pagoSemanalEmp(e) * (tipoPeriodo === 'semana' ? 1 : 4), 0);
 
   const totalFijos = pagosFijos
     .filter(p => p.activo)
     .reduce((acc, p) => {
-      // Igual que pantalla: semanal×1 en semana, semanal×4 en mes; mensual/4 en semana
       if (p.frecuencia === 'semanal') return acc + p.monto * (tipoPeriodo === 'semana' ? 1 : 4);
       return acc + (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
     }, 0);
 
-  // gastos.total_admin ya es el total del período (filtrado por el API).
-  // NO dividir entre 4: cuando tipo=semana el API ya retorna solo los de esa semana.
   const totalVariables = Number(gastos?.total_admin ?? 0);
-  // Costos internos de órdenes del período (gastos_orden sumados)
-  const gastosOrdenes = Number(gastos?.gastos_ordenes_mes ?? 0);
-
-  const totalGastos = totalSueldos + totalFijos + totalVariables + gastosOrdenes;
-  const gananciaNeta = ingresoNeto - totalSueldos - totalFijos - totalVariables - gastosOrdenes;
-  const ivaCobrado = resumen?.resumen?.total_iva ?? 0;
-
-  // Porcentajes para barra de distribución (base = ingresosBrutos)
-  const pct = (v: number): string =>
-    ingresosBrutos > 0 ? Math.max(0, (v / ingresosBrutos) * 100).toFixed(1) : '0';
-
-  const pctSueldos     = pct(totalSueldos);
-  const pctRefacciones = pct(costoRefacciones);
-  const pctFijos       = pct(totalFijos);
-  const pctVariables   = pct(totalVariables + gastosOrdenes);
-  const pctGanancia    = pct(Math.max(0, gananciaNeta));
+  const gastosOrdenes  = Number(gastos?.gastos_ordenes_mes ?? 0);
+  const gananciaNeta   = ingresoNeto - totalSueldos - totalFijos - totalVariables - gastosOrdenes;
 
   // -----------------------------------------------------------------------
-  // Helpers de formato
+  // Helpers
   // -----------------------------------------------------------------------
   const fmt = (n: number): string =>
     new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 }).format(n);
@@ -95,120 +77,137 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 
+  const pct = (v: number): string =>
+    ingresosBrutos > 0 ? Math.max(0, (v / ingresosBrutos) * 100).toFixed(1) : '0';
+
   // -----------------------------------------------------------------------
-  // Filas de la tabla de órdenes
+  // Sección 1 — Barra de distribución
   // -----------------------------------------------------------------------
+  const pctSueldos     = pct(totalSueldos);
+  const pctRefacciones = pct(costoRefacciones);
+  const pctFijos       = pct(totalFijos);
+  const pctVariables   = pct(totalVariables + gastosOrdenes);
+  const pctGanancia    = pct(Math.max(0, gananciaNeta));
+
+  // -----------------------------------------------------------------------
+  // Sección 2 — Tabla de órdenes desglosada por ítem (igual que UI)
+  // -----------------------------------------------------------------------
+  const ESTADOS_ABIERTOS = new Set(['en_proceso','en_revision','pendiente','cotizacion','en_espera','abierta','en proceso']);
+
   const filasOrdenes = (ordenes?.ordenes ?? []).map(o => {
-    const enProceso = ['en_proceso', 'abierta', 'pendiente'].includes(o.estado);
-    const gananciaColor = o.ganancia < 0 ? 'color:#dc2626' : enProceso ? 'color:#d97706' : '';
-    return `
-      <tr style="border-bottom:1px solid #e3e8e0">
-        <td style="padding:8px 10px;color:#4a5e50;font-size:12px">${fmtFecha(o.fecha)}</td>
-        <td style="padding:8px 10px;font-size:12px">${escapeHtml(o.cliente_nombre)}</td>
-        <td style="padding:8px 10px;font-size:12px;color:#4a5e50">${escapeHtml(o.vehiculo)}</td>
-        <td style="padding:8px 10px;text-align:right;font-size:12px">${fmt(o.costo_venta)}</td>
-        <td style="padding:8px 10px;text-align:right;font-size:12px;color:#4a5e50">${fmt(o.costo_refacciones)}</td>
-        <td style="padding:8px 10px;text-align:right;font-size:12px;${gananciaColor}">
-          ${fmt(o.ganancia)}${enProceso ? '<br><span style="font-size:10px">(anticipo)</span>' : ''}
+    const tipoFila = o.tipo_fila ?? (ESTADOS_ABIERTOS.has(o.estado?.toLowerCase() ?? '') ? 'apertura' : 'cierre');
+    const gananciaColor = o.ganancia < 0 ? 'color:#dc2626' : 'color:#16a34a';
+    const totalCompra = (o.costo_refacciones ?? 0) + (o.costo_interno ?? 0);
+    const estadoBadge = estadoLabel[o.estado] ?? o.estado;
+
+    const tipoChip = tipoFila === 'anticipo'
+      ? '<span style="background:#dbeafe;color:#1d4ed8;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;display:inline-block;margin-top:2px">anticipo ✓</span>'
+      : tipoFila === 'cierre'
+      ? '<span style="background:#dcfce7;color:#15803d;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;display:inline-block;margin-top:2px">restante</span>'
+      : tipoFila === 'apertura'
+      ? '<span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;display:inline-block;margin-top:2px">anticipo</span>'
+      : '';
+
+    // Construir ítems igual que buildItems() en TablaOrdenesDesglosada
+    type Item = { concepto: string; costoVenta: number | null; costoCompra: number | null; tipo: string; proveedor?: string | null };
+    const items: Item[] = [
+      ...(o.servicios ?? []).map(s => ({ concepto: s.descripcion, costoVenta: s.subtotal, costoCompra: null, tipo: 'servicio' })),
+      ...(o.refacciones_detalle ?? []).map(r => {
+        const costo = r.precio_costo != null && r.cantidad != null ? r.precio_costo * r.cantidad : r.subtotal / 1.30;
+        return { concepto: r.descripcion, costoVenta: r.subtotal, costoCompra: costo, tipo: 'refaccion', proveedor: r.proveedor };
+      }),
+    ];
+    if ((o.iva ?? 0) > 0) items.push({ concepto: 'IVA (16%)', costoVenta: o.iva!, costoCompra: null, tipo: 'iva' });
+    (o.gastos_internos ?? []).forEach(g => items.push({ concepto: g.concepto, costoVenta: null, costoCompra: g.monto, tipo: 'costo_interno' }));
+    if ((o.gastos_internos ?? []).length === 0 && (o.costo_interno ?? 0) > 0)
+      items.push({ concepto: 'Costos internos', costoVenta: null, costoCompra: o.costo_interno!, tipo: 'costo_interno' });
+
+    const celdasFijas = (rowspan: number) => `
+        <td rowspan="${rowspan}" style="padding:7px 8px;color:#4a5e50;font-size:11px;vertical-align:top;border-right:1px solid #f0f0f0;white-space:nowrap">
+          ${fmtFecha(o.fecha)}<br>${tipoChip}
         </td>
-        <td style="padding:8px 10px;font-size:11px;color:#8a9e90">${estadoLabel[o.estado] ?? o.estado}</td>
+        <td rowspan="${rowspan}" style="padding:7px 8px;font-size:11px;vertical-align:top;border-right:1px solid #f0f0f0;min-width:120px;max-width:150px">
+          <div style="font-weight:600;color:#111a13;font-size:11px">${escapeHtml(o.vehiculo || '—')}</div>
+          <div style="color:#4a5e50;font-size:10px;margin-top:1px">${escapeHtml(o.cliente_nombre)}</div>
+          <div style="font-size:9px;color:#8a9e90;margin-top:2px">${estadoBadge}</div>
+        </td>`;
+
+    if (items.length === 0) {
+      return `
+      <tr style="border-bottom:1px solid #e3e8e0">
+        ${celdasFijas(1)}
+        <td style="padding:7px 8px;color:#8a9e90;font-size:11px">—</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px">${fmt(o.costo_venta)}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;color:#8a9e90">${totalCompra > 0 ? fmt(totalCompra) : '—'}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;font-weight:600;${gananciaColor}">${fmt(o.ganancia)}</td>
       </tr>`;
+    }
+
+    const totalRows = items.length + 1;
+    const itemRows = items.map((item, idx) => `
+      <tr style="border-bottom:1px solid #f5f5f5">
+        ${idx === 0 ? celdasFijas(totalRows) : ''}
+        <td style="padding:5px 8px;font-size:11px;vertical-align:top">
+          ${item.tipo === 'costo_interno' || item.tipo === 'iva'
+            ? `<span style="font-style:italic;color:#8a9e90">${escapeHtml(item.concepto)}</span>`
+            : `<span style="color:#111a13">${escapeHtml(item.concepto)}</span>`}
+          ${item.tipo === 'refaccion' && item.proveedor ? `<div style="font-size:9px;color:#8a9e90;margin-top:1px">${escapeHtml(item.proveedor)}</div>` : ''}
+        </td>
+        <td style="padding:5px 8px;text-align:right;font-size:11px;vertical-align:top">
+          ${item.tipo === 'iva' ? `<span style="color:#8a9e90;font-style:italic">${fmt(item.costoVenta!)}</span>`
+            : (item.tipo === 'servicio' || item.tipo === 'refaccion') && item.costoVenta != null ? `<span style="color:#374151">${fmt(item.costoVenta)}</span>`
+            : ''}
+        </td>
+        <td style="padding:5px 8px;text-align:right;font-size:11px;vertical-align:top">
+          ${item.tipo === 'refaccion' && item.costoCompra != null ? `<span style="color:#8a9e90">${fmt(item.costoCompra)}</span>`
+            : item.tipo === 'costo_interno' && item.costoCompra != null ? `<span style="color:#dc2626">${fmt(item.costoCompra)}</span>`
+            : ''}
+        </td>
+        <td style="padding:5px 8px;vertical-align:top"></td>
+      </tr>`).join('');
+
+    const totalRow = `
+      <tr style="border-bottom:2px solid #d1d5db;background:#f9fafb">
+        <td style="padding:7px 8px;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">Total</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;font-weight:700;color:#111a13">${fmt(o.costo_venta)}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;color:#8a9e90">${totalCompra > 0 ? fmt(totalCompra) : '—'}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;font-weight:700;${gananciaColor}">${fmt(o.ganancia)}</td>
+      </tr>`;
+
+    return itemRows + totalRow;
   }).join('');
 
   const totOrd = ordenes?.totales ?? { costo_venta: 0, costo_refacciones: 0, ganancia: 0 };
 
   // -----------------------------------------------------------------------
-  // Top servicios
+  // Sección 5 — Equipo y gastos (appendix)
   // -----------------------------------------------------------------------
-  const topServicios = (resumen?.top_servicios ?? []).slice(0, 5);
-  const maxServicio = topServicios.reduce((max, s) => Math.max(max, s.total_generado), 0);
-
-  const filasServicios = topServicios.map(s => {
-    const barpct = maxServicio > 0 ? ((s.total_generado / maxServicio) * 100).toFixed(0) : '0';
-    return `
-      <div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:12px;color:#111a13">${escapeHtml(s.descripcion)}</span>
-          <span style="font-size:11px;color:#4a5e50">${fmt(s.total_generado)} · ${s.veces}x</span>
-        </div>
-        <div style="height:7px;background:#e3e8e0;border-radius:4px;overflow:hidden">
-          <div style="height:100%;width:${barpct}%;background:#CBF518;border-radius:4px"></div>
-        </div>
-      </div>`;
-  }).join('');
-
-  // -----------------------------------------------------------------------
-  // Top clientes
-  // -----------------------------------------------------------------------
-  const topClientes = (resumen?.top_clientes ?? []).slice(0, 5);
-
-  const filasClientes = topClientes.map((c, i) => {
-    const circuloStyle = i === 0
-      ? 'background:#CBF518;color:#0f2318'
-      : 'background:#e3e8e0;color:#4a5e50';
-    return `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="width:28px;height:28px;border-radius:50%;${circuloStyle};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${i + 1}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:#111a13;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.nombre)}</div>
-          <div style="font-size:11px;color:#8a9e90">${fmt(c.total_gastado)} · ${c.num_visitas} visita${c.num_visitas !== 1 ? 's' : ''}</div>
-        </div>
-      </div>`;
-  }).join('');
-
-  // -----------------------------------------------------------------------
-  // Empleados activos
-  // -----------------------------------------------------------------------
-  // Activo esta semana = dias_trabajados > 0 (igual que la pantalla)
   const empleadosActivos = empleados.filter(e => Number(e.dias_trabajados ?? 5) > 0);
-  const filasEmpleados = empleadosActivos.length === 0
-    ? '<p style="font-size:12px;color:#8a9e90">Sin empleados registrados.</p>'
-    : empleadosActivos.map(e => `
-      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e3e8e0;font-size:12px">
-        <span style="color:#111a13">${escapeHtml(e.nombre)}${e.puesto ? ` <span style="color:#8a9e90">(${escapeHtml(e.puesto)})</span>` : ''}</span>
-        <span style="color:#4a5e50;tabular-nums">${fmt(pagoSemanalEmp(e) * (tipoPeriodo === 'semana' ? 1 : 4))}</span>
-      </div>`).join('');
-
-  // -----------------------------------------------------------------------
-  // Pagos fijos activos
-  // -----------------------------------------------------------------------
   const fijosActivos = pagosFijos.filter(p => p.activo);
-  const filasFixos = fijosActivos.length === 0
-    ? '<p style="font-size:12px;color:#8a9e90">Sin pagos fijos registrados.</p>'
-    : fijosActivos.map(p => {
-        const montoPeriodo = p.frecuencia === 'semanal'
-          ? p.monto * (tipoPeriodo === 'semana' ? 1 : 4)
-          : (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
-        return `
-          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e3e8e0;font-size:12px">
-            <span style="color:#111a13">${escapeHtml(p.concepto)}</span>
-            <span style="color:#4a5e50;tabular-nums">${fmt(montoPeriodo)}</span>
-          </div>`;
-      }).join('');
 
   // -----------------------------------------------------------------------
   // Caja chica
   // -----------------------------------------------------------------------
   const cajaSectionHTML = cajaChica ? `
-    <div style="margin-top:24px;background:#fff;border:1px solid #e3e8e0;border-radius:10px;padding:20px">
-      <h3 style="font-size:13px;font-weight:700;color:#0f2318;margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px">Caja Chica Mayte</h3>
+    <div style="background:#fff;border:1px solid #e3e8e0;border-radius:12px;padding:20px;margin-top:20px">
+      <h3 style="font-size:12px;font-weight:700;color:#0f2318;margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #CBF518;padding-bottom:6px">Caja Chica</h3>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
         <div style="text-align:center;padding:10px;background:#f5f6f2;border-radius:8px">
-          <div style="font-size:10px;color:#8a9e90;margin-bottom:4px">SALDO ANTERIOR</div>
-          <div style="font-size:14px;font-weight:700;color:#111a13">${fmt(cajaChica.saldo_anterior)}</div>
+          <div style="font-size:10px;color:#8a9e90;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Saldo anterior</div>
+          <div style="font-size:15px;font-weight:700;color:#111a13">${fmt(cajaChica.saldo_anterior)}</div>
         </div>
         <div style="text-align:center;padding:10px;background:#f0fdf4;border-radius:8px">
-          <div style="font-size:10px;color:#8a9e90;margin-bottom:4px">ENTRADAS</div>
-          <div style="font-size:14px;font-weight:700;color:#16a34a">${fmt(cajaChica.ingresos_semana)}</div>
+          <div style="font-size:10px;color:#8a9e90;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Entradas</div>
+          <div style="font-size:15px;font-weight:700;color:#16a34a">${fmt(cajaChica.ingresos_semana)}</div>
         </div>
         <div style="text-align:center;padding:10px;background:#fef2f2;border-radius:8px">
-          <div style="font-size:10px;color:#8a9e90;margin-bottom:4px">SALIDAS</div>
-          <div style="font-size:14px;font-weight:700;color:#dc2626">${fmt(cajaChica.egresos_semana)}</div>
+          <div style="font-size:10px;color:#8a9e90;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Salidas</div>
+          <div style="font-size:15px;font-weight:700;color:#dc2626">${fmt(cajaChica.egresos_semana)}</div>
         </div>
       </div>
       <div style="padding:12px 16px;border-radius:8px;background:${cajaChica.saldo_actual < 0 ? '#fef2f2' : '#f0fdf4'};display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:12px;color:#4a5e50;font-weight:600">Saldo actual</span>
-        <span style="font-size:18px;font-weight:800;color:${cajaChica.saldo_actual < 0 ? '#dc2626' : '#CBF518'}">${fmt(cajaChica.saldo_actual)}</span>
+        <span style="font-size:20px;font-weight:800;color:${cajaChica.saldo_actual < 0 ? '#dc2626' : '#16a34a'}">${fmt(cajaChica.saldo_actual)}</span>
       </div>
     </div>` : '';
 
@@ -228,124 +227,105 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reporte SAG Garage &mdash; ${escapeHtml(labelPeriodo)}</title>
+<title>Reporte Financiero &mdash; ${escapeHtml(labelPeriodo)}</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --verde-oscuro: #0f2318;
-  --lime: #CBF518;
-  --fondo: #f5f6f2;
-  --card: #ffffff;
-  --borde: #e3e8e0;
-  --texto: #111a13;
-  --gris: #4a5e50;
-  --meta: #8a9e90;
-  --positivo: #16a34a;
-  --negativo: #dc2626;
-}
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: var(--fondo);
-  color: var(--texto);
+  background: #f5f6f2;
+  color: #111a13;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
-/* ---- Botón flotante ---- */
+/* Botón imprimir */
 .no-print {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 999;
-  background: var(--lime);
-  color: var(--verde-oscuro);
-  border: none;
-  border-radius: 8px;
-  padding: 10px 18px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
+  position: fixed; top: 16px; right: 16px; z-index: 999;
+  background: #CBF518; color: #0f2318; border: none; border-radius: 8px;
+  padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
 .no-print:hover { opacity: .9; }
 
-/* ---- Layout ---- */
-.page { max-width: 900px; margin: 0 auto; padding: 0 0 40px; }
-.section { padding: 0 24px; }
-.section + .section { margin-top: 20px; }
+/* Layout */
+.page { max-width: 900px; margin: 0 auto; padding-bottom: 48px; }
 
-/* ---- Cabecera ---- */
+/* Header */
 .header {
-  background: var(--verde-oscuro);
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 28px;
-  margin-bottom: 20px;
+  background: #0f2318; height: 80px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; margin-bottom: 20px;
 }
-.header-brand .name { font-size: 22px; font-weight: 900; color: var(--lime); line-height: 1.1; letter-spacing: -.5px; }
+.header-brand .name { font-size: 22px; font-weight: 900; color: #CBF518; letter-spacing: -.5px; }
 .header-brand .sub  { font-size: 11px; color: #9ab5a0; margin-top: 2px; }
-.header-center .titulo { font-size: 13px; font-weight: 700; color: var(--lime); text-align: center; letter-spacing: 1px; }
+.header-center .titulo { font-size: 13px; font-weight: 700; color: #CBF518; text-align: center; letter-spacing: 1px; }
 .header-center .periodo { font-size: 11px; color: #fff; text-align: center; margin-top: 3px; }
 .header-fecha { font-size: 10px; color: #9ab5a0; text-align: right; }
 
-/* ---- KPIs ---- */
-.kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; padding: 0 24px; margin-bottom: 20px; }
-.kpi { background: var(--card); border: 1px solid var(--borde); border-radius: 10px; padding: 16px; }
-.kpi.destacado { border-color: var(--lime); }
-.kpi-label { font-size: 10px; font-weight: 700; color: var(--meta); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 6px; }
-.kpi-valor { font-size: 20px; font-weight: 800; line-height: 1.1; }
-.kpi-sub { font-size: 10px; color: var(--gris); margin-top: 4px; }
+/* Secciones */
+.s { padding: 0 24px; margin-bottom: 20px; }
 
-/* ---- Barra distribución ---- */
-.dist-section { padding: 0 24px; margin-bottom: 20px; }
-.dist-title { font-size: 12px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
-.dist-bar { height: 12px; border-radius: 6px; overflow: hidden; display: flex; width: 100%; background: var(--borde); }
+/* Barra distribución */
+.dist-title { font-size: 10px; font-weight: 700; color: #8a9e90; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; }
+.dist-bar { height: 14px; border-radius: 7px; overflow: hidden; display: flex; width: 100%; background: #e3e8e0; }
 .dist-seg { height: 100%; }
-.dist-legend { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-top: 10px; }
-.dist-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--gris); }
-.dist-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.dist-legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; }
+.dist-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #4a5e50; }
+.dist-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
-/* ---- Dos columnas ---- */
-.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 24px; margin-bottom: 20px; }
-.col-card { background: var(--card); border: 1px solid var(--borde); border-radius: 10px; padding: 18px; }
-.col-title { font-size: 12px; font-weight: 700; color: var(--verde-oscuro); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; border-bottom: 2px solid var(--lime); padding-bottom: 6px; }
-
-/* ---- Estado de resultados ---- */
-.er-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; font-size: 12px; }
-.er-row.indent { padding-left: 12px; color: var(--gris); }
-.er-row.divider { border-top: 1px solid var(--borde); margin-top: 4px; padding-top: 8px; }
-.er-row.total { font-size: 16px; font-weight: 800; margin-top: 6px; }
-.er-row.total .er-val { color: var(--positivo); }
-.er-row.total.negativo .er-val { color: var(--negativo); }
-
-/* ---- Página 2 ---- */
-.page-break { page-break-before: always; padding-top: 24px; }
-
-/* ---- Tabla órdenes ---- */
-.tabla-section { padding: 0 24px; margin-bottom: 20px; }
-.tabla-title { font-size: 12px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
-table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--borde); border-radius: 10px; overflow: hidden; font-size: 12px; }
+/* Tabla órdenes */
+.tabla-title { font-size: 10px; font-weight: 700; color: #8a9e90; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; }
+table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e3e8e0; border-radius: 10px; overflow: hidden; }
 thead { background: #f5f6f2; }
-th { padding: 9px 10px; text-align: left; font-size: 10px; font-weight: 700; color: var(--meta); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--borde); }
-th.r { text-align: right; }
-tr.fila-total { background: var(--verde-oscuro); color: #fff; }
-tr.fila-total td { padding: 10px 10px; font-weight: 700; font-size: 12px; }
-tr.fila-total td.lime { color: var(--lime); text-align: right; }
+th { padding: 9px 10px; text-align: left; font-size: 10px; font-weight: 700; color: #8a9e90; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid #e3e8e0; }
+th.r { text-align: right; } th.c { text-align: center; }
+tr.fila-total { background: #0f2318; color: #fff; }
+tr.fila-total td { padding: 10px; font-weight: 700; font-size: 12px; }
+tr.fila-total td.lime { color: #CBF518; text-align: right; }
 
-/* ---- Dos col página 2 ---- */
-.two-col-p2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 24px; margin-bottom: 20px; }
+/* Balance hero */
+.hero-card {
+  background: #111827; border-radius: 16px; padding: 22px 28px; margin-bottom: 4px;
+}
+.hero-label { font-size: 10px; color: #9ca3af; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 6px; }
+.hero-valor { font-size: 48px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
 
-/* ---- Footer ---- */
-.footer { background: var(--verde-oscuro); padding: 14px 28px; text-align: center; font-size: 9px; color: #9ab5a0; margin-top: 32px; letter-spacing: .3px; }
+/* Balance cascada */
+.balance-card {
+  background: #fff; border: 1px solid #e3e8e0; border-radius: 12px; padding: 22px 24px;
+}
+.bal-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 16px; }
+.bal-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; font-size: 12px; color: #6b7280; }
+.bal-row.indent { padding-left: 16px; }
+.bal-row.subtotal { font-weight: 600; color: #374151; border-top: 1px solid #e5e7eb; margin-top: 4px; padding-top: 10px; }
+.bal-dashed { border-top: 1px dashed #e5e7eb; margin: 12px 0; }
+.bal-total { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0 0; font-size: 13px; font-weight: 800; border-top: 2px solid #d1d5db; margin-top: 6px; color: #111827; }
+.bal-nota { text-align: center; font-size: 11px; color: #9ca3af; margin-top: 12px; }
 
-/* ---- Print ---- */
+/* KPI cards al fondo */
+.kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.kpi { background: #fff; border: 1px solid #e3e8e0; border-radius: 10px; padding: 16px; }
+.kpi.destacado { border-color: #CBF518; }
+.kpi-label { font-size: 10px; font-weight: 700; color: #8a9e90; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 6px; }
+.kpi-valor { font-size: 20px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi-sub { font-size: 10px; color: #4a5e50; margin-top: 4px; }
+
+/* Equipo y gastos */
+.col-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.col-card { background: #fff; border: 1px solid #e3e8e0; border-radius: 10px; padding: 18px; }
+.col-title { font-size: 10px; font-weight: 700; color: #0f2318; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; border-bottom: 2px solid #CBF518; padding-bottom: 6px; }
+.sub-title { font-size: 10px; font-weight: 700; color: #8a9e90; text-transform: uppercase; letter-spacing: .4px; margin: 14px 0 8px; }
+
+/* Footer */
+.footer { background: #0f2318; padding: 14px 28px; text-align: center; font-size: 9px; color: #9ab5a0; margin-top: 32px; letter-spacing: .3px; }
+
+/* Print */
 @media print {
-  @page { size: A4 portrait; margin: 0; }
+  @page { size: A4 portrait; margin: 10mm; }
   .no-print { display: none !important; }
-  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { max-width: 100%; padding: 0; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff; }
+  .page { max-width: 100%; }
+  .hero-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 </style>
 </head>
@@ -358,181 +338,174 @@ tr.fila-total td.lime { color: var(--lime); text-align: right; }
   <!-- CABECERA -->
   <div class="header">
     <div class="header-brand">
-      <div class="name">SAG GARAGE</div>
+      <div class="name">REPORTE FINANCIERO</div>
       <div class="sub">Gestión de Taller</div>
     </div>
     <div class="header-center">
-      <div class="titulo">REPORTE ${tipoPeriodo === 'semana' ? 'SEMANAL' : 'MENSUAL'}</div>
+      <div class="titulo">${tipoPeriodo === 'semana' ? 'SEMANA' : 'MES'}</div>
       <div class="periodo">${escapeHtml(labelPeriodo)}</div>
     </div>
     <div class="header-fecha">Generado: ${fechaGeneracion}</div>
   </div>
 
-  <!-- KPIs -->
-  <div class="kpis">
-    <div class="kpi">
-      <div class="kpi-label">Facturado</div>
-      <div class="kpi-valor" style="color:var(--texto)">${fmt(ingresosBrutos)}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Costo Refacciones</div>
-      <div class="kpi-valor" style="color:var(--gris)">${fmt(costoRefacciones)}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Total Gastos</div>
-      <div class="kpi-valor" style="color:var(--texto)">${fmt(totalGastos)}</div>
-      <div class="kpi-sub">sueldos + fijos + variables + internos</div>
-    </div>
-    <div class="kpi destacado">
-      <div class="kpi-label">Ganancia Neta</div>
-      <div class="kpi-valor" style="color:${gananciaNeta >= 0 ? '#CBF518' : 'var(--negativo)'}">
-        ${fmt(gananciaNeta)}
-      </div>
-    </div>
-  </div>
-
-  <!-- BARRA DISTRIBUCIÓN -->
-  <div class="dist-section">
-    <div class="dist-title">Así se distribuyó cada peso</div>
+  <!-- 1. BARRA DE DISTRIBUCIÓN -->
+  <div class="s">
+    <div class="dist-title">¿A dónde fue cada peso?</div>
     <div class="dist-bar">
-      <div class="dist-seg" style="width:${pctSueldos}%;background:#6366f1"></div>
-      <div class="dist-seg" style="width:${pctRefacciones}%;background:#f59e0b"></div>
-      <div class="dist-seg" style="width:${pctFijos}%;background:#ec4899"></div>
-      <div class="dist-seg" style="width:${pctVariables}%;background:#14b8a6"></div>
-      <div class="dist-seg" style="width:${pctGanancia}%;background:#CBF518"></div>
+      <div class="dist-seg" style="width:${pctSueldos}%;background:#6366f1" title="Sueldos"></div>
+      <div class="dist-seg" style="width:${pctRefacciones}%;background:#f59e0b" title="Refacciones"></div>
+      <div class="dist-seg" style="width:${pctFijos}%;background:#f43f5e" title="Costos fijos"></div>
+      <div class="dist-seg" style="width:${pctVariables}%;background:#14b8a6" title="Gastos varios"></div>
+      <div class="dist-seg" style="width:${pctGanancia}%;background:#CBF518" title="Ganancia"></div>
     </div>
     <div class="dist-legend">
       <div class="dist-legend-item"><div class="dist-dot" style="background:#6366f1"></div>Sueldos (${pctSueldos}%)</div>
       <div class="dist-legend-item"><div class="dist-dot" style="background:#f59e0b"></div>Refacciones costo (${pctRefacciones}%)</div>
-      <div class="dist-legend-item"><div class="dist-dot" style="background:#ec4899"></div>Pagos fijos (${pctFijos}%)</div>
+      <div class="dist-legend-item"><div class="dist-dot" style="background:#f43f5e"></div>Costos fijos (${pctFijos}%)</div>
       <div class="dist-legend-item"><div class="dist-dot" style="background:#14b8a6"></div>Gastos variables (${pctVariables}%)</div>
-      <div class="dist-legend-item"><div class="dist-dot" style="background:#CBF518"></div>Ganancia neta (${pctGanancia}%)</div>
+      <div class="dist-legend-item"><div class="dist-dot" style="background:#CBF518"></div>Ganancia (${pctGanancia}%)</div>
     </div>
   </div>
 
-  <!-- DOS COLUMNAS: Estado de resultados + Equipo y Gastos -->
-  <div class="two-col">
-    <!-- Estado de Resultados -->
-    <div class="col-card">
-      <div class="col-title">Estado de Resultados</div>
-      <div class="er-row">
-        <span>Total facturado</span>
-        <span class="er-val">${fmt(ingresosBrutos)}</span>
+  <!-- 2. DETALLE POR ORDEN -->
+  <div class="s">
+    <div class="tabla-title">Detalle por orden</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Unidad / Cliente</th>
+          <th>Concepto</th>
+          <th class="r">Costo Venta</th>
+          <th class="r">Costo Compra</th>
+          <th class="r">Ganancia</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filasOrdenes || '<tr><td colspan="6" style="padding:16px;text-align:center;color:#8a9e90">Sin órdenes en este período</td></tr>'}
+        <tr class="fila-total">
+          <td colspan="3">TOTAL PERÍODO &middot; ${(ordenes?.ordenes ?? []).length} ${(ordenes?.ordenes ?? []).length === 1 ? 'orden' : 'órdenes'}</td>
+          <td class="lime">${fmt(totOrd.costo_venta)}</td>
+          <td style="text-align:right;color:#9ab5a0">${fmt(totOrd.costo_refacciones)}</td>
+          <td class="lime">${fmt(totOrd.ganancia)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 3. BALANCE — cascada (fusionado después de tabla) -->
+  <div class="s">
+    <div class="balance-card">
+      <div class="bal-title">Balance &mdash; ${escapeHtml(labelPeriodo)}</div>
+
+      <div class="bal-row">
+        <span style="color:#374151">Total facturado</span>
+        <span style="color:#374151;font-variant-numeric:tabular-nums">${fmt(ingresosBrutos)}</span>
       </div>
-      <div class="er-row indent">
+      ${costoRefacciones !== 0 ? `
+      <div class="bal-row indent">
         <span>&minus; Costo refacciones</span>
-        <span class="er-val">&minus;${fmt(costoRefacciones)}</span>
-      </div>
-      <div style="border-top:1px solid var(--borde);margin:6px 0"></div>
-      <div class="er-row" style="font-weight:600">
-        <span>Ingreso neto operativo</span>
-        <span class="er-val">${fmt(ingresoNeto)}</span>
-      </div>
-      <div class="er-row indent">
-        <span>&minus; Sueldos del equipo</span>
-        <span class="er-val">&minus;${fmt(totalSueldos)}</span>
-      </div>
-      <div class="er-row indent">
-        <span>&minus; Pagos fijos</span>
-        <span class="er-val">&minus;${fmt(totalFijos)}</span>
-      </div>
-      <div class="er-row indent">
-        <span>&minus; Gastos variables</span>
-        <span class="er-val">&minus;${fmt(totalVariables)}</span>
-      </div>
-      ${gastosOrdenes > 0 ? `
-      <div class="er-row indent">
-        <span>&minus; Costos internos de órdenes</span>
-        <span class="er-val">&minus;${fmt(gastosOrdenes)}</span>
+        <span style="font-variant-numeric:tabular-nums">&minus;${fmt(costoRefacciones)}</span>
       </div>` : ''}
-      <div style="border-top:2px solid var(--borde);margin:8px 0"></div>
-      <div class="er-row total ${gananciaNeta < 0 ? 'negativo' : ''}">
-        <span>GANANCIA NETA</span>
-        <span class="er-val">${fmt(gananciaNeta)}</span>
+      <div class="bal-row subtotal">
+        <span>Ingreso neto operativo</span>
+        <span style="font-variant-numeric:tabular-nums">${fmt(ingresoNeto)}</span>
       </div>
-    </div>
 
-    <!-- Equipo y Gastos -->
-    <div class="col-card">
-      <div class="col-title">Equipo y Gastos</div>
-      <div style="font-size:11px;font-weight:700;color:var(--meta);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Empleados</div>
-      ${filasEmpleados}
-      <div style="font-size:11px;font-weight:700;color:var(--meta);text-transform:uppercase;letter-spacing:.4px;margin-top:14px;margin-bottom:8px">Pagos Fijos</div>
-      ${filasFixos}
+      <div class="bal-dashed"></div>
+
+      ${totalSueldos > 0 ? `
+        ${empleadosActivos.map(e => `
+        <div class="bal-row indent" style="font-size:11px">
+          <span style="color:#8a9e90">${escapeHtml(e.nombre)}${e.puesto ? ` (${escapeHtml(e.puesto)})` : ''}</span>
+          <span style="color:#8a9e90;font-variant-numeric:tabular-nums">&minus;${fmt(pagoSemanalEmp(e) * (tipoPeriodo === 'semana' ? 1 : 4))}</span>
+        </div>`).join('')}
+        <div class="bal-row indent" style="border-top:1px solid #e3e8e0;padding-top:6px;margin-top:2px;font-weight:600">
+          <span>&minus; Sueldos del equipo</span>
+          <span style="font-variant-numeric:tabular-nums">&minus;${fmt(totalSueldos)}</span>
+        </div>` : ''}
+
+      ${totalFijos > 0 ? `
+        ${fijosActivos.map(p => {
+          const montoPeriodo = p.frecuencia === 'semanal'
+            ? p.monto * (tipoPeriodo === 'semana' ? 1 : 4)
+            : (tipoPeriodo === 'semana' ? p.monto / 4 : p.monto);
+          return `
+        <div class="bal-row indent" style="font-size:11px">
+          <span style="color:#8a9e90">${escapeHtml(p.concepto)}</span>
+          <span style="color:#8a9e90;font-variant-numeric:tabular-nums">&minus;${fmt(montoPeriodo)}</span>
+        </div>`;
+        }).join('')}
+        <div class="bal-row indent" style="border-top:1px solid #e3e8e0;padding-top:6px;margin-top:2px;font-weight:600">
+          <span>&minus; Costos fijos</span>
+          <span style="font-variant-numeric:tabular-nums">&minus;${fmt(totalFijos)}</span>
+        </div>` : ''}
+
+      ${totalVariables > 0 ? `
+      <div class="bal-row indent">
+        <span>&minus; Gastos variables</span>
+        <span style="font-variant-numeric:tabular-nums">&minus;${fmt(totalVariables)}</span>
+      </div>` : ''}
+      ${gastosOrdenes > 0 ? `
+      <div class="bal-row indent">
+        <span>&minus; Costos internos de órdenes</span>
+        <span style="font-variant-numeric:tabular-nums">&minus;${fmt(gastosOrdenes)}</span>
+      </div>` : ''}
+
+      <div class="bal-total">
+        <span>Ganancia neta</span>
+        <span style="font-size:16px;color:${gananciaNeta >= 0 ? '#CBF518' : '#ef4444'};font-variant-numeric:tabular-nums">${fmt(gananciaNeta)}</span>
+      </div>
+
+      <div class="bal-nota">Utilidad estimada. No incluye otros impuestos ni deducciones fiscales.</div>
     </div>
   </div>
 
-  ${notaIVA}
-
-  <!-- PÁGINA 2 -->
-  <div class="page-break">
-
-    <!-- TABLA DE ÓRDENES -->
-    <div class="tabla-section">
-      <div class="tabla-title">Detalle por Orden</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Cliente</th>
-            <th>Vehículo</th>
-            <th class="r">Ingreso</th>
-            <th class="r">Costo Refas</th>
-            <th class="r">Ganancia</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filasOrdenes || '<tr><td colspan="7" style="padding:16px;text-align:center;color:#8a9e90">Sin órdenes en este período</td></tr>'}
-          <tr class="fila-total">
-            <td colspan="3" style="color:#fff">TOTAL</td>
-            <td class="lime">${fmt(totOrd.costo_venta)}</td>
-            <td style="text-align:right;color:#9ab5a0">${fmt(totOrd.costo_refacciones)}</td>
-            <td class="lime">${fmt(totOrd.ganancia)}</td>
-            <td></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- TOP SERVICIOS + TOP CLIENTES -->
-    <div class="two-col-p2">
-      <div class="col-card">
-        <div class="col-title">Top 5 Servicios</div>
-        ${filasServicios || '<p style="font-size:12px;color:#8a9e90">Sin datos.</p>'}
+  <!-- 4. KPI CARDS: Total facturado + desglose -->
+  <div class="s">
+    <div class="kpis">
+      <div class="kpi destacado">
+        <div class="kpi-label">Total Facturado</div>
+        <div class="kpi-valor" style="color:#111a13">${fmt(ingresosBrutos)}</div>
+        <div class="kpi-sub">${numOrdenes} ${numOrdenes === 1 ? 'orden' : 'órdenes'}</div>
       </div>
-      <div class="col-card">
-        <div class="col-title">Top 5 Clientes</div>
-        ${filasClientes || '<p style="font-size:12px;color:#8a9e90">Sin datos.</p>'}
+      <div class="kpi">
+        <div class="kpi-label">Servicios</div>
+        <div class="kpi-valor" style="color:#4a5e50">${fmt(ingresosServicios)}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Mano de Obra</div>
+        <div class="kpi-valor" style="color:#4a5e50">${fmt(ingresosMO)}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Refacciones</div>
+        <div class="kpi-valor" style="color:#4a5e50">${fmt(ingresosRefas)}</div>
       </div>
     </div>
+  </div>
 
-    ${cajaSectionHTML}
+  ${notaIVA ? `<div class="s">${notaIVA}</div>` : ''}
 
-  </div><!-- /page-break -->
+  <!-- 5. CAJA CHICA -->
+  ${cajaChica ? `<div class="s">${cajaSectionHTML}</div>` : ''}
 
   <!-- PIE -->
   <div class="footer">
-    SAG Garage &times; AkLabs &nbsp;&middot;&nbsp; Reporte confidencial &nbsp;&middot;&nbsp; saggarage.com.mx
+    Reporte Financiero &times; Gestión de Taller &nbsp;&middot;&nbsp; Documento confidencial
   </div>
 
-</div><!-- /page -->
-
+</div>
 </body>
 </html>`;
 
-  // -----------------------------------------------------------------------
-  // Abrir ventana e imprimir
-  // -----------------------------------------------------------------------
-  const win = window.open('', '_blank', 'width=900,height=700');
+  const win = window.open('', '_blank', 'width=960,height=760');
   if (!win) return;
   win.document.write(htmlCompleto);
   win.document.close();
-  win.document.title = `Reporte SAG Garage — ${params.labelPeriodo}`;
-  setTimeout(() => win.print(), 500);
+  win.document.title = `Reporte Financiero — ${params.labelPeriodo}`;
+  setTimeout(() => win.print(), 600);
 }
 
-// Escapa caracteres HTML para evitar XSS en el template string
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')

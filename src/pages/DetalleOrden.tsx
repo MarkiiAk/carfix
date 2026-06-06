@@ -30,7 +30,7 @@ export const DetalleOrden = () => {
   const { id } = useParams<{ id: string }>();
   const { presupuesto, themeMode, toggleTheme, loadFromOrden, resetPresupuesto, markAsSaved } = usePresupuestoStore();
   const { user } = useAuth();
-  const puedeVerGastos = user?.rol === 'admin' || user?.rol === 'recepcionista';
+  const puedeVerGastos = !!user;
   const [showLoader, setShowLoader] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [orden, setOrden] = useState<Orden | null>(null);

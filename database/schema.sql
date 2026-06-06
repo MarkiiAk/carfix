@@ -7,7 +7,7 @@
 -- Server version: 11.4.10-MariaDB-cll-lve-log
 -- PHP Version: 8.4.19
 -- 
--- ACTUALIZADO: 2026-05-15 — columna gasto_admin_id + FK en caja_chica para vínculo automático al P&L
+-- ACTUALIZADO: 2026-06-02 — multi-sucursal: tablas sucursales + usuario_sucursales, sucursal_id en todas las tablas operativas, nuevos roles (sistemas/superusuario/admin_sucursal)
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -1009,6 +1009,94 @@ CREATE TABLE IF NOT EXISTS `pagos_fijos` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2026-06-02: MULTI-SUCURSAL — Fase 1: Schema base
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Catálogo de sucursales
+CREATE TABLE IF NOT EXISTS `sucursales` (
+  `id`         INT NOT NULL AUTO_INCREMENT,
+  `nombre`     VARCHAR(100) NOT NULL,
+  `direccion`  VARCHAR(300) NULL DEFAULT NULL,
+  `telefono`   VARCHAR(20)  NULL DEFAULT NULL,
+  `activo`     TINYINT(1)   NOT NULL DEFAULT 1,
+  `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Vinculación usuario ↔ sucursal (muchos-a-muchos)
+-- Un usuario puede operar en varias sucursales con distintos roles.
+-- sistemas y superusuario omiten esta tabla — acceden a todo.
+CREATE TABLE IF NOT EXISTS `usuario_sucursales` (
+  `id`           INT NOT NULL AUTO_INCREMENT,
+  `usuario_id`   INT NOT NULL,
+  `sucursal_id`  INT NOT NULL,
+  `rol_sucursal` ENUM('admin_sucursal') NOT NULL DEFAULT 'admin_sucursal',
+  `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_usuario_sucursal` (`usuario_id`, `sucursal_id`),
+  KEY `idx_sucursal` (`sucursal_id`),
+  CONSTRAINT `fk_us_usuario`   FOREIGN KEY (`usuario_id`)  REFERENCES `usuarios`(`id`)   ON DELETE CASCADE,
+  CONSTRAINT `fk_us_sucursal`  FOREIGN KEY (`sucursal_id`) REFERENCES `sucursales`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Nuevos roles: sistemas (SaaS admin), superusuario (dueño del taller), admin_sucursal (gerente).
+-- tecnico y recepcionista quedan fuera del sistema por ahora.
+ALTER TABLE `usuarios`
+  MODIFY COLUMN `rol` ENUM('sistemas','superusuario','admin_sucursal') NOT NULL DEFAULT 'admin_sucursal';
+
+-- sucursal_id en TODAS las tablas operativas (default 1 = Matriz).
+-- Los registros existentes quedan asignados a sucursal 1 por el DEFAULT.
+ALTER TABLE `clientes`                ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `vehiculos`               ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `ordenes_servicio`        ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `alertas_servicio`        ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `gastos_orden`            ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `gastos_administrativos`  ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `empleados_sueldos`       ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `pagos_fijos`             ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `caja_chica`              ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `calendario_disponibilidad` ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                        ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `citas_pre_agendadas`     ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `alertas_ejecucion_log`   ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
+                                      ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+
+-- El log de alertas era UNIQUE por fecha. Con sucursales, la unicidad es por fecha + sucursal.
+ALTER TABLE `alertas_ejecucion_log`
+  DROP INDEX IF EXISTS `unique_daily_execution`,
+  ADD UNIQUE KEY `unique_daily_execution` (`fecha_ejecucion`, `sucursal_id`);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2026-06-02: MULTI-SUCURSAL — Migración de datos existentes
+-- Ejecutar UNA SOLA VEZ sobre la BD de producción después del deploy.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Paso 1: Insertar la sucursal Matriz (id=1)
+INSERT IGNORE INTO `sucursales` (`id`, `nombre`, `activo`)
+VALUES (1, 'SAG Garage Matriz', 1);
+
+-- Paso 2: Promover al admin actual a superusuario
+-- (Ajustar el username si es diferente en producción)
+UPDATE `usuarios` SET `rol` = 'superusuario' WHERE `rol` = 'admin';
+
+-- Paso 3: Vincular todos los usuarios existentes a la sucursal 1
+INSERT IGNORE INTO `usuario_sucursales` (`usuario_id`, `sucursal_id`, `rol_sucursal`)
+SELECT `id`, 1, 'admin_sucursal' FROM `usuarios`
+WHERE `rol` NOT IN ('sistemas', 'superusuario') AND `activo` = 1;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 
 -- 2026-05-15: Vínculo egresos caja chica → gastos_administrativos (P&L)
 -- Archivo: database/20260515_caja_chica_gasto_admin_link.sql

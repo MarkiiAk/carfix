@@ -1288,3 +1288,853 @@ h1, h2, h3, h4, h5, h6 {
         width: 100%;
     }
 }
+
+/* ============================================================
+   MODAL — SOLICITAR CITA
+   Glass morphism oscuro × Verde neón — nivel Cupertino
+   ============================================================ */
+
+.cita-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+}
+.cita-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+}
+.cita-overlay.closing {
+    opacity: 0;
+    transition-duration: 0.22s;
+}
+
+.cita-modal {
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    background: rgba(10, 10, 10, 0.98);
+    border: 1px solid rgba(183, 255, 0, 0.15);
+    border-radius: 22px;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        0 28px 72px rgba(0, 0, 0, 0.8),
+        0 0 48px rgba(183, 255, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.92) translateY(32px);
+    opacity: 0;
+    transition:
+        transform 0.44s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity   0.34s ease;
+}
+.cita-overlay.open .cita-modal {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+.cita-overlay.closing .cita-modal {
+    transform: scale(0.92) translateY(20px);
+    opacity: 0;
+    transition-duration: 0.22s;
+    transition-timing-function: ease-in;
+}
+
+.cita-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 24px 24px 14px;
+    flex-shrink: 0;
+}
+.cita-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.cita-step-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--neon-green);
+    text-transform: uppercase;
+}
+.cita-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    margin: 0;
+}
+.cita-close {
+    flex-shrink: 0;
+    margin-left: 12px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.cita-close:hover {
+    background: rgba(183, 255, 0, 0.12);
+    border-color: rgba(183, 255, 0, 0.3);
+    color: var(--neon-green);
+}
+
+.cita-progress {
+    padding: 0 24px 18px;
+    flex-shrink: 0;
+}
+.cita-progress-track {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.cita-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #b7ff00, #d4ff66);
+    border-radius: 2px;
+    width: 33.33%;
+    transition: width 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 0 10px rgba(183, 255, 0, 0.6);
+}
+.cita-progress-dots {
+    display: flex;
+    gap: 8px;
+}
+.cita-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+}
+.cita-dot.active {
+    background: var(--neon-green);
+    border-color: var(--neon-green);
+    color: #0a0a0a;
+    box-shadow: 0 0 14px rgba(183, 255, 0, 0.55);
+}
+.cita-dot.done {
+    background: rgba(183, 255, 0, 0.15);
+    border-color: rgba(183, 255, 0, 0.4);
+    color: var(--neon-green);
+    font-size: 11px;
+}
+.cita-dot.done span { display: none; }
+.cita-dot.done::after { content: '✓'; }
+
+.cita-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 24px 4px;
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(183, 255, 0, 0.25) transparent;
+}
+.cita-body::-webkit-scrollbar { width: 4px; }
+.cita-body::-webkit-scrollbar-track { background: transparent; }
+.cita-body::-webkit-scrollbar-thumb { background: rgba(183, 255, 0, 0.25); border-radius: 2px; }
+
+.cita-step { display: none; }
+.cita-step.active { display: block; }
+.cita-step.exit-left  { display: block; animation: citaExitLeft  0.18s ease-in both; }
+.cita-step.exit-right { display: block; animation: citaExitRight 0.18s ease-in both; }
+.cita-step.enter-right { display: block; animation: citaEnterRight 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.cita-step.enter-left  { display: block; animation: citaEnterLeft  0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.cita-step#citaStep4.enter-right { animation: citaSuccessEnter 0.48s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+@keyframes citaEnterRight  { from { opacity: 0; transform: translateX(38px);  } to { opacity: 1; transform: none; } }
+@keyframes citaEnterLeft   { from { opacity: 0; transform: translateX(-38px); } to { opacity: 1; transform: none; } }
+@keyframes citaExitLeft    { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-30px); } }
+@keyframes citaExitRight   { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(30px);  } }
+@keyframes citaSuccessEnter { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: scale(1); } }
+
+.cita-fields { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
+.cita-fields-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cita-field-group { display: flex; flex-direction: column; gap: 6px; }
+
+.cita-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+}
+.cita-label .req { color: var(--neon-green); margin-left: 1px; }
+
+.cita-input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 11px;
+    padding: 12px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    color: #ffffff;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.cita-input::placeholder { color: rgba(255, 255, 255, 0.22); }
+.cita-input:focus {
+    border-color: rgba(183, 255, 0, 0.5);
+    box-shadow: 0 0 0 3px rgba(183, 255, 0, 0.1);
+    background: rgba(255, 255, 255, 0.06);
+}
+.cita-input.error {
+    border-color: rgba(183, 255, 0, 0.7);
+    box-shadow: 0 0 0 3px rgba(183, 255, 0, 0.12);
+    animation: citaShake 0.38s ease;
+}
+.cita-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23b7ff00' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+    cursor: pointer;
+}
+.cita-select option { background: #1a1a1a; color: #fff; }
+
+@keyframes citaShake {
+    0%, 100% { transform: translateX(0); }
+    18%  { transform: translateX(-6px); }
+    36%  { transform: translateX(6px); }
+    54%  { transform: translateX(-4px); }
+    72%  { transform: translateX(4px); }
+}
+
+.cita-step-desc {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.45);
+    margin: 0 0 14px;
+}
+.cita-servicios-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding-bottom: 8px;
+}
+.cita-servicio-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 15px 14px 13px;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+.cita-servicio-card:hover {
+    background: rgba(183, 255, 0, 0.06);
+    border-color: rgba(183, 255, 0, 0.2);
+    transform: translateY(-2px);
+}
+.cita-servicio-card.selected {
+    background: rgba(183, 255, 0, 0.1);
+    border-color: rgba(183, 255, 0, 0.5);
+    box-shadow: 0 0 18px rgba(183, 255, 0, 0.12);
+    transform: translateY(-1px);
+}
+.cita-srv-icon {
+    font-size: 21px;
+    color: var(--neon-green);
+    transition: transform 0.2s;
+}
+.cita-servicio-card.selected .cita-srv-icon { transform: scale(1.18); }
+.cita-srv-name {
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+}
+.cita-srv-desc {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.38);
+    line-height: 1.4;
+}
+.cita-servicio-card.selected .cita-srv-desc { color: rgba(183, 255, 0, 0.55); }
+.cita-srv-check {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 18px;
+    height: 18px;
+    background: var(--neon-green);
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #0a0a0a;
+}
+.cita-servicio-card.selected .cita-srv-check { display: flex; }
+
+.cita-cal-title,
+.cita-horarios-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0 0 10px;
+}
+.cita-cal-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 20px;
+}
+.cita-cal-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 9px 8px 7px;
+    min-width: 50px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+    -webkit-tap-highlight-color: transparent;
+}
+.cita-cal-chip:hover {
+    background: rgba(183, 255, 0, 0.07);
+    border-color: rgba(183, 255, 0, 0.25);
+}
+.cita-cal-chip.selected {
+    background: var(--neon-green);
+    border-color: var(--neon-green);
+    box-shadow: 0 0 16px rgba(183, 255, 0, 0.4);
+}
+.cal-dow {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.4);
+}
+.cal-day {
+    font-family: 'Outfit', sans-serif;
+    font-size: 19px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
+}
+.cal-mon {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.35);
+}
+.cita-cal-chip.selected .cal-dow,
+.cita-cal-chip.selected .cal-mon { color: rgba(0, 0, 0, 0.6); }
+.cita-cal-chip.selected .cal-day { color: #0a0a0a; }
+
+.cita-horarios-wrap {
+    display: none;
+    padding-bottom: 8px;
+    animation: citaEnterRight 0.28s ease both;
+}
+.cita-horarios { display: flex; flex-wrap: wrap; gap: 8px; }
+.cita-hora-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 9px;
+    padding: 9px 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.65);
+    cursor: pointer;
+    transition: all 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.cita-hora-chip:hover {
+    background: rgba(183, 255, 0, 0.08);
+    border-color: rgba(183, 255, 0, 0.3);
+    color: #ffffff;
+}
+.cita-hora-chip.selected {
+    background: rgba(183, 255, 0, 0.15);
+    border-color: var(--neon-green);
+    color: var(--neon-green);
+    box-shadow: 0 0 10px rgba(183, 255, 0, 0.2);
+}
+
+.cita-error-banner {
+    flex-shrink: 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: rgba(183, 255, 0, 0.8);
+    text-align: center;
+    padding: 0 24px;
+    height: 0;
+    overflow: hidden;
+    transition: height 0.2s ease, padding 0.2s ease;
+}
+.cita-error-banner.show {
+    height: 28px;
+    padding: 6px 24px 0;
+}
+
+.cita-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+.cita-back-btn {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 10px 16px;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: border-color 0.2s, color 0.2s;
+}
+.cita-back-btn:hover { border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.7); }
+.cita-back-btn.hidden { opacity: 0; pointer-events: none; }
+.cita-next-btn {
+    padding: 11px 24px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    cursor: pointer;
+}
+.cita-next-btn i { font-size: 12px; }
+
+.cita-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 4px 0 16px;
+}
+.cita-success-icon { margin-bottom: 18px; }
+.cita-check-svg { width: 72px; height: 72px; }
+.cita-check-circle {
+    stroke: rgba(183, 255, 0, 0.25);
+    stroke-width: 2;
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    animation: citaCircleDraw 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.15s forwards;
+}
+.cita-check-path {
+    stroke: var(--neon-green);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: citaCheckDraw 0.42s cubic-bezier(0.65, 0, 0.45, 1) 0.65s forwards;
+}
+@keyframes citaCircleDraw { to { stroke-dashoffset: 0; } }
+@keyframes citaCheckDraw  { to { stroke-dashoffset: 0; } }
+
+.cita-success-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 30px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0 0 5px;
+}
+.cita-success-sub {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.42);
+    margin: 0 0 20px;
+}
+.cita-resumen {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 13px;
+    padding: 14px 18px;
+    width: 100%;
+    margin-bottom: 18px;
+    text-align: left;
+    box-sizing: border-box;
+}
+.cita-resumen-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+}
+.cita-resumen-row:not(:last-child) { border-bottom: 1px solid rgba(255,255,255,0.05); }
+.cita-resumen-key {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.38);
+    flex-shrink: 0;
+}
+.cita-resumen-val {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: #ffffff;
+    text-align: right;
+    margin-left: 12px;
+}
+.cita-wa-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    font-size: 15px;
+    padding: 14px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+.cita-wa-btn i { font-size: 19px; }
+.cita-nueva-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.3);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.2s;
+}
+.cita-nueva-btn:hover { color: rgba(255, 255, 255, 0.6); }
+
+@media (max-width: 560px) {
+    .cita-modal { max-height: 95vh; border-radius: 18px; }
+    .cita-header { padding: 18px 18px 12px; }
+    .cita-progress { padding: 0 18px 14px; }
+    .cita-body { padding: 0 18px 4px; }
+    .cita-footer { padding: 12px 18px 16px; }
+    .cita-title { font-size: 22px; }
+    .cita-fields-row { grid-template-columns: 1fr; }
+    .cita-error-banner.show { height: auto; padding: 6px 18px 0; }
+}
+
+/* — Autocomplete Marca — */
+.cita-auto-wrap {
+    position: relative;
+}
+.cita-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #141414;
+    border: 1px solid rgba(183, 255, 0, 0.2);
+    border-radius: 11px;
+    overflow: hidden;
+    z-index: 100;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+    max-height: 220px;
+    overflow-y: auto;
+    list-style: none;
+    padding: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(183,255,0,0.2) transparent;
+}
+.cita-dropdown.open { display: block; }
+.cita-dropdown-item {
+    padding: 10px 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: rgba(255,255,255,0.75);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.cita-dropdown-item:hover {
+    background: rgba(183,255,0,0.1);
+    color: var(--neon-green);
+}
+.cita-input-dd { padding-right: 38px; }
+
+.cita-dd-arrow {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(183, 255, 0, 0.55);
+    font-size: 11px;
+    pointer-events: none;
+    transition: transform 0.22s ease;
+}
+.cita-auto-wrap.open .cita-dd-arrow {
+    transform: translateY(-50%) rotate(180deg);
+    color: var(--neon-green);
+}
+
+.cita-dropdown-sep {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+    margin: 4px 2px;
+    list-style: none;
+}
+.cita-dropdown-other {
+    color: rgba(183, 255, 0, 0.65) !important;
+    font-style: italic;
+}
+.cita-dropdown-other i {
+    margin-right: 7px;
+    font-size: 11px;
+    opacity: 0.8;
+}
+.cita-dropdown-other:hover {
+    background: rgba(183, 255, 0, 0.08) !important;
+    color: var(--neon-green) !important;
+}
+
+.cita-loading-inline {
+    display: none;
+    align-items: center;
+    color: var(--neon-green);
+    font-size: 11px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+.cita-loading-inline.visible { display: inline-flex; }
+
+/* — Calendario real — */
+.cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.cal-month-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.02em;
+}
+.cal-nav-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+.cal-nav-btn:hover:not(:disabled) {
+    background: rgba(183,255,0,0.1);
+    border-color: rgba(183,255,0,0.3);
+    color: var(--neon-green);
+}
+.cal-nav-btn:disabled {
+    opacity: 0.25;
+    cursor: default;
+}
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    margin-bottom: 16px;
+}
+.cal-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    border-radius: 8px;
+}
+/* Encabezados de día de semana */
+.cal-cell.cal-dow {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    aspect-ratio: auto;
+    padding-bottom: 6px;
+}
+.cal-cell.cal-dow-sun {
+    color: rgba(255,255,255,0.2);
+}
+/* Celda vacía (padding antes del día 1) */
+.cal-cell.cal-empty { background: none; }
+/* Días fuera del rango o domingo */
+.cal-cell.cal-out, .cal-cell.cal-closed {
+    color: rgba(255,255,255,0.18);
+    cursor: default;
+}
+.cal-cell.cal-closed { color: rgba(255,60,60,0.25); }
+/* Días disponibles (son botones) */
+button.cal-cell {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+button.cal-cell:hover {
+    background: rgba(183,255,0,0.1);
+    border-color: rgba(183,255,0,0.3);
+    color: var(--neon-green);
+}
+button.cal-cell.cal-today {
+    border-color: rgba(183,255,0,0.35);
+    color: var(--neon-green);
+    font-weight: 700;
+}
+button.cal-cell.selected {
+    background: var(--neon-green) !important;
+    border-color: var(--neon-green) !important;
+    color: #0a0a0a !important;
+    font-weight: 700;
+    box-shadow: 0 0 14px rgba(183,255,0,0.4);
+}
+
+@media (max-width: 400px) {
+    .cal-cell { font-size: 12px; border-radius: 6px; }
+    .cal-grid { gap: 2px; }
+}
+
+/* — Cards de servicio con precio ─────────────────────────────── */
+.cita-servicios-grid.precio-mode {
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+.cita-servicios-grid.precio-mode .cita-servicio-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px 16px 18px;
+    gap: 12px;
+    min-height: 76px;
+}
+.cita-srv-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+}
+.cita-srv-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+.cita-servicios-grid.precio-mode .cita-srv-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+}
+.cita-servicios-grid.precio-mode .cita-srv-name {
+    font-size: 15px;
+}
+.cita-servicios-grid.precio-mode .cita-srv-desc {
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+}
+.cita-srv-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+.cita-srv-price {
+    font-family: 'Outfit', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--neon-green);
+    white-space: nowrap;
+    line-height: 1;
+}
+.cita-servicio-card.selected .cita-srv-price {
+    color: var(--neon-green);
+    text-shadow: 0 0 12px rgba(183,255,0,0.5);
+}
+.cita-srv-price-undef {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.4);
+    max-width: 110px;
+    text-align: right;
+    line-height: 1.3;
+}
+.cita-servicio-card.precio-indefinido {
+    opacity: 0.8;
+}
+.cita-servicio-card.precio-indefinido:hover {
+    opacity: 1;
+}
+@media (max-width: 480px) {
+    .cita-servicios-grid.precio-mode .cita-srv-desc { display: none; }
+    .cita-srv-price { font-size: 17px; }
+}

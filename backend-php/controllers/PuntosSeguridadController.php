@@ -13,9 +13,11 @@ class PuntosSeguridadController {
      */
     public function getCatalogo() {
         try {
-            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo 
-                      FROM puntos_seguridad_catalogo 
-                      WHERE activo = 1 
+            requireAuth();
+
+            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo
+                      FROM puntos_seguridad_catalogo
+                      WHERE activo = 1
                       ORDER BY orden_visualizacion ASC";
             
             $stmt = $this->db->prepare($query);
@@ -53,8 +55,10 @@ class PuntosSeguridadController {
      */
     public function getPuntoById($id) {
         try {
-            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo 
-                      FROM puntos_seguridad_catalogo 
+            requireAuth();
+
+            $query = "SELECT id, nombre, categoria, descripcion, orden_visualizacion, es_critico, activo
+                      FROM puntos_seguridad_catalogo
                       WHERE id = :id";
             
             $stmt = $this->db->prepare($query);
@@ -98,7 +102,9 @@ class PuntosSeguridadController {
      */
     public function getPuntosByOrden($ordenId) {
         try {
-            $query = "SELECT 
+            requireAuth();
+
+            $query = "SELECT
                         ops.id,
                         ops.punto_seguridad_id as puntoId,
                         ops.estado_id as estadoId,
@@ -151,9 +157,12 @@ class PuntosSeguridadController {
      */
     public function savePuntosByOrden($ordenId, $data) {
         try {
+            $userData = requireAuth();
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             // Validar que vengan datos (puede ser array directo o envuelto en 'puntos')
             $puntos = isset($data['puntos']) ? $data['puntos'] : $data;
-            
+
             if (!is_array($puntos) || empty($puntos)) {
                 http_response_code(400);
                 echo json_encode([
@@ -162,10 +171,11 @@ class PuntosSeguridadController {
                 return;
             }
 
-            // Verificar que la orden existe
-            $checkOrden = "SELECT id FROM ordenes_servicio WHERE id = :orden_id";
+            // Verificar que la orden existe y pertenece a esta sucursal
+            $checkOrden = "SELECT id FROM ordenes_servicio WHERE id = :orden_id AND sucursal_id = :sucursal_id";
             $stmtCheck = $this->db->prepare($checkOrden);
             $stmtCheck->bindParam(':orden_id', $ordenId, PDO::PARAM_INT);
+            $stmtCheck->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmtCheck->execute();
             
             if (!$stmtCheck->fetch()) {

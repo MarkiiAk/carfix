@@ -1,11 +1,9 @@
 <?php
 class AlertasController {
     private $db;
-    private $jwt_secret;
 
     public function __construct($db) {
         $this->db = $db;
-        $this->jwt_secret = $_ENV['JWT_SECRET'] ?? 'sag_garage_jwt_secret_key_2024';
     }
 
     /**
@@ -80,9 +78,10 @@ class AlertasController {
                 FROM alertas_servicio a
                 INNER JOIN clientes c ON a.cliente_id = c.id
                 INNER JOIN vehiculos v ON a.vehiculo_id = v.id
-                ORDER BY 
+                WHERE a.sucursal_id = :sucursal_id
+                ORDER BY
                     -- PRIORIZAR POR ATENCIÓN REQUERIDA Y ESTADO WHATSAPP
-                    CASE 
+                    CASE
                         WHEN a.requiere_atencion = TRUE AND a.estado_whatsapp = 'pre_agendado' THEN 1
                         WHEN a.requiere_atencion = TRUE AND a.estado_whatsapp = 'requiere_contacto' THEN 2
                         WHEN a.estado = 'pendiente' THEN 3
@@ -93,7 +92,9 @@ class AlertasController {
                     a.fecha_generada DESC
             ";
 
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
             $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->execute();
             $alertas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -113,13 +114,11 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => 'Error al obtener alertas: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
-    
+
     // PUT /alertas/{id}/marcar-leida - Marcar una alerta como leída
     public function marcarComoLeida($alertaId, $userData = null) {
         try {
@@ -130,10 +129,13 @@ class AlertasController {
                     'error' => 'No autorizado - Acceso denegado a las alertas'
                 ];
             }
-            // Verificar que la alerta existe y está pendiente
-            $checkQuery = "SELECT id, estado FROM alertas_servicio WHERE id = ?";
+
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
+            // Verificar que la alerta existe, está pendiente y pertenece a esta sucursal
+            $checkQuery = "SELECT id, estado FROM alertas_servicio WHERE id = ? AND sucursal_id = ?";
             $checkStmt = $this->db->prepare($checkQuery);
-            $checkStmt->execute([$alertaId]);
+            $checkStmt->execute([$alertaId, $sucursalId]);
             $alerta = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$alerta) {
@@ -150,25 +152,26 @@ class AlertasController {
                 ];
             }
 
-            // Marcar como leída
+            // Marcar como leída (filtro de sucursal incluido en WHERE)
             $updateQuery = "
-                UPDATE alertas_servicio 
-                SET 
+                UPDATE alertas_servicio
+                SET
                     estado = 'leida',
                     fecha_marcada_leida = CURRENT_TIMESTAMP,
                     usuario_marco_leida = ?
                 WHERE id = ?
+                  AND sucursal_id = ?
             ";
 
             $updateStmt = $this->db->prepare($updateQuery);
             $userId = $userData['id'] ?? $userData['user_id'] ?? null;
-            
+
             // Si no podemos obtener un ID válido de usuario, usar NULL
             if (!$userId || !is_numeric($userId)) {
                 $userId = null;
             }
-            
-            $updateStmt->execute([$userId, $alertaId]);
+
+            $updateStmt->execute([$userId, $alertaId, $sucursalId]);
 
             return [
                 'success' => true,
@@ -176,10 +179,8 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => 'Error al marcar alerta: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 
@@ -215,10 +216,11 @@ class AlertasController {
                     os.id as orden_id,
                     os.cliente_id,
                     os.vehiculo_id,
+                    os.sucursal_id,
                     os.fecha_ingreso,
                     GROUP_CONCAT(so.descripcion) as servicios_realizados,
                     DATEDIFF(NOW(), os.fecha_ingreso) as dias_desde_servicio
-                    
+
                 FROM ordenes_servicio os
                 INNER JOIN servicios_orden so ON os.id = so.orden_id
                 LEFT JOIN alertas_servicio a ON os.id = a.orden_id
@@ -233,7 +235,7 @@ class AlertasController {
                         AND so2.descripcion REGEXP ?
                     )
                     
-                GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.fecha_ingreso
+                GROUP BY os.id, os.cliente_id, os.vehiculo_id, os.sucursal_id, os.fecha_ingreso
                 HAVING dias_desde_servicio >= 180 -- 6 meses (180 días) o más
                 ORDER BY os.fecha_ingreso DESC
             ";
@@ -287,12 +289,13 @@ class AlertasController {
                             orden_id,
                             cliente_id,
                             vehiculo_id,
+                            sucursal_id,
                             fecha_ultimo_servicio,
                             servicios_que_dispararon,
                             todos_los_servicios,
                             dias_desde_servicio,
                             estado
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente')
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')
                     ";
 
                     $insertStmt = $this->db->prepare($insertQuery);
@@ -300,6 +303,7 @@ class AlertasController {
                         $orden['orden_id'],
                         $orden['cliente_id'],
                         $orden['vehiculo_id'],
+                        $orden['sucursal_id'],
                         $orden['fecha_ingreso'],
                         json_encode($serviciosQueDispararon),
                         json_encode($todosServicios),
@@ -317,10 +321,8 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => 'Error al generar alertas: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 
@@ -427,11 +429,8 @@ class AlertasController {
                 // Silenciar errores de log para evitar loops
             }
 
-            return [
-                'success' => false,
-                'error' => 'Error en generación automática: ' . $e->getMessage(),
-                'alertas_generadas' => 0
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor', 'alertas_generadas' => 0];
         }
     }
 
@@ -445,16 +444,21 @@ class AlertasController {
                     'error' => 'No autorizado - Acceso denegado a las alertas'
                 ];
             }
+
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
             $query = "
-                SELECT 
+                SELECT
                     COUNT(*) as total_alertas,
                     SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
                     SUM(CASE WHEN estado = 'leida' THEN 1 ELSE 0 END) as leidas,
                     AVG(dias_desde_servicio) as promedio_dias_servicio
                 FROM alertas_servicio
+                WHERE sucursal_id = :sucursal_id
             ";
 
             $stmt = $this->db->prepare($query);
+            $stmt->bindValue(':sucursal_id', $sucursalId, PDO::PARAM_INT);
             $stmt->execute();
             $stats = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -469,10 +473,8 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Error al obtener alertas: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 
@@ -486,9 +488,11 @@ class AlertasController {
                 ];
             }
 
-            // Verificar que la alerta existe
-            $checkStmt = $this->db->prepare("SELECT id FROM alertas_servicio WHERE id = ?");
-            $checkStmt->execute([(int)$alertaId]);
+            $sucursalId = (int) ($userData['sucursal_activa_id'] ?? 1);
+
+            // Verificar que la alerta existe y pertenece a esta sucursal
+            $checkStmt = $this->db->prepare("SELECT id FROM alertas_servicio WHERE id = ? AND sucursal_id = ?");
+            $checkStmt->execute([(int)$alertaId, $sucursalId]);
             if (!$checkStmt->fetch()) {
                 return [
                     'success' => false,
@@ -519,10 +523,8 @@ class AlertasController {
             ];
 
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => 'Error al obtener conversación: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 
@@ -695,10 +697,8 @@ class AlertasController {
             ];
             
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Error al obtener estadísticas: ' . $e->getMessage()
-            ];
+            error_log('[AlertasController] ' . $e->getMessage());
+            return ['success' => false, 'error' => 'Error interno del servidor'];
         }
     }
 }
