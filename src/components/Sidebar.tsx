@@ -297,9 +297,21 @@ interface AppShellProps {
 }
 
 export const AppShell = ({ children, moduleName }: AppShellProps) => {
-  const { user, logout } = useAuth();
+  const { user, logout, sucursalActiva, sucursalesPermitidas, switchSucursal } = useAuth();
   const navigate = useNavigate();
   const [alertasPendientes, setAlertasPendientes] = useState(0);
+  const [mobileBranchOpen, setMobileBranchOpen] = useState(false);
+
+  const esSuperAdminShell = user?.rol === 'sistemas' || user?.rol === 'superusuario';
+
+  const handleMobileBranchSwitch = async (id: number) => {
+    try {
+      await switchSucursal(id);
+      navigate('/dashboard');
+    } catch {
+      // silencioso
+    }
+  };
 
   useEffect(() => {
     if (!isAlertasAuthorized(user)) return;
@@ -370,9 +382,45 @@ export const AppShell = ({ children, moduleName }: AppShellProps) => {
         <header
           className={`sticky z-20 flex items-center justify-between px-4 sm:px-6 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${isStaging ? 'top-8' : 'top-0'}`}
         >
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-            {moduleName ?? 'SAG Garage'}
-          </span>
+          <div className="flex flex-row items-center gap-2">
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+              {moduleName ?? 'SAG Garage'}
+            </span>
+            {/* Selector de sucursal en móvil — solo superadmin con 2+ sucursales */}
+            {esSuperAdminShell && sucursalesPermitidas.length > 1 && (
+              <div className="md:hidden relative">
+                <button
+                  onClick={() => setMobileBranchOpen((p) => !p)}
+                  className="flex items-center gap-1 text-[11px] text-sag-500 font-medium"
+                >
+                  <span className="truncate max-w-[140px]">{sucursalActiva?.nombre ?? 'Sucursal'}</span>
+                  <svg
+                    className={`w-3 h-3 flex-shrink-0 transition-transform ${mobileBranchOpen ? 'rotate-180' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {mobileBranchOpen && (
+                  <div className="absolute left-0 top-full mt-1 z-50 min-w-[180px] rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+                    {sucursalesPermitidas.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => { handleMobileBranchSwitch(s.id); setMobileBranchOpen(false); }}
+                        className={`w-full text-left px-3 py-2.5 text-xs transition-colors
+                          ${sucursalActiva?.id === s.id
+                            ? 'bg-sag-500/10 text-sag-500 font-semibold'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                          }`}
+                      >
+                        {s.nombre}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-3">
             {/* Nombre del usuario */}
