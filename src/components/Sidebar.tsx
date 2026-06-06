@@ -382,7 +382,7 @@ export const AppShell = ({ children, moduleName }: AppShellProps) => {
         <header
           className={`sticky z-20 flex items-center justify-between px-4 sm:px-6 h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${isStaging ? 'top-8' : 'top-0'}`}
         >
-          <div className="flex flex-col leading-tight">
+          <div className="flex flex-row items-center gap-2">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
               {moduleName ?? 'SAG Garage'}
             </span>
