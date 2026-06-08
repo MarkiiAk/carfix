@@ -401,6 +401,16 @@ class OrdenesController {
             }
             
             if (isset($data['estado'])) {
+                // Whitelist de estados válidos: 5 estados Kanban + legacy para compatibilidad
+                $estadosValidos = [
+                    'recibido', 'diagnostico', 'en_reparacion', 'listo_entrega', 'entregado',
+                    'pendiente', 'abierta', 'cerrada', 'completada', 'completado', 'entregada',
+                ];
+                if (!in_array($data['estado'], $estadosValidos, true)) {
+                    http_response_code(422);
+                    echo json_encode(['success' => false, 'error' => 'Estado no válido: ' . $data['estado']]);
+                    return;
+                }
                 $updateFields[] = 'estado = ?';
                 $updateValues[] = $data['estado'];
                 error_log('Estado a actualizar: ' . $data['estado']);

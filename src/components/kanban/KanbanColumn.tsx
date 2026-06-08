@@ -1,3 +1,4 @@
+import { useDroppable } from '@dnd-kit/core';
 import type { Orden } from '../../types';
 import { KanbanCard } from './KanbanCard';
 
@@ -64,8 +65,11 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumn({ config, ordenes }: KanbanColumnProps) {
-  const { label, accentBorder, badgeBg, badgeText, iconPath } = config;
+  const { label, accentBorder, badgeBg, badgeText, iconPath, estado } = config;
   const count = ordenes.length;
+
+  // Cada columna es una zona de drop identificada por el estado Kanban
+  const { setNodeRef, isOver } = useDroppable({ id: estado });
 
   return (
     <div className="flex flex-col min-w-[280px] max-w-[320px] flex-shrink-0">
@@ -97,9 +101,14 @@ export function KanbanColumn({ config, ordenes }: KanbanColumnProps) {
         </div>
       </div>
 
-      {/* Cards Container — scroll interno */}
-      <div className="flex flex-col gap-3 overflow-y-auto max-h-[calc(100vh-320px)] pr-1 pb-2">
-        {count === 0 ? (
+      {/* Cards Container — drop zone con feedback visual cuando se arrastra sobre ella */}
+      <div
+        ref={setNodeRef}
+        className={`flex flex-col gap-3 overflow-y-auto max-h-[calc(100vh-320px)] pr-1 pb-2
+                    rounded-xl transition-colors duration-150
+                    ${isOver ? 'bg-slate-100 dark:bg-slate-700/40' : ''}`}
+      >
+        {count === 0 && !isOver ? (
           <div className="flex flex-col items-center justify-center py-8 px-4
                           bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed
                           border-gray-200 dark:border-gray-700">

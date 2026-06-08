@@ -1,8 +1,12 @@
 import { useNavigate } from 'react-router-dom';
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import type { Orden } from '../../types';
 
 interface KanbanCardProps {
   orden: Orden;
+  /** Cuando es true, la card se renderiza como ghost en el DragOverlay y no necesita draggable */
+  isOverlay?: boolean;
 }
 
 function formatMXN(value: number | string | undefined): string {
@@ -31,40 +35,70 @@ function tiempoTranscurrido(fechaStr: string): string {
   return 'recien creada';
 }
 
-export function KanbanCard({ orden }: KanbanCardProps) {
+export function KanbanCard({ orden, isOverlay = false }: KanbanCardProps) {
   const navigate = useNavigate();
-  const ordenAny = orden as any;
+  // El API devuelve campos extras (snake_case) no presentes en el tipo Orden
+  const extra = orden as unknown as Record<string, unknown>;
 
-  const folio = ordenAny.numero_orden || orden.folio || '';
-  const clienteNombre = ordenAny.cliente_nombre || orden.cliente?.nombreCompleto || 'Sin cliente';
-  const marca = ordenAny.marca || orden.vehiculo?.marca || '';
-  const modelo = ordenAny.modelo || orden.vehiculo?.modelo || '';
-  const anio = ordenAny.anio || orden.vehiculo?.year || '';
-  const placas = ordenAny.placas || orden.vehiculo?.placas || '';
-  const fecha = ordenAny.fecha_ingreso || orden.fechaCreacion || '';
-  const total = Number(ordenAny.total ?? orden.resumen?.total ?? 0);
+  const folio = (extra.numero_orden as string) || orden.folio || '';
+  const clienteNombre = (extra.cliente_nombre as string) || orden.cliente?.nombreCompleto || 'Sin cliente';
+  const marca = (extra.marca as string) || orden.vehiculo?.marca || '';
+  const modelo = (extra.modelo as string) || orden.vehiculo?.modelo || '';
+  const anio = (extra.anio as string | number) || orden.vehiculo?.year || '';
+  const placas = (extra.placas as string) || orden.vehiculo?.placas || '';
+  const fecha = (extra.fecha_ingreso as string) || orden.fechaCreacion || '';
+  const total = Number((extra.total as number | undefined) ?? orden.resumen?.total ?? 0);
+
+  // dnd-kit: draggable por ID de la orden
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: String(orden.id),
+    disabled: isOverlay,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+    touchAction: 'none',
+  };
 
   return (
-    <button
-      onClick={() => navigate(`/orden/${orden.id}`)}
-      className="w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
                  rounded-xl p-4 shadow-soft hover:shadow-medium hover:-translate-y-0.5
-                 transition-all duration-200 ease-out cursor-pointer group
-                 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1"
+                 transition-shadow duration-200 ease-out group select-none
+                 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
+                 ${isOverlay ? 'shadow-xl rotate-1 opacity-95' : ''}`}
     >
       {/* Folio */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">
           {folio}
         </span>
-        <svg
-          className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+        {/* Botón de navegación — separado de los listeners de drag */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/orden/${orden.id}`);
+          }}
+          className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          aria-label="Ver detalle de la orden"
+          onPointerDown={(e) => e.stopPropagation()}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
+          <svg
+            className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </div>
 
       {/* Cliente */}
@@ -96,6 +130,6 @@ export function KanbanCard({ orden }: KanbanCardProps) {
           </span>
         )}
       </div>
-    </button>
+    </div>
   );
 }

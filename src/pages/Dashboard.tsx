@@ -1,12 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
+import { useToastContext } from '../contexts/ToastContext';
 import { ordenesAPI } from '../services/api';
 import type { Orden } from '../types';
 import { Button } from '../components/ui/Button';
 import { KanbanColumn, KANBAN_COLUMNS } from '../components/kanban/KanbanColumn';
+import { KanbanCard } from '../components/kanban/KanbanCard';
 import type { KanbanEstado } from '../components/kanban/KanbanColumn';
+
+const ESTADOS_KANBAN: KanbanEstado[] = [
+  'recibido',
+  'diagnostico',
+  'en_reparacion',
+  'listo_entrega',
+  'entregado',
+];
+
+/** Extrae un campo libre de una Orden (que puede tener campos extras del API no tipados) */
+function campoExtra(orden: Orden, campo: string): unknown {
+  return (orden as unknown as Record<string, unknown>)[campo];
+}
 
 /** Normaliza valores legacy al modelo Kanban de 5 estados */
 function normalizarEstado(estado: string): KanbanEstado {
@@ -30,10 +54,19 @@ export const Dashboard = () => {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  /** ID de la orden que se está arrastrando en este momento */
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const { user, isLoading: authLoading } = useAuth();
   const { themeMode } = usePresupuestoStore();
+  const { showError } = useToastContext();
   const navigate = useNavigate();
+
+  // Sensores con tolerancia mínima de movimiento para no interferir con el click de navegación
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
 
   // Aplicar el tema al documento
   useEffect(() => {
@@ -66,16 +99,75 @@ export const Dashboard = () => {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Drag & Drop handlers
+  // ---------------------------------------------------------------------------
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    setActiveId(null);
+
+    const { active, over } = event;
+
+    // Sin destino válido → sin cambio
+    if (!over) return;
+
+    const ordenId = String(active.id);
+    const nuevoEstado = String(over.id) as KanbanEstado;
+
+    // Validar que el destino es un estado Kanban válido
+    if (!ESTADOS_KANBAN.includes(nuevoEstado)) return;
+
+    // Buscar la orden actual
+    const ordenActual = ordenes.find((o) => String(o.id) === ordenId);
+    if (!ordenActual) return;
+
+    const estadoActualRaw = (campoExtra(ordenActual, 'estado') as string) || ordenActual.estado || '';
+    const estadoActual = normalizarEstado(estadoActualRaw);
+
+    // Sin cambio de columna → nada que hacer
+    if (estadoActual === nuevoEstado) return;
+
+    // --- Actualización optimista: mover la tarjeta de inmediato ---
+    setOrdenes((prev) =>
+      prev.map((o) =>
+        String(o.id) === ordenId
+          ? { ...o, estado: nuevoEstado }
+          : o
+      )
+    );
+
+    try {
+      await ordenesAPI.update(ordenId, { estado: nuevoEstado } as Partial<Orden>);
+    } catch {
+      // Revertir al estado original si el PUT falla
+      setOrdenes((prev) =>
+        prev.map((o) =>
+          String(o.id) === ordenId
+            ? { ...o, estado: estadoActual }
+            : o
+        )
+      );
+      showError('No se pudo actualizar el estado. Intenta de nuevo.');
+    }
+  }, [ordenes, showError]);
+
+  // ---------------------------------------------------------------------------
+  // Filtrado y agrupación
+  // ---------------------------------------------------------------------------
+
   // Filtrar por término de búsqueda
   const ordenesFiltradas = searchTerm
     ? ordenes.filter((orden) => {
-        const o = orden as any;
         const term = searchTerm.toLowerCase();
-        const folio = o.numero_orden || orden.folio || '';
-        const cliente = o.cliente_nombre || orden.cliente?.nombreCompleto || '';
-        const placas = o.placas || orden.vehiculo?.placas || '';
-        const marca = o.marca || orden.vehiculo?.marca || '';
-        const modelo = o.modelo || orden.vehiculo?.modelo || '';
+        const folio = (campoExtra(orden, 'numero_orden') as string) || orden.folio || '';
+        const cliente = (campoExtra(orden, 'cliente_nombre') as string) || orden.cliente?.nombreCompleto || '';
+        const placas = (campoExtra(orden, 'placas') as string) || orden.vehiculo?.placas || '';
+        const marca = (campoExtra(orden, 'marca') as string) || orden.vehiculo?.marca || '';
+        const modelo = (campoExtra(orden, 'modelo') as string) || orden.vehiculo?.modelo || '';
         return (
           folio.toLowerCase().includes(term) ||
           cliente.toLowerCase().includes(term) ||
@@ -96,8 +188,7 @@ export const Dashboard = () => {
   };
 
   for (const orden of ordenesFiltradas) {
-    const o = orden as any;
-    const estadoRaw = o.estado || orden.estado || 'recibido';
+    const estadoRaw = (campoExtra(orden, 'estado') as string) || orden.estado || 'recibido';
     const estadoNorm = normalizarEstado(estadoRaw);
     ordenesporColumna[estadoNorm].push(orden);
   }
@@ -105,13 +196,16 @@ export const Dashboard = () => {
   // KPIs
   const totalOrdenes = ordenes.length;
   const totalAbiertas = ordenes.filter((o) => {
-    const estado = normalizarEstado((o as any).estado || o.estado || '');
+    const estado = normalizarEstado((campoExtra(o, 'estado') as string) || o.estado || '');
     return estado !== 'entregado';
   }).length;
   const totalEntregadas = ordenes.filter((o) => {
-    const estado = normalizarEstado((o as any).estado || o.estado || '');
+    const estado = normalizarEstado((campoExtra(o, 'estado') as string) || o.estado || '');
     return estado === 'entregado';
   }).length;
+
+  // Orden activa para el DragOverlay
+  const ordenActiva = activeId ? ordenes.find((o) => String(o.id) === activeId) ?? null : null;
 
   return (
     <div className="max-w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -198,17 +292,32 @@ export const Dashboard = () => {
           </div>
         </div>
       ) : (
-        <div className="overflow-x-auto pb-4">
-          <div className="flex gap-4 min-w-max">
-            {KANBAN_COLUMNS.map((col) => (
-              <KanbanColumn
-                key={col.estado}
-                config={col}
-                ordenes={ordenesporColumna[col.estado]}
-              />
-            ))}
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="overflow-x-auto pb-4">
+            <div className="flex gap-4 min-w-max">
+              {KANBAN_COLUMNS.map((col) => (
+                <KanbanColumn
+                  key={col.estado}
+                  config={col}
+                  ordenes={ordenesporColumna[col.estado]}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+
+          {/* Ghost card que sigue al cursor mientras se arrastra */}
+          <DragOverlay dropAnimation={null}>
+            {ordenActiva ? (
+              <div className="w-[280px]">
+                <KanbanCard orden={ordenActiva} isOverlay />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   );
