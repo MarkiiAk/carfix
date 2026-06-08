@@ -262,7 +262,7 @@ CREATE TABLE `ordenes_servicio` (
   `total` decimal(10,2) DEFAULT 0.00,
   `anticipo` decimal(10,2) DEFAULT 0.00,
   `fecha_anticipo` date DEFAULT NULL,
-  `estado` varchar(20) DEFAULT 'abierta',
+  `estado` varchar(20) DEFAULT 'recibido', -- Valores válidos: recibido | diagnostico | en_reparacion | listo_entrega | entregado. Ver ESTADOS_ENUM_REFERENCIA.md
   `fecha_ingreso` timestamp NULL DEFAULT current_timestamp(),
   `fecha_promesa_entrega` timestamp NULL DEFAULT NULL,
   `fecha_completada` timestamp NULL DEFAULT NULL,

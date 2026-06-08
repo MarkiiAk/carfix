@@ -185,7 +185,8 @@ export interface PuntoSeguridadOrden {
 export interface Orden {
   id: string;
   folio: string;
-  estado: 'abierta' | 'cerrada' | 'pendiente'; // 'pendiente' para compatibilidad con datos antiguos
+  estado: 'recibido' | 'diagnostico' | 'en_reparacion' | 'listo_entrega' | 'entregado'
+        | 'abierta' | 'cerrada' | 'pendiente'; // legacy: abierta/cerrada/pendiente para compatibilidad con datos pre-migración
   fechaCreacion: string;
   fechaActualizacion: string;
   fechaCierre?: string;

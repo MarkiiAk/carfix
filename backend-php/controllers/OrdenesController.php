@@ -225,7 +225,7 @@ class OrdenesController {
                 $resumenData['anticipo'] ?? 0,
                 $resumenData['fecha_anticipo'] ?? null,
                 $fechaSalida,
-                'abierta' // Estado inicial siempre es 'abierta'
+                'recibido' // Estado inicial Kanban: vehículo ingresado al taller
             ]);
             
             $orden_id = $this->db->lastInsertId();
@@ -408,7 +408,7 @@ class OrdenesController {
                 // Al cerrar una orden, registrar la fecha si aún no tiene ninguna.
                 // Así el Financiero puede determinar en qué semana cae el ingreso:
                 // COALESCE(fecha_entregada, fecha_completada, fecha_ingreso).
-                $estadosCierre = ['cerrada', 'completada', 'completado', 'entregada', 'entregado'];
+                $estadosCierre = ['entregado', 'cerrada', 'completada', 'completado', 'entregada']; // 'entregado' es el valor canónico Kanban
                 if (in_array($data['estado'], $estadosCierre, true)) {
                     // Ambas fechas: COALESCE en Financiero usa fecha_entregada ?? fecha_completada ?? fecha_ingreso
                     // Si ninguna está explícita, NOW() marca la semana real del cierre
