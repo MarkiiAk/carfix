@@ -1054,6 +1054,9 @@ ALTER TABLE `vehiculos`               ADD COLUMN IF NOT EXISTS `sucursal_id` INT
                                       ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
 ALTER TABLE `ordenes_servicio`        ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
                                       ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `ordenes_servicio`        ADD COLUMN IF NOT EXISTS `folio_sucursal` INT UNSIGNED NOT NULL DEFAULT 1
+                                        COMMENT 'Consecutivo propio por sucursal. 1, 2, 3... reinicia en cada sucursal.' AFTER `sucursal_id`,
+                                      ADD INDEX IF NOT EXISTS `idx_folio_sucursal` (`sucursal_id`, `folio_sucursal`);
 ALTER TABLE `alertas_servicio`        ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
                                       ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
 ALTER TABLE `gastos_orden`            ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,

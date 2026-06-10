@@ -297,7 +297,7 @@ export const Dashboard = () => {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="overflow-x-auto pb-4">
+          <div className="overflow-x-auto pb-4 rounded-2xl bg-gray-50 dark:bg-gray-900/40 p-4">
             <div className="flex gap-4 min-w-max">
               {KANBAN_COLUMNS.map((col) => (
                 <KanbanColumn
@@ -313,7 +313,17 @@ export const Dashboard = () => {
           <DragOverlay dropAnimation={null}>
             {ordenActiva ? (
               <div className="w-[280px]">
-                <KanbanCard orden={ordenActiva} isOverlay />
+                <KanbanCard
+                  orden={ordenActiva}
+                  isOverlay
+                  cardAccent={
+                    KANBAN_COLUMNS.find(
+                      (c) => c.estado === normalizarEstado(
+                        (campoExtra(ordenActiva, 'estado') as string) || ordenActiva.estado || ''
+                      )
+                    )?.cardAccent ?? 'border-l-slate-400'
+                  }
+                />
               </div>
             ) : null}
           </DragOverlay>

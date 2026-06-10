@@ -579,6 +579,7 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
       presupuesto: {
         id: orden.id,
         folio: folio,
+        sucursal_id: ordenAny.sucursal_id ?? orden.sucursal_id ?? 1,
         fecha: new Date(fechaCreacion),
         fechaEntrada: orden.fechaEntrada ? new Date(orden.fechaEntrada) : new Date(fechaCreacion),
         fechaSalida: fechaSalida ? new Date(fechaSalida) : undefined,

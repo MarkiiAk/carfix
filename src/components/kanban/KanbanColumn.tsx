@@ -7,11 +7,10 @@ export type KanbanEstado = 'recibido' | 'diagnostico' | 'en_reparacion' | 'listo
 export interface KanbanColumnConfig {
   estado: KanbanEstado;
   label: string;
-  /** Clases Tailwind para el borde de acento superior de la columna */
-  accentBorder: string;
-  /** Clases para el badge contador */
-  badgeBg: string;
-  badgeText: string;
+  /** Clases Tailwind para el fondo sólido del header */
+  headerBg: string;
+  /** Clases para la barra de acento izquierda de las tarjetas */
+  cardAccent: string;
   /** Icono SVG path */
   iconPath: string;
 }
@@ -20,41 +19,36 @@ export const KANBAN_COLUMNS: KanbanColumnConfig[] = [
   {
     estado: 'recibido',
     label: 'Recibido',
-    accentBorder: 'border-t-gray-400',
-    badgeBg: 'bg-gray-100 dark:bg-gray-700',
-    badgeText: 'text-gray-700 dark:text-gray-300',
+    headerBg: 'bg-slate-500',
+    cardAccent: 'border-l-slate-500',
     iconPath: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
   },
   {
     estado: 'diagnostico',
     label: 'Diagnostico',
-    accentBorder: 'border-t-warning-500',
-    badgeBg: 'bg-warning-100 dark:bg-warning-900/30',
-    badgeText: 'text-warning-800 dark:text-warning-300',
+    headerBg: 'bg-amber-500',
+    cardAccent: 'border-l-amber-500',
     iconPath: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
   },
   {
     estado: 'en_reparacion',
     label: 'En reparacion',
-    accentBorder: 'border-t-orange-500',
-    badgeBg: 'bg-orange-100 dark:bg-orange-900/30',
-    badgeText: 'text-orange-800 dark:text-orange-300',
+    headerBg: 'bg-orange-500',
+    cardAccent: 'border-l-orange-500',
     iconPath: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
   },
   {
     estado: 'listo_entrega',
     label: 'Listo para entrega',
-    accentBorder: 'border-t-info-500',
-    badgeBg: 'bg-info-100 dark:bg-info-900/30',
-    badgeText: 'text-info-800 dark:text-info-300',
+    headerBg: 'bg-blue-600',
+    cardAccent: 'border-l-blue-600',
     iconPath: 'M5 13l4 4L19 7',
   },
   {
     estado: 'entregado',
     label: 'Entregado',
-    accentBorder: 'border-t-success-500',
-    badgeBg: 'bg-success-100 dark:bg-success-900/30',
-    badgeText: 'text-success-800 dark:text-success-300',
+    headerBg: 'bg-green-600',
+    cardAccent: 'border-l-green-600',
     iconPath: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
   },
 ];
@@ -65,7 +59,7 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumn({ config, ordenes }: KanbanColumnProps) {
-  const { label, accentBorder, badgeBg, badgeText, iconPath, estado } = config;
+  const { label, headerBg, cardAccent, iconPath, estado } = config;
   const count = ordenes.length;
 
   // Cada columna es una zona de drop identificada por el estado Kanban
@@ -73,28 +67,25 @@ export function KanbanColumn({ config, ordenes }: KanbanColumnProps) {
 
   return (
     <div className="flex flex-col min-w-[280px] max-w-[320px] flex-shrink-0">
-      {/* Column Header */}
-      <div
-        className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700
-                    border-t-4 ${accentBorder} mb-3 px-4 py-3 shadow-soft`}
-      >
+      {/* Column Header — fondo sólido de color con texto blanco */}
+      <div className={`${headerBg} rounded-xl mb-3 px-4 py-3 shadow-sm`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <svg
-              className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0"
+              className="w-4 h-4 text-white/80 flex-shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
             </svg>
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+            <h3 className="text-sm font-semibold text-white leading-tight">
               {label}
             </h3>
           </div>
           <span
-            className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2
-                        rounded-full text-xs font-bold ${badgeBg} ${badgeText}`}
+            className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2
+                       rounded-full text-xs font-bold bg-white/25 text-white"
           >
             {count}
           </span>
@@ -125,7 +116,7 @@ export function KanbanColumn({ config, ordenes }: KanbanColumnProps) {
           </div>
         ) : (
           ordenes.map((orden) => (
-            <KanbanCard key={orden.id} orden={orden} />
+            <KanbanCard key={orden.id} orden={orden} cardAccent={cardAccent} />
           ))
         )}
       </div>

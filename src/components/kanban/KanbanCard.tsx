@@ -7,6 +7,8 @@ interface KanbanCardProps {
   orden: Orden;
   /** Cuando es true, la card se renderiza como ghost en el DragOverlay y no necesita draggable */
   isOverlay?: boolean;
+  /** Clases Tailwind para la barra de acento izquierda (ej: 'border-l-slate-500') */
+  cardAccent?: string;
 }
 
 function formatMXN(value: number | string | undefined): string {
@@ -35,12 +37,13 @@ function tiempoTranscurrido(fechaStr: string): string {
   return 'recien creada';
 }
 
-export function KanbanCard({ orden, isOverlay = false }: KanbanCardProps) {
+export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-slate-400' }: KanbanCardProps) {
   const navigate = useNavigate();
   // El API devuelve campos extras (snake_case) no presentes en el tipo Orden
   const extra = orden as unknown as Record<string, unknown>;
 
   const folio = (extra.numero_orden as string) || orden.folio || '';
+  const folioSucursal = (extra.folio_sucursal as number | undefined) ?? orden.folio_sucursal;
   const clienteNombre = (extra.cliente_nombre as string) || orden.cliente?.nombreCompleto || 'Sin cliente';
   const marca = (extra.marca as string) || orden.vehiculo?.marca || '';
   const modelo = (extra.modelo as string) || orden.vehiculo?.modelo || '';
@@ -48,6 +51,8 @@ export function KanbanCard({ orden, isOverlay = false }: KanbanCardProps) {
   const placas = (extra.placas as string) || orden.vehiculo?.placas || '';
   const fecha = (extra.fecha_ingreso as string) || orden.fechaCreacion || '';
   const total = Number((extra.total as number | undefined) ?? orden.resumen?.total ?? 0);
+  const numeroSerie = (extra.numero_serie as string | undefined) || '';
+  const vehiculoKm = (extra.vehiculo_kilometraje as number | undefined) ?? null;
 
   // dnd-kit: draggable por ID de la orden
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -69,16 +74,23 @@ export function KanbanCard({ orden, isOverlay = false }: KanbanCardProps) {
       {...listeners}
       {...attributes}
       className={`w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
-                 rounded-xl p-4 shadow-soft hover:shadow-medium hover:-translate-y-0.5
+                 border-l-4 ${cardAccent} rounded-xl p-4 shadow-soft hover:shadow-medium hover:-translate-y-0.5
                  transition-shadow duration-200 ease-out group select-none
                  focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
                  ${isOverlay ? 'shadow-xl rotate-1 opacity-95' : ''}`}
     >
       {/* Folio */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">
-          {folio}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">
+            {folio}
+          </span>
+          {folioSucursal != null && (
+            <span className="text-xs font-bold text-white bg-gray-400 dark:bg-gray-600 rounded px-1 leading-tight">
+              #{folioSucursal}
+            </span>
+          )}
+        </div>
         {/* Botón de navegación — separado de los listeners de drag */}
         <button
           type="button"
@@ -112,9 +124,33 @@ export function KanbanCard({ orden, isOverlay = false }: KanbanCardProps) {
       </p>
       {placas && (
         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono font-medium
-                         bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 mb-3">
+                         bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 mb-1.5">
           {placas}
         </span>
+      )}
+
+      {/* Serie y Kilometraje */}
+      {(numeroSerie || vehiculoKm != null) && (
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
+          {numeroSerie && (
+            <span className="flex items-center gap-0.5 text-xs text-gray-400 dark:text-gray-500">
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              <span>{numeroSerie}</span>
+            </span>
+          )}
+          {vehiculoKm != null && (
+            <span className="flex items-center gap-0.5 text-xs text-gray-400 dark:text-gray-500">
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{Number(vehiculoKm).toLocaleString('es-MX')} km</span>
+            </span>
+          )}
+        </div>
       )}
 
       {/* Separador */}
