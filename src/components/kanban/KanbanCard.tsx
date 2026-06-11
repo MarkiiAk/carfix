@@ -44,8 +44,6 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
   const fecha = (extra.fecha_ingreso as string) || orden.fechaCreacion || '';
   const numeroSerie = (extra.numero_serie as string | undefined) || '';
   const kmEntrada = (extra.kilometraje_entrada as string | number | undefined);
-  const problemaReportado = (extra.problema_reportado as string | undefined) || '';
-  const fechaPromesaEntrega = (extra.fecha_promesa_entrega as string | undefined) || '';
 
   // dnd-kit: draggable por ID de la orden
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -73,13 +71,6 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
     cursor: isDragging ? 'grabbing' : 'pointer',
     touchAction: 'none',
   };
-
-  // Formatear fecha promesa a DD/MM
-  function formatFechaCorta(fechaStr: string): string {
-    const d = new Date(fechaStr);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
-  }
 
   return (
     <div
@@ -122,13 +113,6 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
         </span>
       )}
 
-      {/* Problema reportado */}
-      {problemaReportado && (
-        <p className="text-xs text-gray-600 dark:text-gray-300 mb-1.5 line-clamp-2 leading-snug">
-          {problemaReportado}
-        </p>
-      )}
-
       {/* Serie y Kilometraje — siempre visibles */}
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
@@ -150,18 +134,13 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
       </div>
 
       {/* Footer */}
-      <div className="border-t border-gray-100 dark:border-gray-700 pt-3 flex items-center justify-between">
-        {fechaPromesaEntrega ? (
-          <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-            Promesa: {formatFechaCorta(fechaPromesaEntrega)}
-          </span>
-        ) : <span />}
-        {fecha && (
+      {fecha && (
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-2 mt-2">
           <span className="text-xs text-gray-400 dark:text-gray-500">
             {tiempoTranscurrido(fecha)}
           </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
