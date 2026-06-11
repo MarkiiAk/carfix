@@ -520,12 +520,13 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
     const ordenAny = orden as any;
     
     // Si viene del backend PHP (campos planos), convertir a formato frontend
-    const cliente = ordenAny.cliente_nombre ? {
-      nombreCompleto: ordenAny.cliente_nombre || '',
-      telefono: ordenAny.cliente_telefono || '',
-      email: ordenAny.cliente_email || '',
-      domicilio: ordenAny.cliente_domicilio || '',
-    } : orden.cliente;
+    // Nota: cliente_nombre puede ser '' (vacío) — no usar truthy check para evitar undefined
+    const cliente = {
+      nombreCompleto: ordenAny.cliente_nombre ?? orden.cliente?.nombreCompleto ?? '',
+      telefono: ordenAny.cliente_telefono ?? orden.cliente?.telefono ?? '',
+      email: ordenAny.cliente_email ?? orden.cliente?.email ?? '',
+      domicilio: ordenAny.cliente_domicilio ?? orden.cliente?.domicilio ?? '',
+    };
     
     const vehiculo = ordenAny.marca ? {
       marca: ordenAny.marca || '',
