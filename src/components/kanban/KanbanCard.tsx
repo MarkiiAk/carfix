@@ -53,7 +53,7 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
   const fecha = (extra.fecha_ingreso as string) || orden.fechaCreacion || '';
   const total = Number((extra.total as number | undefined) ?? orden.resumen?.total ?? 0);
   const numeroSerie = (extra.numero_serie as string | undefined) || '';
-  const vehiculoKm = (extra.vehiculo_kilometraje as number | undefined) ?? null;
+  const kmEntrada = (extra.kilometraje_entrada as string | number | undefined);
   const problemaReportado = (extra.problema_reportado as string | undefined) || '';
   const fechaPromesaEntrega = (extra.fecha_promesa_entrega as string | undefined) || '';
 
@@ -139,29 +139,25 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
         </p>
       )}
 
-      {/* Serie y Kilometraje */}
-      {(numeroSerie || vehiculoKm != null) && (
-        <div className="flex items-center gap-3 mb-3 flex-wrap">
-          {numeroSerie && (
-            <span className="flex items-center gap-0.5 text-xs text-gray-400 dark:text-gray-500">
-              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-              <span>{numeroSerie}</span>
-            </span>
-          )}
-          {vehiculoKm != null && (
-            <span className="flex items-center gap-0.5 text-xs text-gray-400 dark:text-gray-500">
-              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{Number(vehiculoKm).toLocaleString('es-MX')} km</span>
-            </span>
-          )}
-        </div>
-      )}
+      {/* Serie y Kilometraje — siempre visibles */}
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+          <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+          <span className="font-medium text-gray-500 dark:text-gray-400">Serie:</span>
+          <span>{numeroSerie || '—'}</span>
+        </span>
+        <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+          <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <span className="font-medium text-gray-500 dark:text-gray-400">Km:</span>
+          <span>{kmEntrada != null && kmEntrada !== '' ? Number(kmEntrada).toLocaleString('es-MX') : '—'}</span>
+        </span>
+      </div>
 
       {/* Separador */}
       <div className="border-t border-gray-100 dark:border-gray-700 pt-3 flex items-center justify-between">
