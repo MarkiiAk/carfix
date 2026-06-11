@@ -12,15 +12,6 @@ interface KanbanCardProps {
   cardAccent?: string;
 }
 
-function formatMXN(value: number | string | undefined): string {
-  const n = Number(value ?? 0);
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n);
-}
 
 function tiempoTranscurrido(fechaStr: string): string {
   const fecha = new Date(fechaStr);
@@ -51,7 +42,6 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
   const anio = (extra.anio as string | number) || orden.vehiculo?.year || '';
   const placas = (extra.placas as string) || orden.vehiculo?.placas || '';
   const fecha = (extra.fecha_ingreso as string) || orden.fechaCreacion || '';
-  const total = Number((extra.total as number | undefined) ?? orden.resumen?.total ?? 0);
   const numeroSerie = (extra.numero_serie as string | undefined) || '';
   const kmEntrada = (extra.kilometraje_entrada as string | number | undefined);
   const problemaReportado = (extra.problema_reportado as string | undefined) || '';
