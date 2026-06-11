@@ -374,16 +374,16 @@ interface PDFDocumentProps {
   presupuesto: Presupuesto;
 }
 
+/** Direcciones por sucursal. El teléfono es siempre el mismo para todas las sucursales. */
+const SUCURSAL_DIRECCIONES: Record<number, string> = {
+  1: 'PRIVADA NICOLAS BRAVO 6, SAN MATEO NOPALA, NAUCALPAN.',
+  2: 'AV 100 METROS 94 COL. NUEVA VALLEJO. CP 07750',
+};
+
 export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
-  // Información del taller (usada en renderHeader)
-  const TALLER_INFO = {
-    nombre: 'SAG GARAGE',
-    encargado: 'SERVICIO AUTOMOTRIZ GUDIÑO',
-    telefono: '5513422917',
-    direccion: 'PRIVADA NICOLAS BRAVO 6, SAN MATEO NOPALA, NAUCALPAN.',
-  };
-  // Se usa TALLER_INFO.encargado en el header
-  console.log(TALLER_INFO.nombre); // Evitar warning de variable no usada
+  // La dirección cambia según la sucursal; el teléfono es el mismo para todas.
+  const sucursalId = presupuesto.sucursal_id ?? 1;
+  const direccionTaller = SUCURSAL_DIRECCIONES[sucursalId] ?? SUCURSAL_DIRECCIONES[1];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -426,7 +426,7 @@ export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
       <View style={styles.addressSection}>
         <Text style={styles.addressText}>FECHA: {formatDate(presupuesto.fecha)}</Text>
         <Text style={styles.addressText}>HORA: {formatTime(presupuesto.fecha)}</Text>
-        <Text style={styles.addressText}>PRIVADA NICOLAS BRAVO 6, SAN MATEO NOPALA, NAUCALPAN.</Text>
+        <Text style={styles.addressText}>{direccionTaller}</Text>
         <Text style={styles.addressText}>5513422917</Text>
       </View>
     </View>

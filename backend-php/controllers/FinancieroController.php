@@ -455,7 +455,7 @@ class FinancieroController {
                 FROM ordenes_servicio
                 WHERE fecha_ingreso BETWEEN :fi_a AND :ff_a
                   AND sucursal_id = :suc_a
-                  AND estado NOT IN ('completado','completada','entregado','entregada','cerrada')
+                  AND estado NOT IN ('entregado','completado','completada','entregada','cerrada') -- Kanban: recibido/diagnostico/en_reparacion/listo_entrega son abiertos
 
                 UNION ALL
 
@@ -467,7 +467,7 @@ class FinancieroController {
                 FROM ordenes_servicio
                 WHERE fecha_ingreso BETWEEN :fi_b AND :ff_b
                   AND sucursal_id = :suc_b
-                  AND estado IN ('completado','completada','entregado','entregada','cerrada')
+                  AND estado IN ('entregado','completado','completada','entregada','cerrada') -- Kanban: solo 'entregado' cuenta como ingreso
                   AND COALESCE(anticipo, 0) > 0
 
                 UNION ALL
@@ -486,7 +486,7 @@ class FinancieroController {
                 FROM ordenes_servicio
                 WHERE COALESCE(fecha_entregada, fecha_completada, fecha_ingreso) BETWEEN :fi_c AND :ff_c
                   AND sucursal_id = :suc_c
-                  AND estado IN ('completado','completada','entregado','entregada','cerrada')
+                  AND estado IN ('entregado','completado','completada','entregada','cerrada') -- Kanban: solo 'entregado' cuenta como ingreso
             ) q
         ";
         $stmt = $this->db->prepare($sql);
@@ -560,7 +560,7 @@ class FinancieroController {
                 SUM(s.subtotal)   AS total_generado
             FROM servicios_orden s
             INNER JOIN ordenes_servicio o ON s.orden_id = o.id
-            WHERE o.estado IN ('completado','completada','entregado','entregada','cerrada')
+            WHERE o.estado IN ('entregado','completado','completada','entregada','cerrada') -- Kanban: solo 'entregado' cuenta como ingreso
               AND o.sucursal_id = :sucursal_id
               AND COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
               AND s.tipo != 'mano_obra'
@@ -590,7 +590,7 @@ class FinancieroController {
                 DATE(COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)) AS dia,
                 COALESCE(SUM(o.total), 0)                                              AS total
             FROM ordenes_servicio o
-            WHERE o.estado IN ('completado','completada','entregado','entregada','cerrada')
+            WHERE o.estado IN ('entregado','completado','completada','entregada','cerrada') -- Kanban: solo 'entregado' cuenta como ingreso
               AND o.sucursal_id = :sucursal_id
               AND COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
             GROUP BY DATE(COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso))
@@ -621,7 +621,7 @@ class FinancieroController {
                 SUM(o.total)           AS total_gastado
             FROM ordenes_servicio o
             INNER JOIN clientes c ON c.id = o.cliente_id
-            WHERE o.estado IN ('completado','completada','entregado','entregada','cerrada')
+            WHERE o.estado IN ('entregado','completado','completada','entregada','cerrada') -- Kanban: solo 'entregado' cuenta como ingreso
               AND o.sucursal_id = :sucursal_id
               AND c.activo = 1
               AND COALESCE(o.fecha_entregada, o.fecha_completada, o.fecha_ingreso) BETWEEN :fecha_inicio AND :fecha_fin
@@ -743,7 +743,7 @@ class FinancieroController {
                   FROM refacciones_orden
                   GROUP BY orden_id
                 ) rc ON rc.orden_id = o.id
-                WHERE o.estado IN ('cerrada', 'entregada', 'completada')
+                WHERE o.estado IN ('entregado','cerrada','entregada','completada','completado') -- Kanban: 'entregado' es el valor canónico
                   AND o.sucursal_id = :sucursal_id
                   AND COALESCE(o.fecha_completada, o.fecha_entregada, o.fecha_ingreso)
                       BETWEEN :fecha_inicio AND :fecha_fin
@@ -1064,8 +1064,9 @@ class FinancieroController {
             // Query C: Órdenes CERRADAS        → fecha_entregada, venta=restante(total-anticipo), costo=0
             //          Si no hubo anticipo: venta=total, costo=refac normal
 
-            $estadosAbiertos  = "NOT IN ('completado','completada','entregado','entregada','cerrada')";
-            $estadosCerrados  = "IN ('completado','completada','entregado','entregada','cerrada')";
+            // Kanban: 'entregado' es el único estado de ingreso. Legacy: cerrada/completado/entregada siguen incluidos para retrocompatibilidad.
+            $estadosAbiertos  = "NOT IN ('entregado','completado','completada','entregada','cerrada')";
+            $estadosCerrados  = "IN ('entregado','completado','completada','entregada','cerrada')";
             $costoRefacSubq   = "(SELECT SUM(COALESCE(r.precio_costo * r.cantidad, r.subtotal / 1.30))
                                    FROM refacciones_orden r WHERE r.orden_id = os.id)";
             $costoRefacFallbk = "COALESCE(os.subtotal_refacciones, 0) / 1.30";

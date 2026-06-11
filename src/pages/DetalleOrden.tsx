@@ -36,8 +36,28 @@ export const DetalleOrden = () => {
   const [orden, setOrden] = useState<Orden | null>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
 
-  // Normalizar estado: mapear "pendiente" a "abierta" para compatibilidad
-  const estadoNormalizado = orden?.estado === 'pendiente' ? 'abierta' : orden?.estado;
+  // Normalizar estado: mapear valores legacy al modelo Kanban
+  const estadoNormalizado = (() => {
+    const s: string = orden?.estado ?? '';
+    if (!s) return undefined;
+    // Legacy → Kanban
+    if (s === 'pendiente') return 'recibido' as const;
+    if (s === 'abierta') return 'en_reparacion' as const;
+    if (s === 'cerrada' || s === 'completado' || s === 'completada' || s === 'entregada') return 'entregado' as const;
+    return s as 'recibido' | 'diagnostico' | 'en_reparacion' | 'listo_entrega' | 'entregado';
+  })();
+
+  // Orden "abierta" = cualquier estado distinto a entregado (puede editarse)
+  const esOrdenAbierta = estadoNormalizado !== 'entregado';
+
+  // Label para mostrar en UI
+  const ESTADO_LABELS: Record<string, string> = {
+    recibido: 'Recibido',
+    diagnostico: 'Diagnóstico',
+    en_reparacion: 'En reparación',
+    listo_entrega: 'Listo para entrega',
+    entregado: 'Entregado',
+  };
 
   // Aplicar el tema al documento
   useEffect(() => {
@@ -144,7 +164,7 @@ export const DetalleOrden = () => {
 
     try {
       setShowLoader(true);
-      await ordenesAPI.update(id, { estado: 'cerrada' });
+      await ordenesAPI.update(id, { estado: 'entregado' });
       setShowCloseModal(false);
       // Después de cerrar, recargar la orden para actualizar el estado local
       const ordenActualizada = await ordenesAPI.getById(id);
@@ -217,8 +237,8 @@ export const DetalleOrden = () => {
                   {presupuesto.folio}
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Estado: <span className={estadoNormalizado === 'abierta' ? 'text-sag-600' : 'text-gray-600'}>
-                    {estadoNormalizado === 'abierta' ? 'Abierta' : 'Cerrada'}
+                  Estado: <span className={esOrdenAbierta ? 'text-blue-600' : 'text-sag-600'}>
+                    {estadoNormalizado ? (ESTADO_LABELS[estadoNormalizado] ?? estadoNormalizado) : '—'}
                   </span>
                 </p>
               </div>
@@ -236,7 +256,7 @@ export const DetalleOrden = () => {
               />
 
               {/* Guardar Cambios - Solo si está abierta */}
-              {estadoNormalizado === 'abierta' && (
+              {esOrdenAbierta && (
                 <Button
                   variant="primary"
                   onClick={handleSaveChanges}
@@ -248,8 +268,8 @@ export const DetalleOrden = () => {
                 </Button>
               )}
 
-              {/* Cerrar Orden - Solo si está abierta */}
-              {estadoNormalizado === 'abierta' && (
+              {/* Marcar como Entregado - Solo si está abierta */}
+              {esOrdenAbierta && (
                 <Button
                   variant="danger"
                   onClick={() => setShowCloseModal(true)}
@@ -257,7 +277,7 @@ export const DetalleOrden = () => {
                   disabled={showLoader}
                   className="hidden md:flex"
                 >
-                  Cerrar Orden
+                  Marcar Entregado
                 </Button>
               )}
 
@@ -275,7 +295,7 @@ export const DetalleOrden = () => {
 
           {/* Botones móviles */}
           <div className="flex md:hidden gap-2 mt-3">
-            {estadoNormalizado === 'abierta' && (
+            {esOrdenAbierta && (
               <>
                 <Button
                   variant="primary"
@@ -313,31 +333,31 @@ export const DetalleOrden = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Información del Cliente — teléfono primero */}
-          <ClienteSection disabled={estadoNormalizado === 'cerrada'} />
+          <ClienteSection disabled={!esOrdenAbierta} />
 
           {/* Información del Vehículo */}
-          <VehiculoSection disabled={estadoNormalizado === 'cerrada'} />
+          <VehiculoSection disabled={!esOrdenAbierta} />
 
           {/* Inspección Visual del Vehículo */}
-          <InspeccionSection disabled={estadoNormalizado === 'cerrada'} />
+          <InspeccionSection disabled={!esOrdenAbierta} />
 
           {/* Puntos de Seguridad */}
           <PuntosSeguridadSection 
             puntosSeguridad={presupuesto.puntosSeguridad || []}
             onChange={(puntos) => usePresupuestoStore.getState().updatePuntosSeguridad(puntos)}
-            disabled={estadoNormalizado === 'cerrada'}
+            disabled={!esOrdenAbierta}
           />
 
           {/* Problema y Diagnóstico */}
-          <ProblemaSection disabled={estadoNormalizado === 'cerrada'} />
+          <ProblemaSection disabled={!esOrdenAbierta} />
 
           {/* Servicios */}
-          <ServiciosSection disabled={estadoNormalizado === 'cerrada'} />
+          <ServiciosSection disabled={!esOrdenAbierta} />
 
           {/* Refacciones y Mano de Obra */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <RefaccionesSection disabled={estadoNormalizado === 'cerrada'} />
-            <ManoObraSection disabled={estadoNormalizado === 'cerrada'} />
+            <RefaccionesSection disabled={!esOrdenAbierta} />
+            <ManoObraSection disabled={!esOrdenAbierta} />
           </div>
 
           {/* Costos internos — solo visible para admin y recepcionista, nunca en PDF */}
@@ -368,10 +388,10 @@ export const DetalleOrden = () => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              ¿Cerrar Orden?
+              ¿Marcar como Entregado?
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Una vez cerrada, no podrás hacer más cambios a esta orden. ¿Estás seguro de que deseas continuar?
+              Al marcar como entregado, la orden pasara al estado final y no podras hacer mas cambios. ¿Confirmas que el cliente ya recibio su vehiculo?
             </p>
             <div className="flex gap-3">
               <Button
@@ -386,7 +406,7 @@ export const DetalleOrden = () => {
                 onClick={handleCloseOrden}
                 className="flex-1"
               >
-                Sí, Cerrar Orden
+                Si, Marcar Entregado
               </Button>
             </div>
           </div>

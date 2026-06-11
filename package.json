@@ -13,6 +13,8 @@
     "start:local": "echo \"1. Inicia MySQL\" && echo \"2. Ejecuta: npm run dev:backend (en otra terminal)\" && echo \"3. Ejecuta: npm run dev\" && echo \"O usa: npm run dev:full (requiere concurrently)\""
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/utilities": "^3.2.2",
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
     "@fortawesome/free-brands-svg-icons": "^7.2.0",
     "@fortawesome/free-regular-svg-icons": "^7.2.0",

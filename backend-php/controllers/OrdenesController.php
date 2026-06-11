@@ -29,6 +29,7 @@ class OrdenesController {
                        c.nombre  AS cliente_nombre,
                        c.telefono AS cliente_telefono,
                        v.marca, v.modelo, v.anio, v.placas,
+                       v.numero_serie, v.kilometraje AS vehiculo_kilometraje,
                        NOW() AS query_timestamp
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id
@@ -225,7 +226,7 @@ class OrdenesController {
                 $resumenData['anticipo'] ?? 0,
                 $resumenData['fecha_anticipo'] ?? null,
                 $fechaSalida,
-                'abierta' // Estado inicial siempre es 'abierta'
+                'recibido' // Estado inicial Kanban: vehículo ingresado al taller
             ]);
             
             $orden_id = $this->db->lastInsertId();
@@ -401,6 +402,16 @@ class OrdenesController {
             }
             
             if (isset($data['estado'])) {
+                // Whitelist de estados válidos: 5 estados Kanban + legacy para compatibilidad
+                $estadosValidos = [
+                    'recibido', 'diagnostico', 'en_reparacion', 'listo_entrega', 'entregado',
+                    'pendiente', 'abierta', 'cerrada', 'completada', 'completado', 'entregada',
+                ];
+                if (!in_array($data['estado'], $estadosValidos, true)) {
+                    http_response_code(422);
+                    echo json_encode(['success' => false, 'error' => 'Estado no válido: ' . $data['estado']]);
+                    return;
+                }
                 $updateFields[] = 'estado = ?';
                 $updateValues[] = $data['estado'];
                 error_log('Estado a actualizar: ' . $data['estado']);
@@ -408,7 +419,7 @@ class OrdenesController {
                 // Al cerrar una orden, registrar la fecha si aún no tiene ninguna.
                 // Así el Financiero puede determinar en qué semana cae el ingreso:
                 // COALESCE(fecha_entregada, fecha_completada, fecha_ingreso).
-                $estadosCierre = ['cerrada', 'completada', 'completado', 'entregada', 'entregado'];
+                $estadosCierre = ['entregado', 'cerrada', 'completada', 'completado', 'entregada']; // 'entregado' es el valor canónico Kanban
                 if (in_array($data['estado'], $estadosCierre, true)) {
                     // Ambas fechas: COALESCE en Financiero usa fecha_entregada ?? fecha_completada ?? fecha_ingreso
                     // Si ninguna está explícita, NOW() marca la semana real del cierre
@@ -825,6 +836,10 @@ class OrdenesController {
             $orden['problemaReportado'] = $orden['problema_reportado'];
         }
         
+        // Exponer sucursal_id y folio_sucursal como campos de primer nivel
+        $orden['sucursal_id']    = isset($orden['sucursal_id'])    ? (int)$orden['sucursal_id']    : 1;
+        $orden['folio_sucursal'] = isset($orden['folio_sucursal']) ? (int)$orden['folio_sucursal'] : 1;
+
         // Mapear kilometrajes para el frontend
         if (!isset($orden['vehiculo'])) {
             $orden['vehiculo'] = [];
@@ -1155,8 +1170,23 @@ class OrdenesController {
      * Genera el número de orden con prefijo de sucursal para evitar colisiones UNIQUE.
      * Formato: S{sucursal_id}-YYMMDD-{id}
      * Ejemplo: S1-260602-1650 / S2-260602-1651
+     *
+     * También calcula y persiste folio_sucursal: consecutivo propio de la sucursal (1, 2, 3...).
      */
     private function generateNumeroOrden(int $id, int $sucursalId = 1): string {
+        // Calcular el próximo folio_sucursal (MAX actual + 1, excluyendo el registro recién insertado)
+        $stmtFolio = $this->db->prepare('
+            SELECT COALESCE(MAX(folio_sucursal), 0) + 1
+            FROM ordenes_servicio
+            WHERE sucursal_id = ? AND id != ?
+        ');
+        $stmtFolio->execute([$sucursalId, $id]);
+        $folioSucursal = (int) $stmtFolio->fetchColumn();
+
+        // Persistir el folio_sucursal en el registro recién creado
+        $stmtUpdate = $this->db->prepare('UPDATE ordenes_servicio SET folio_sucursal = ? WHERE id = ?');
+        $stmtUpdate->execute([$folioSucursal, $id]);
+
         $yymmdd = date('ymd');
         return "S{$sucursalId}-{$yymmdd}-{$id}";
     }

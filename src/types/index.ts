@@ -108,6 +108,7 @@ export interface Presupuesto {
   fecha: Date;
   fechaEntrada: Date;
   fechaSalida?: Date;
+  sucursal_id?: number | null;
   taller: TallerInfo;
   cliente: ClienteInfo;
   vehiculo: VehiculoInfo;
@@ -185,7 +186,10 @@ export interface PuntoSeguridadOrden {
 export interface Orden {
   id: string;
   folio: string;
-  estado: 'abierta' | 'cerrada' | 'pendiente'; // 'pendiente' para compatibilidad con datos antiguos
+  folio_sucursal?: number | null;
+  sucursal_id?: number | null;
+  estado: 'recibido' | 'diagnostico' | 'en_reparacion' | 'listo_entrega' | 'entregado'
+        | 'abierta' | 'cerrada' | 'pendiente'; // legacy: abierta/cerrada/pendiente para compatibilidad con datos pre-migración
   fechaCreacion: string;
   fechaActualizacion: string;
   fechaCierre?: string;

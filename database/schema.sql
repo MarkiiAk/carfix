@@ -262,7 +262,7 @@ CREATE TABLE `ordenes_servicio` (
   `total` decimal(10,2) DEFAULT 0.00,
   `anticipo` decimal(10,2) DEFAULT 0.00,
   `fecha_anticipo` date DEFAULT NULL,
-  `estado` varchar(20) DEFAULT 'abierta',
+  `estado` varchar(20) DEFAULT 'recibido', -- Valores válidos: recibido | diagnostico | en_reparacion | listo_entrega | entregado. Ver ESTADOS_ENUM_REFERENCIA.md
   `fecha_ingreso` timestamp NULL DEFAULT current_timestamp(),
   `fecha_promesa_entrega` timestamp NULL DEFAULT NULL,
   `fecha_completada` timestamp NULL DEFAULT NULL,
@@ -1054,6 +1054,9 @@ ALTER TABLE `vehiculos`               ADD COLUMN IF NOT EXISTS `sucursal_id` INT
                                       ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
 ALTER TABLE `ordenes_servicio`        ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
                                       ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
+ALTER TABLE `ordenes_servicio`        ADD COLUMN IF NOT EXISTS `folio_sucursal` INT UNSIGNED NOT NULL DEFAULT 1
+                                        COMMENT 'Consecutivo propio por sucursal. 1, 2, 3... reinicia en cada sucursal.' AFTER `sucursal_id`,
+                                      ADD INDEX IF NOT EXISTS `idx_folio_sucursal` (`sucursal_id`, `folio_sucursal`);
 ALTER TABLE `alertas_servicio`        ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
                                       ADD INDEX IF NOT EXISTS `idx_sucursal` (`sucursal_id`);
 ALTER TABLE `gastos_orden`            ADD COLUMN IF NOT EXISTS `sucursal_id` INT NOT NULL DEFAULT 1 AFTER `id`,
