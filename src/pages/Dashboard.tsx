@@ -85,18 +85,18 @@ export const Dashboard = () => {
   };
 
   const getEstadoBadge = (estado: string) => {
-    const normalizedEstado = (estado === 'pendiente' ? 'abierta' : estado) as 'abierta' | 'cerrada';
-    const badges = {
-      abierta: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-      cerrada: 'bg-sag-100 text-sag-800 dark:bg-sag-900/30 dark:text-sag-400',
-    };
-    const labels = {
-      abierta: 'Abierta',
-      cerrada: 'Cerrada',
-    };
+    const ESTADOS_ABIERTOS = ['abierta', 'pendiente', 'recibido', 'diagnostico', 'en_reparacion', 'listo_entrega'];
+    const ESTADOS_CERRADOS = ['cerrada', 'entregado', 'entregada', 'completado', 'completada'];
+    const esCerrado = ESTADOS_CERRADOS.includes(estado);
+    const className = esCerrado
+      ? 'bg-sag-100 text-sag-800 dark:bg-sag-900/30 dark:text-sag-400'
+      : ESTADOS_ABIERTOS.includes(estado)
+        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+    const label = esCerrado ? 'Cerrada' : ESTADOS_ABIERTOS.includes(estado) ? 'Abierta' : estado;
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-medium ${badges[normalizedEstado]}`}>
-        {labels[normalizedEstado]}
+      <span className={`px-3 py-1 rounded-full text-xs font-medium ${className}`}>
+        {label}
       </span>
     );
   };
@@ -111,11 +111,11 @@ export const Dashboard = () => {
     total: ordenes.length,
     abiertas: ordenes.filter((o) => {
       const estado = (o as any).estado || o.estado;
-      return estado === 'abierta' || estado === 'pendiente';
+      return ['abierta', 'pendiente', 'recibido', 'diagnostico', 'en_reparacion', 'listo_entrega'].includes(estado);
     }).length,
     cerradas: ordenes.filter((o) => {
       const estado = (o as any).estado || o.estado;
-      return estado === 'cerrada' || estado === 'entregada';
+      return ['cerrada', 'entregado', 'entregada', 'completado', 'completada'].includes(estado);
     }).length,
   };
 
