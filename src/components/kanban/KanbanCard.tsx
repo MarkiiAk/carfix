@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
@@ -53,6 +54,8 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
   const total = Number((extra.total as number | undefined) ?? orden.resumen?.total ?? 0);
   const numeroSerie = (extra.numero_serie as string | undefined) || '';
   const vehiculoKm = (extra.vehiculo_kilometraje as number | undefined) ?? null;
+  const problemaReportado = (extra.problema_reportado as string | undefined) || '';
+  const fechaPromesaEntrega = (extra.fecha_promesa_entrega as string | undefined) || '';
 
   // dnd-kit: draggable por ID de la orden
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -60,12 +63,33 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
     disabled: isOverlay,
   });
 
+  // Bug 1: detectar drag para evitar navegar al soltar
+  const hasDragged = useRef(false);
+  useEffect(() => {
+    if (isDragging) hasDragged.current = true;
+  }, [isDragging]);
+
+  const handleCardClick = () => {
+    if (hasDragged.current) {
+      hasDragged.current = false;
+      return;
+    }
+    navigate(`/orden/${orden.id}`);
+  };
+
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.4 : 1,
-    cursor: isDragging ? 'grabbing' : 'grab',
+    cursor: isDragging ? 'grabbing' : 'pointer',
     touchAction: 'none',
   };
+
+  // Formatear fecha promesa a DD/MM
+  function formatFechaCorta(fechaStr: string): string {
+    const d = new Date(fechaStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
+  }
 
   return (
     <div
@@ -73,6 +97,7 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
       style={style}
       {...listeners}
       {...attributes}
+      onClick={handleCardClick}
       className={`w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
                  border-l-4 ${cardAccent} rounded-xl p-4 shadow-soft hover:shadow-medium hover:-translate-y-0.5
                  transition-shadow duration-200 ease-out group select-none
@@ -80,37 +105,15 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
                  ${isOverlay ? 'shadow-xl rotate-1 opacity-95' : ''}`}
     >
       {/* Folio */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">
-            {folio}
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">
+          {folio}
+        </span>
+        {folioSucursal != null && (
+          <span className="text-xs font-bold text-white bg-gray-400 dark:bg-gray-600 rounded px-1 leading-tight">
+            #{folioSucursal}
           </span>
-          {folioSucursal != null && (
-            <span className="text-xs font-bold text-white bg-gray-400 dark:bg-gray-600 rounded px-1 leading-tight">
-              #{folioSucursal}
-            </span>
-          )}
-        </div>
-        {/* Botón de navegación — separado de los listeners de drag */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/orden/${orden.id}`);
-          }}
-          className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          aria-label="Ver detalle de la orden"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <svg
-            className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+        )}
       </div>
 
       {/* Cliente */}
@@ -127,6 +130,13 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
                          bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 mb-1.5">
           {placas}
         </span>
+      )}
+
+      {/* Problema reportado */}
+      {problemaReportado && (
+        <p className="text-xs text-gray-600 dark:text-gray-300 mb-1.5 line-clamp-2 leading-snug">
+          {problemaReportado}
+        </p>
       )}
 
       {/* Serie y Kilometraje */}
@@ -159,12 +169,19 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
         <span className="text-sm font-bold text-gray-900 dark:text-white">
           {formatMXN(total)}
         </span>
-        {/* Tiempo */}
-        {fecha && (
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            {tiempoTranscurrido(fecha)}
-          </span>
-        )}
+        {/* Promesa de entrega o tiempo transcurrido */}
+        <div className="flex items-center gap-2">
+          {fechaPromesaEntrega && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+              Promesa: {formatFechaCorta(fechaPromesaEntrega)}
+            </span>
+          )}
+          {fecha && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {tiempoTranscurrido(fecha)}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
