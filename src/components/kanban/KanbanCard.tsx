@@ -159,25 +159,18 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
         </span>
       </div>
 
-      {/* Separador */}
+      {/* Footer */}
       <div className="border-t border-gray-100 dark:border-gray-700 pt-3 flex items-center justify-between">
-        {/* Total */}
-        <span className="text-sm font-bold text-gray-900 dark:text-white">
-          {formatMXN(total)}
-        </span>
-        {/* Promesa de entrega o tiempo transcurrido */}
-        <div className="flex items-center gap-2">
-          {fechaPromesaEntrega && (
-            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-              Promesa: {formatFechaCorta(fechaPromesaEntrega)}
-            </span>
-          )}
-          {fecha && (
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              {tiempoTranscurrido(fecha)}
-            </span>
-          )}
-        </div>
+        {fechaPromesaEntrega ? (
+          <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+            Promesa: {formatFechaCorta(fechaPromesaEntrega)}
+          </span>
+        ) : <span />}
+        {fecha && (
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            {tiempoTranscurrido(fecha)}
+          </span>
+        )}
       </div>
     </div>
   );
