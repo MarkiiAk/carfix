@@ -1,72 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
-import { useToastContext } from '../contexts/ToastContext';
 import { ordenesAPI } from '../services/api';
 import type { Orden } from '../types';
 import { Button } from '../components/ui/Button';
-import { KanbanColumn, KANBAN_COLUMNS } from '../components/kanban/KanbanColumn';
-import { KanbanCard } from '../components/kanban/KanbanCard';
-import type { KanbanEstado } from '../components/kanban/KanbanColumn';
-
-const ESTADOS_KANBAN: KanbanEstado[] = [
-  'recibido',
-  'diagnostico',
-  'en_reparacion',
-  'listo_entrega',
-  'entregado',
-];
-
-/** Extrae un campo libre de una Orden (que puede tener campos extras del API no tipados) */
-function campoExtra(orden: Orden, campo: string): unknown {
-  return (orden as unknown as Record<string, unknown>)[campo];
-}
-
-/** Normaliza valores legacy al modelo Kanban de 5 estados */
-function normalizarEstado(estado: string): KanbanEstado {
-  switch (estado) {
-    case 'pendiente': return 'recibido';
-    case 'abierta':   return 'en_reparacion';
-    case 'cerrada':
-    case 'completado':
-    case 'completada':
-    case 'entregada':  return 'entregado';
-    case 'recibido':
-    case 'diagnostico':
-    case 'en_reparacion':
-    case 'listo_entrega':
-    case 'entregado':  return estado as KanbanEstado;
-    default:           return 'recibido';
-  }
-}
 
 export const Dashboard = () => {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [filteredOrdenes, setFilteredOrdenes] = useState<Orden[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  /** ID de la orden que se está arrastrando en este momento */
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [estadoFilter, setEstadoFilter] = useState<string>('todas');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   const { user, isLoading: authLoading } = useAuth();
   const { themeMode } = usePresupuestoStore();
-  const { showError } = useToastContext();
   const navigate = useNavigate();
-
-  // Sensores con tolerancia mínima de movimiento para no interferir con el click de navegación
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-  );
 
   // Aplicar el tema al documento
   useEffect(() => {
@@ -87,6 +38,11 @@ export const Dashboard = () => {
     return () => { isActive = false; };
   }, [authLoading, user]);
 
+  useEffect(() => {
+    filterOrdenes();
+    setCurrentPage(1);
+  }, [searchTerm, estadoFilter, ordenes]);
+
   const loadOrdenes = async () => {
     try {
       setIsLoading(true);
@@ -99,154 +55,127 @@ export const Dashboard = () => {
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // Drag & Drop handlers
-  // ---------------------------------------------------------------------------
+  const filterOrdenes = () => {
+    let filtered = [...ordenes];
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(String(event.active.id));
-  }, []);
-
-  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
-    setActiveId(null);
-
-    const { active, over } = event;
-
-    // Sin destino válido → sin cambio
-    if (!over) return;
-
-    const ordenId = String(active.id);
-    const nuevoEstado = String(over.id) as KanbanEstado;
-
-    // Validar que el destino es un estado Kanban válido
-    if (!ESTADOS_KANBAN.includes(nuevoEstado)) return;
-
-    // Buscar la orden actual
-    const ordenActual = ordenes.find((o) => String(o.id) === ordenId);
-    if (!ordenActual) return;
-
-    const estadoActualRaw = (campoExtra(ordenActual, 'estado') as string) || ordenActual.estado || '';
-    const estadoActual = normalizarEstado(estadoActualRaw);
-
-    // Sin cambio de columna → nada que hacer
-    if (estadoActual === nuevoEstado) return;
-
-    // --- Actualización optimista: mover la tarjeta de inmediato ---
-    setOrdenes((prev) =>
-      prev.map((o) =>
-        String(o.id) === ordenId
-          ? { ...o, estado: nuevoEstado }
-          : o
-      )
-    );
-
-    try {
-      await ordenesAPI.update(ordenId, { estado: nuevoEstado } as Partial<Orden>);
-    } catch {
-      // Revertir al estado original si el PUT falla
-      setOrdenes((prev) =>
-        prev.map((o) =>
-          String(o.id) === ordenId
-            ? { ...o, estado: estadoActual }
-            : o
-        )
-      );
-      showError('No se pudo actualizar el estado. Intenta de nuevo.');
-    }
-  }, [ordenes, showError]);
-
-  // ---------------------------------------------------------------------------
-  // Filtrado y agrupación
-  // ---------------------------------------------------------------------------
-
-  // Filtrar por término de búsqueda
-  const ordenesFiltradas = searchTerm
-    ? ordenes.filter((orden) => {
-        const term = searchTerm.toLowerCase();
-        const folio = (campoExtra(orden, 'numero_orden') as string) || orden.folio || '';
-        const cliente = (campoExtra(orden, 'cliente_nombre') as string) || orden.cliente?.nombreCompleto || '';
-        const placas = (campoExtra(orden, 'placas') as string) || orden.vehiculo?.placas || '';
-        const marca = (campoExtra(orden, 'marca') as string) || orden.vehiculo?.marca || '';
-        const modelo = (campoExtra(orden, 'modelo') as string) || orden.vehiculo?.modelo || '';
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((orden) => {
+        const ordenAny = orden as any;
+        const clienteNombre = ordenAny.cliente_nombre || orden.cliente?.nombreCompleto || '';
+        const placas = ordenAny.placas || orden.vehiculo?.placas || '';
+        const marca = ordenAny.marca || orden.vehiculo?.marca || '';
+        const modelo = ordenAny.modelo || orden.vehiculo?.modelo || '';
+        const folio = ordenAny.numero_orden || orden.folio || '';
         return (
           folio.toLowerCase().includes(term) ||
-          cliente.toLowerCase().includes(term) ||
+          clienteNombre.toLowerCase().includes(term) ||
           placas.toLowerCase().includes(term) ||
           marca.toLowerCase().includes(term) ||
           modelo.toLowerCase().includes(term)
         );
-      })
-    : ordenes;
+      });
+    }
 
-  // Agrupar órdenes por estado Kanban
-  const ordenesporColumna: Record<KanbanEstado, Orden[]> = {
-    recibido: [],
-    diagnostico: [],
-    en_reparacion: [],
-    listo_entrega: [],
-    entregado: [],
+    if (estadoFilter !== 'todas') {
+      filtered = filtered.filter((orden) => orden.estado === estadoFilter);
+    }
+
+    setFilteredOrdenes(filtered);
   };
 
-  for (const orden of ordenesFiltradas) {
-    const estadoRaw = (campoExtra(orden, 'estado') as string) || orden.estado || 'recibido';
-    const estadoNorm = normalizarEstado(estadoRaw);
-    ordenesporColumna[estadoNorm].push(orden);
-  }
+  const getEstadoBadge = (estado: string) => {
+    const ESTADOS_ABIERTOS = ['abierta', 'pendiente', 'recibido', 'diagnostico', 'en_reparacion', 'listo_entrega'];
+    const ESTADOS_CERRADOS = ['cerrada', 'entregado', 'entregada', 'completado', 'completada'];
+    const esCerrado = ESTADOS_CERRADOS.includes(estado);
+    const className = esCerrado
+      ? 'bg-sag-100 text-sag-800 dark:bg-sag-900/30 dark:text-sag-400'
+      : ESTADOS_ABIERTOS.includes(estado)
+        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+    const label = esCerrado ? 'Cerrada' : ESTADOS_ABIERTOS.includes(estado) ? 'Abierta' : estado;
+    return (
+      <span className={`px-3 py-1 rounded-full text-xs font-medium ${className}`}>
+        {label}
+      </span>
+    );
+  };
 
-  // KPIs
-  const totalOrdenes = ordenes.length;
-  const totalAbiertas = ordenes.filter((o) => {
-    const estado = normalizarEstado((campoExtra(o, 'estado') as string) || o.estado || '');
-    return estado !== 'entregado';
-  }).length;
-  const totalEntregadas = ordenes.filter((o) => {
-    const estado = normalizarEstado((campoExtra(o, 'estado') as string) || o.estado || '');
-    return estado === 'entregado';
-  }).length;
+  const totalItems = filteredOrdenes.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredOrdenes.slice(startIndex, endIndex);
 
-  // Orden activa para el DragOverlay
-  const ordenActiva = activeId ? ordenes.find((o) => String(o.id) === activeId) ?? null : null;
+  const stats = {
+    total: ordenes.length,
+    abiertas: ordenes.filter((o) => {
+      const estado = (o as any).estado || o.estado;
+      return ['abierta', 'pendiente', 'recibido', 'diagnostico', 'en_reparacion', 'listo_entrega'].includes(estado);
+    }).length,
+    cerradas: ordenes.filter((o) => {
+      const estado = (o as any).estado || o.estado;
+      return ['cerrada', 'entregado', 'entregada', 'completado', 'completada'].includes(estado);
+    }).length,
+  };
+
+  const goToPage = (page: number) => setCurrentPage(page);
+  const goToPrevious = () => setCurrentPage((p) => Math.max(p - 1, 1));
+  const goToNext = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
+
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    const maxVisiblePages = 5;
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      const startPage = Math.max(1, currentPage - 2);
+      const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      for (let i = startPage; i <= endPage; i++) pages.push(i);
+    }
+    return pages;
+  };
 
   return (
-    <div className="max-w-full px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-soft">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Ordenes</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{totalOrdenes}</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</p>
             </div>
-            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-sag-100 dark:bg-sag-900/30 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-sag-600 dark:text-sag-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-soft">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">En proceso</p>
-              <p className="text-3xl font-bold text-info-600 dark:text-info-400 mt-1">{totalAbiertas}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Abiertas</p>
+              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1">{stats.abiertas}</p>
             </div>
-            <div className="w-12 h-12 bg-info-100 dark:bg-info-900/30 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-info-600 dark:text-info-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-soft">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Entregadas</p>
-              <p className="text-3xl font-bold text-success-600 dark:text-success-400 mt-1">{totalEntregadas}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Cerradas</p>
+              <p className="text-3xl font-bold text-sag-600 dark:text-sag-400 mt-1">{stats.cerradas}</p>
             </div>
-            <div className="w-12 h-12 bg-success-100 dark:bg-success-900/30 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-sag-100 dark:bg-sag-900/30 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-sag-600 dark:text-sag-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -254,81 +183,168 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Search + Nueva Orden */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-soft mb-6">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+      {/* Search and Filters */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Buscar por folio, cliente, placas, marca o modelo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sag-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Buscar por folio, cliente, placas, marca o modelo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg
-                         focus:ring-2 focus:ring-slate-400 focus:border-transparent
-                         dark:bg-gray-700 dark:text-white text-sm"
-            />
           </div>
-          <Button
-            onClick={() => navigate('/nueva-orden')}
-            className="bg-gradient-to-r from-sag-500 to-sag-600 hover:from-sag-600 hover:to-sag-700
-                       text-white shadow-lg shadow-sag-500/30 hover:shadow-sag-500/40 transition-all whitespace-nowrap"
-          >
-            + Nueva Orden
-          </Button>
+
+          <div className="flex gap-2">
+            <select
+              value={estadoFilter}
+              onChange={(e) => setEstadoFilter(e.target.value)}
+              className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sag-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            >
+              <option value="todas">Todos los estados</option>
+              <option value="abierta">Abiertas</option>
+              <option value="cerrada">Cerradas</option>
+            </select>
+
+            <Button
+              onClick={() => navigate('/nueva-orden')}
+              className="bg-gradient-to-r from-sag-500 to-sag-600 hover:from-sag-600 hover:to-sag-700 text-white shadow-lg shadow-sag-500/30 hover:shadow-sag-500/40 transition-all"
+            >
+              + Nueva Orden
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Kanban Board */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="text-center space-y-3">
-            <div className="animate-spin h-10 w-10 border-4 border-sag-500 border-t-transparent rounded-full mx-auto shadow-lg shadow-sag-500/30" />
-            <p className="text-gray-600 dark:text-gray-400">Cargando ordenes...</p>
-          </div>
-        </div>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="overflow-x-auto pb-4 rounded-2xl bg-gray-50 dark:bg-gray-900/40 p-4">
-            <div className="flex gap-4 min-w-max">
-              {KANBAN_COLUMNS.map((col) => (
-                <KanbanColumn
-                  key={col.estado}
-                  config={col}
-                  ordenes={ordenesporColumna[col.estado]}
-                />
-              ))}
+      {/* Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-3">
+              <div className="animate-spin h-10 w-10 border-4 border-sag-500 border-t-transparent rounded-full mx-auto shadow-lg shadow-sag-500/30" />
+              <p className="text-gray-600 dark:text-gray-400">Cargando ordenes...</p>
             </div>
           </div>
+        ) : filteredOrdenes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <svg className="w-16 h-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p className="text-gray-600 dark:text-gray-400 text-lg">No se encontraron ordenes</p>
+            <p className="text-gray-500 dark:text-gray-500 text-sm">Intenta ajustar los filtros de busqueda</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                <tr>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Folio</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cliente</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Vehiculo</th>
+                  <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Placas</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
+                  <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fecha</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {currentItems.map((orden) => {
+                  const ordenAny = orden as any;
+                  const folio = ordenAny.numero_orden || orden.folio || '';
+                  const clienteNombre = ordenAny.cliente_nombre || orden.cliente?.nombreCompleto || '';
+                  const marca = ordenAny.marca || orden.vehiculo?.marca || '';
+                  const modelo = ordenAny.modelo || orden.vehiculo?.modelo || '';
+                  const placas = ordenAny.placas || orden.vehiculo?.placas || '';
+                  const fecha = ordenAny.fecha_ingreso || orden.fechaCreacion || '';
+                  return (
+                    <tr key={orden.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">{folio}</span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4">
+                        <span className="text-sm text-gray-900 dark:text-white leading-tight">{clienteNombre}</span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900 dark:text-white">{marca} {modelo}</span>
+                      </td>
+                      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900 dark:text-white">{placas}</span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                        {getEstadoBadge(ordenAny.estado || orden.estado)}
+                      </td>
+                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {new Date(fecha).toLocaleDateString('es-MX')}
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                        <Button
+                          variant="secondary"
+                          onClick={() => navigate(`/orden/${orden.id}`)}
+                          className="!text-xs !py-1.5"
+                        >
+                          Ver
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-          {/* Ghost card que sigue al cursor mientras se arrastra */}
-          <DragOverlay dropAnimation={null}>
-            {ordenActiva ? (
-              <div className="w-[280px]">
-                <KanbanCard
-                  orden={ordenActiva}
-                  isOverlay
-                  cardAccent={
-                    KANBAN_COLUMNS.find(
-                      (c) => c.estado === normalizarEstado(
-                        (campoExtra(ordenActiva, 'estado') as string) || ordenActiva.estado || ''
-                      )
-                    )?.cardAccent ?? 'border-l-slate-400'
-                  }
-                />
+        {/* Paginacion */}
+        {!isLoading && filteredOrdenes.length > 0 && totalPages > 1 && (
+          <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                <span>Mostrando {startIndex + 1} - {Math.min(endIndex, totalItems)} de {totalItems} ordenes</span>
               </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      )}
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={goToPrevious}
+                  disabled={currentPage === 1}
+                  className="!px-3 !py-2 !text-sm bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                >
+                  Anterior
+                </Button>
+                <div className="flex items-center gap-1">
+                  {getPageNumbers().map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      onClick={() => goToPage(pageNumber)}
+                      className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                        pageNumber === currentPage
+                          ? 'bg-sag-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  onClick={goToNext}
+                  disabled={currentPage === totalPages}
+                  className="!px-3 !py-2 !text-sm bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
