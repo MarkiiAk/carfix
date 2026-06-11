@@ -1168,10 +1168,9 @@ class OrdenesController {
     
     /**
      * Genera el número de orden con prefijo de sucursal para evitar colisiones UNIQUE.
-     * Formato: S{sucursal_id}-YYMMDD-{id}
-     * Ejemplo: S1-260602-1650 / S2-260602-1651
-     *
-     * También calcula y persiste folio_sucursal: consecutivo propio de la sucursal (1, 2, 3...).
+     * Formato: S{sucursal_id}-YYMMDD-{folio_sucursal}
+     * Ejemplo: S1-260610-1 / S2-260610-1 (cada sucursal empieza en 1, sin colisión por prefijo)
+     * Funciona para cualquier número de sucursales sin modificación.
      */
     private function generateNumeroOrden(int $id, int $sucursalId = 1): string {
         // Calcular el próximo folio_sucursal (MAX actual + 1, excluyendo el registro recién insertado)
@@ -1188,7 +1187,7 @@ class OrdenesController {
         $stmtUpdate->execute([$folioSucursal, $id]);
 
         $yymmdd = date('ymd');
-        return "S{$sucursalId}-{$yymmdd}-{$id}";
+        return "S{$sucursalId}-{$yymmdd}-{$folioSucursal}";
     }
     
     /**
