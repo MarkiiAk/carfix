@@ -35,6 +35,7 @@ export const DetalleOrden = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [orden, setOrden] = useState<Orden | null>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [fechaEntregada, setFechaEntregada] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Normalizar estado: mapear valores legacy al modelo Kanban
   const estadoNormalizado = (() => {
@@ -164,7 +165,7 @@ export const DetalleOrden = () => {
 
     try {
       setShowLoader(true);
-      await ordenesAPI.update(id, { estado: 'entregado' });
+      await ordenesAPI.update(id, { estado: 'entregado', fecha_entregada: fechaEntregada });
       setShowCloseModal(false);
       // Después de cerrar, recargar la orden para actualizar el estado local
       const ordenActualizada = await ordenesAPI.getById(id);
@@ -390,9 +391,24 @@ export const DetalleOrden = () => {
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               ¿Marcar como Entregado?
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Al marcar como entregado, la orden pasara al estado final y no podras hacer mas cambios. ¿Confirmas que el cliente ya recibio su vehiculo?
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Al marcar como entregado, la orden pasara al estado final y no podras hacer mas cambios.
             </p>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Fecha de entrega al cliente
+              </label>
+              <input
+                type="date"
+                value={fechaEntregada}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setFechaEntregada(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-sag-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Esta fecha determina en qué semana aparece el ingreso en Financiero.
+              </p>
+            </div>
             <div className="flex gap-3">
               <Button
                 variant="secondary"

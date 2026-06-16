@@ -421,11 +421,18 @@ class OrdenesController {
                 // COALESCE(fecha_entregada, fecha_completada, fecha_ingreso).
                 $estadosCierre = ['entregado', 'cerrada', 'completada', 'completado', 'entregada']; // 'entregado' es el valor canónico Kanban
                 if (in_array($data['estado'], $estadosCierre, true)) {
-                    // Ambas fechas: COALESCE en Financiero usa fecha_entregada ?? fecha_completada ?? fecha_ingreso
-                    // Si ninguna está explícita, NOW() marca la semana real del cierre
-                    $updateFields[] = 'fecha_completada = COALESCE(fecha_completada, NOW())';
-                    $updateFields[] = 'fecha_entregada  = COALESCE(fecha_entregada,  NOW())';
-                    // Sin push a $updateValues: no son placeholders ?
+                    if (!empty($data['fecha_entregada'])) {
+                        // Usuario especificó la fecha real de entrega — tiene prioridad absoluta.
+                        // Permite registrar entregas retroactivas (ej: se olvidó cerrar la semana pasada).
+                        $updateFields[] = 'fecha_entregada  = ?';
+                        $updateValues[] = $data['fecha_entregada'];
+                        $updateFields[] = 'fecha_completada = COALESCE(fecha_completada, ?)';
+                        $updateValues[] = $data['fecha_entregada'];
+                    } else {
+                        // Sin fecha explícita: COALESCE preserva la existente o usa NOW()
+                        $updateFields[] = 'fecha_completada = COALESCE(fecha_completada, NOW())';
+                        $updateFields[] = 'fecha_entregada  = COALESCE(fecha_entregada,  NOW())';
+                    }
                 }
             }
             
