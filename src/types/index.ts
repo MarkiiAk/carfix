@@ -206,6 +206,7 @@ export interface Orden {
   manoDeObra: ManoDeObra[];
   resumen: ResumenFinanciero;
   puntosSeguridad?: PuntoSeguridadOrden[];
+  fecha_entregada?: string | null;
 }
 
 export interface Sucursal {
