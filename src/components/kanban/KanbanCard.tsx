@@ -1,0 +1,146 @@
+import { useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import type { Orden } from '../../types';
+
+interface KanbanCardProps {
+  orden: Orden;
+  /** Cuando es true, la card se renderiza como ghost en el DragOverlay y no necesita draggable */
+  isOverlay?: boolean;
+  /** Clases Tailwind para la barra de acento izquierda (ej: 'border-l-slate-500') */
+  cardAccent?: string;
+}
+
+
+function tiempoTranscurrido(fechaStr: string): string {
+  const fecha = new Date(fechaStr);
+  const ahora = new Date();
+  const diffMs = ahora.getTime() - fecha.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHrs = Math.floor(diffMin / 60);
+  const diffDias = Math.floor(diffHrs / 24);
+
+  if (diffDias > 1) return `hace ${diffDias} dias`;
+  if (diffDias === 1) return 'hace 1 dia';
+  if (diffHrs > 1) return `hace ${diffHrs} horas`;
+  if (diffHrs === 1) return 'hace 1 hora';
+  if (diffMin > 1) return `hace ${diffMin} minutos`;
+  return 'recien creada';
+}
+
+export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-slate-400' }: KanbanCardProps) {
+  const navigate = useNavigate();
+  // El API devuelve campos extras (snake_case) no presentes en el tipo Orden
+  const extra = orden as unknown as Record<string, unknown>;
+
+  const folio = (extra.numero_orden as string) || orden.folio || '';
+  const folioSucursal = (extra.folio_sucursal as number | undefined) ?? orden.folio_sucursal;
+  const clienteNombre = (extra.cliente_nombre as string) || orden.cliente?.nombreCompleto || 'Sin cliente';
+  const marca = (extra.marca as string) || orden.vehiculo?.marca || '';
+  const modelo = (extra.modelo as string) || orden.vehiculo?.modelo || '';
+  const anio = (extra.anio as string | number) || orden.vehiculo?.year || '';
+  const placas = (extra.placas as string) || orden.vehiculo?.placas || '';
+  const fecha = (extra.fecha_ingreso as string) || orden.fechaCreacion || '';
+  const numeroSerie = (extra.numero_serie as string | undefined) || '';
+  const kmEntrada = (extra.kilometraje_entrada as string | number | undefined);
+
+  // dnd-kit: draggable por ID de la orden
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: String(orden.id),
+    disabled: isOverlay,
+  });
+
+  // Bug 1: detectar drag para evitar navegar al soltar
+  const hasDragged = useRef(false);
+  useEffect(() => {
+    if (isDragging) hasDragged.current = true;
+  }, [isDragging]);
+
+  const handleCardClick = () => {
+    if (hasDragged.current) {
+      hasDragged.current = false;
+      return;
+    }
+    navigate(`/orden/${orden.id}`);
+  };
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : 1,
+    cursor: isDragging ? 'grabbing' : 'pointer',
+    touchAction: 'none',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      onClick={handleCardClick}
+      className={`w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+                 border-l-4 ${cardAccent} rounded-xl p-4 shadow-soft hover:shadow-medium hover:-translate-y-0.5
+                 transition-shadow duration-200 ease-out group select-none
+                 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
+                 ${isOverlay ? 'shadow-xl rotate-1 opacity-95' : ''}`}
+    >
+      {/* Folio */}
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">
+          {folio}
+        </span>
+        {folioSucursal != null && (
+          <span className="text-xs font-bold text-white bg-gray-400 dark:bg-gray-600 rounded px-1 leading-tight">
+            #{folioSucursal}
+          </span>
+        )}
+      </div>
+
+      {/* Cliente */}
+      <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight mb-1 truncate">
+        {clienteNombre}
+      </p>
+
+      {/* Vehiculo */}
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate">
+        {[marca, modelo, anio].filter(Boolean).join(' ')}
+      </p>
+      {placas && (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono font-medium
+                         bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 mb-1.5">
+          {placas}
+        </span>
+      )}
+
+      {/* Serie y Kilometraje — siempre visibles */}
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+          <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+          <span className="font-medium text-gray-500 dark:text-gray-400">Serie:</span>
+          <span>{numeroSerie || '—'}</span>
+        </span>
+        <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+          <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <span className="font-medium text-gray-500 dark:text-gray-400">Km:</span>
+          <span>{kmEntrada != null && kmEntrada !== '' ? Number(kmEntrada).toLocaleString('es-MX') : '—'}</span>
+        </span>
+      </div>
+
+      {/* Footer */}
+      {fecha && (
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-2 mt-2">
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            {tiempoTranscurrido(fecha)}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
