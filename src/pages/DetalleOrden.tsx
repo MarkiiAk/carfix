@@ -59,6 +59,15 @@ export const DetalleOrden = () => {
     entregado: 'Entregado',
   };
 
+  const NEXT_ESTADO: Record<string, string> = {
+    recibido:      'diagnostico',
+    diagnostico:   'en_reparacion',
+    en_reparacion: 'listo_entrega',
+    listo_entrega: 'entregado',
+  };
+
+  const nextEstado = estadoNormalizado ? NEXT_ESTADO[estadoNormalizado] : undefined;
+
   // Aplicar el tema al documento
   useEffect(() => {
     if (themeMode === 'dark') {
@@ -178,6 +187,22 @@ export const DetalleOrden = () => {
     }
   };
 
+  const handleAvanzarEstado = async () => {
+    if (!id || !nextEstado) return;
+    try {
+      setShowLoader(true);
+      await ordenesAPI.update(id, { estado: nextEstado } as Partial<Orden>);
+      const ordenActualizada = await ordenesAPI.getById(id);
+      if (ordenActualizada) {
+        setOrden(ordenActualizada);
+      }
+      setShowLoader(false);
+    } catch {
+      setShowLoader(false);
+      alert('Hubo un error al avanzar el estado. Por favor intenta de nuevo.');
+    }
+  };
+
   const handleLoaderComplete = () => {
     setShowLoader(false);
     resetPresupuesto();
@@ -268,6 +293,18 @@ export const DetalleOrden = () => {
                 </Button>
               )}
 
+              {/* Avanzar al siguiente estado - Solo si hay un estado siguiente */}
+              {nextEstado && (
+                <Button
+                  variant="secondary"
+                  onClick={handleAvanzarEstado}
+                  disabled={showLoader}
+                  className="hidden md:flex"
+                >
+                  Avanzar a {ESTADO_LABELS[nextEstado] ?? nextEstado} →
+                </Button>
+              )}
+
               {/* Marcar como Entregado - Solo si está abierta */}
               {esOrdenAbierta && (
                 <Button
@@ -306,6 +343,16 @@ export const DetalleOrden = () => {
                 >
                   Guardar
                 </Button>
+                {nextEstado && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleAvanzarEstado}
+                    disabled={showLoader}
+                    className="flex-1 !text-sm"
+                  >
+                    → {ESTADO_LABELS[nextEstado] ?? nextEstado}
+                  </Button>
+                )}
                 <Button
                   variant="danger"
                   onClick={() => setShowCloseModal(true)}
