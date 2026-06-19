@@ -127,7 +127,7 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
                  border-l-4 ${cardAccent} rounded-xl p-4 shadow-soft hover:shadow-medium hover:-translate-y-0.5
                  transition-shadow duration-200 ease-out group select-none
                  focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
-                 ${isOverlay ? 'shadow-xl rotate-1 opacity-95' : ''}`}
+                 ${isOverlay ? 'shadow-xl rotate-1 opacity-95' : 'kanban-card-enter'}`}
     >
       {/* Folio */}
       <div className="flex items-center gap-1.5 mb-2">

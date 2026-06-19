@@ -107,6 +107,16 @@ export const Dashboard = () => {
     setActiveId(String(event.active.id));
   }, []);
 
+  const handleEstadoChange = useCallback((id: number, nuevoEstado: string) => {
+    setOrdenes((prev) =>
+      prev.map((o) =>
+        String(o.id) === String(id)
+          ? { ...o, estado: nuevoEstado as Orden['estado'] }
+          : o
+      )
+    );
+  }, []);
+
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setActiveId(null);
 
@@ -304,6 +314,7 @@ export const Dashboard = () => {
                   key={col.estado}
                   config={col}
                   ordenes={ordenesporColumna[col.estado]}
+                  onEstadoChange={handleEstadoChange}
                 />
               ))}
             </div>
