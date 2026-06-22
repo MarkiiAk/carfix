@@ -252,6 +252,43 @@ class UsuariosController {
     }
 
     // -------------------------------------------------------------------------
+    // PUT /admin/usuarios/:id/password — cambiar contraseña
+    // -------------------------------------------------------------------------
+    public function cambiarPassword(int $id): void {
+        try {
+            requireAuth(['sistemas']);
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($data)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'JSON inválido']);
+                return;
+            }
+
+            $nueva = $data['nueva_password'] ?? '';
+            if (strlen($nueva) < 6) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'La contraseña debe tener al menos 6 caracteres']);
+                return;
+            }
+
+            $hash = password_hash($nueva, PASSWORD_BCRYPT);
+            $stmt = $this->db->prepare('UPDATE usuarios SET password_hash = ? WHERE id = ?');
+            $stmt->execute([$hash, $id]);
+
+            if ($stmt->rowCount() === 0) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Usuario no encontrado']);
+                return;
+            }
+
+            echo json_encode(['success' => true]);
+
+        } catch (Exception $e) {
+            jsonError('Error al cambiar contraseña', $e, 500);
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // DELETE /admin/usuarios/:id/sucursal/:sucursal_id — remover acceso
     // -------------------------------------------------------------------------
     public function removerSucursal(int $userId, int $sucursalId): void {

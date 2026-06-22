@@ -433,6 +433,10 @@ try {
         $controller = new UsuariosController();
         $controller->eliminar((int) $matches[1]);
     }
+    elseif (preg_match('#^admin/usuarios/([0-9]+)/password$#', $path, $matches) && $request_method === 'PUT') {
+        $controller = new UsuariosController();
+        $controller->cambiarPassword((int) $matches[1]);
+    }
     elseif (preg_match('#^admin/usuarios/([0-9]+)/sucursal$#', $path, $matches) && $request_method === 'POST') {
         $controller = new UsuariosController();
         $controller->asignarSucursal((int) $matches[1]);

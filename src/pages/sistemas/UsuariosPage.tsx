@@ -53,6 +53,10 @@ export function UsuariosPage() {
   // Para gestionar sucursales de un usuario
   const [gestionTarget, setGestionTarget] = useState<UsuarioRow | null>(null);
   const [sucursalAsignar, setSucursalAsignar] = useState<number>(0);
+  const [pwTarget, setPwTarget]   = useState<UsuarioRow | null>(null);
+  const [pwNueva, setPwNueva]     = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwSaving, setPwSaving]   = useState(false);
 
   const fetchTodo = async () => {
     setLoading(true);
@@ -144,6 +148,29 @@ export function UsuariosPage() {
     }
   };
 
+  const handleCambiarPassword = async () => {
+    if (!pwTarget) return;
+    if (pwNueva.length < 6) { alert('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (pwNueva !== pwConfirm) { alert('Las contraseñas no coinciden'); return; }
+    setPwSaving(true);
+    try {
+      const res  = await fetch(`${API}/admin/usuarios/${pwTarget.id}/password`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ nueva_password: pwNueva }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Error al cambiar contraseña');
+      setPwTarget(null);
+      setPwNueva('');
+      setPwConfirm('');
+    } catch (e) {
+      alert(String(e));
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
   const sucursalesDisponibles = sucursales.filter(
     (s) => s.activo && !gestionTarget?.sucursales.some((gs) => gs.id === s.id),
   );
@@ -217,6 +244,12 @@ export function UsuariosPage() {
                         Sucursales
                       </button>
                       <button
+                        onClick={() => { setPwTarget(u); setPwNueva(''); setPwConfirm(''); }}
+                        className="text-xs px-2.5 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Cambiar contraseña
+                      </button>
+                      <button
                         onClick={() => handleToggle(u)}
                         className={`text-xs px-2.5 py-1 rounded border transition-colors ${
                           u.activo
@@ -288,6 +321,64 @@ export function UsuariosPage() {
                 className="px-4 py-2 text-sm bg-sag-500 text-gray-900 font-semibold rounded-lg hover:bg-sag-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Guardando...' : 'Crear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal cambiar contraseña */}
+      {pwTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Cambiar contraseña</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Usuario: <span className="font-mono font-medium text-gray-800 dark:text-gray-200">{pwTarget.username}</span>
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nueva contraseña <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={pwNueva}
+                  onChange={(e) => setPwNueva(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-sag-500"
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Confirmar contraseña <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={pwConfirm}
+                  onChange={(e) => setPwConfirm(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-sag-500"
+                  placeholder="Repite la contraseña"
+                />
+              </div>
+              {pwNueva.length > 0 && pwConfirm.length > 0 && pwNueva !== pwConfirm && (
+                <p className="text-xs text-red-500">Las contraseñas no coinciden</p>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end mt-6">
+              <button
+                onClick={() => setPwTarget(null)}
+                className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCambiarPassword}
+                disabled={pwSaving || pwNueva.length < 6 || pwNueva !== pwConfirm}
+                className="px-4 py-2 text-sm bg-sag-500 text-gray-900 font-semibold rounded-lg hover:bg-sag-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pwSaving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </div>
