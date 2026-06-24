@@ -4,12 +4,11 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
 
-/** PointerSensor que solo activa en mouse — deja el touch al TouchSensor */
+/** Solo activa drag con mouse — touch scrollea libre y usa el botón → */
 class MouseOnlySensor extends PointerSensor {
   static activators = [
     {
@@ -76,7 +75,6 @@ export const Dashboard = () => {
   // Mouse: activa drag al mover 8px. Touch: requiere mantener presionado 2s antes de drag.
   const sensors = useSensors(
     useSensor(MouseOnlySensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 2000, tolerance: 5 } }),
   );
 
   // Aplicar el tema al documento
