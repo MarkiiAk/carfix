@@ -145,7 +145,7 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-5 border-b border-gray-800">
         <img
-          src="/logo.png"
+          src={`${import.meta.env.BASE_URL}logo.png`}
           alt="CarFix"
           className="h-7 w-auto object-contain"
         />
