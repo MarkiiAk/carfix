@@ -221,7 +221,7 @@ export interface Usuario {
   id: string;
   username: string;
   nombre: string;
-  rol: 'sistemas' | 'superusuario' | 'admin_sucursal' | 'admin';
+  rol: 'sistemas' | 'superusuario' | 'admin_sucursal' | 'admin' | 'asistente';
   sucursal_activa_id?: number;
   sucursales_permitidas?: number[];
   sucursal_nombre?: string;

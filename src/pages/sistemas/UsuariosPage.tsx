@@ -38,8 +38,9 @@ function authHeaders(): Record<string, string> {
 
 const ROLES = [
   { value: 'sistemas',       label: 'Sistemas (SaaS admin)' },
-  { value: 'superusuario',   label: 'Superusuario (Dueno del taller)' },
+  { value: 'superusuario',   label: 'Superusuario (Dueño del taller)' },
   { value: 'admin_sucursal', label: 'Admin sucursal (Gerente)' },
+  { value: 'asistente',      label: 'Asistente (Sin módulo financiero)' },
 ];
 
 export function UsuariosPage() {

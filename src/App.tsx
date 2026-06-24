@@ -23,6 +23,16 @@ function SistemasRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/** Guard para módulo financiero — bloqueado para rol 'asistente'. */
+function FinancieroRoute({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user || user.rol === 'asistente') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.VITE_BASE_PATH ?? '/gestion'}>
@@ -105,9 +115,11 @@ function App() {
               path="/financiero"
               element={
                 <ProtectedRoute>
-                  <AppShell moduleName="Ingresos">
-                    <Financiero />
-                  </AppShell>
+                  <FinancieroRoute>
+                    <AppShell moduleName="Ingresos">
+                      <Financiero />
+                    </AppShell>
+                  </FinancieroRoute>
                 </ProtectedRoute>
               }
             />

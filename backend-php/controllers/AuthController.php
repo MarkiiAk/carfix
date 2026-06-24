@@ -195,7 +195,7 @@ class AuthController {
             return [(int) $ids[0], $ids];
         }
 
-        // admin_sucursal — solo sus sucursales asignadas
+        // admin_sucursal / asistente — solo sus sucursales asignadas en usuario_sucursales
         $stmt = $this->db->prepare(
             'SELECT sucursal_id FROM usuario_sucursales WHERE usuario_id = ? ORDER BY sucursal_id ASC'
         );
