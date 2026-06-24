@@ -33,6 +33,8 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
+          VITE_API_URL: https://tallercarfix.com.mx/gestion/backend-php
+          VITE_BASE_PATH: /gestion/
 
       # 5. Verificar que el build se creó correctamente
       - name: ✅ Verificar build
