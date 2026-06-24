@@ -113,7 +113,6 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.4 : 1,
     cursor: isDragging ? 'grabbing' : 'pointer',
-    touchAction: 'none',
   };
 
   return (

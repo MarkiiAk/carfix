@@ -4,20 +4,10 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-
-/** Solo activa drag con mouse — touch scrollea libre y usa el botón → */
-class MouseOnlySensor extends PointerSensor {
-  static activators = [
-    {
-      eventName: 'onPointerDown' as const,
-      handler: ({ nativeEvent }: React.PointerEvent) =>
-        nativeEvent.pointerType === 'mouse',
-    },
-  ];
-}
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
@@ -73,8 +63,10 @@ export const Dashboard = () => {
   const navigate = useNavigate();
 
   // Mouse: activa drag al mover 8px. Touch: requiere mantener presionado 2s antes de drag.
+  // Mouse: drag al mover 8px. Touch: drag al mantener 300ms sin moverse — scroll si deslizas antes.
   const sensors = useSensors(
-    useSensor(MouseOnlySensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
   );
 
   // Aplicar el tema al documento
