@@ -29,7 +29,7 @@ type RGB = [number, number, number];
 
 const C: Record<string, RGB> = {
   fondoOscuro:      [15,  35,  24],
-  lime:             [203, 245, 24],
+  lime:             [249, 115, 22],
   blanco:           [255, 255, 255],
   textoOscuro:      [30,  30,  30],
   textoSecundario:  [120, 130, 120],
@@ -44,7 +44,7 @@ const C: Record<string, RGB> = {
   barraSubeldos:    [255, 165, 60],
   barraRefas:       [80,  140, 255],
   barraFijos:       [160, 160, 160],
-  barraGanancia:    [203, 245, 24],
+  barraGanancia:    [249, 115, 22],
   fondoNegativo:    [90,  20,  20],
   montoNegativo:    [255, 120, 120],
 };
@@ -103,7 +103,6 @@ export function generarReporteFinanciero(params: ReporteFinancieroParams): void 
   const totalCostos = costoRefacciones + totalSueldos + totalPagosFijos + totalGastosVariables;
   const gananciaNeta = ingresosbrutos - costoRefacciones - totalSueldos - totalPagosFijos - totalGastosVariables;
   const margenPct = ingresosbrutos > 0 ? (gananciaNeta / ingresosbrutos) * 100 : 0;
-  const porSocio = gananciaNeta / 2;
 
   const alertaSueldos = ingresosbrutos > 0 && totalSueldos / ingresosbrutos > 0.40;
   const alertaMargen = margenPct < 15;
@@ -203,22 +202,18 @@ export function generarReporteFinanciero(params: ReporteFinancieroParams): void 
   doc.setFontSize(gananciaFontSize);
   doc.text(gananciaStr, cardX[2] + cardW / 2, cardY + 18, { align: 'center' });
 
-  // Card 4 — Por Socio
-  setFill(doc, [230, 240, 230] as RGB);
+  // Card 4 — Margen %
+  setFill(doc, [245, 235, 225] as RGB);
   setDraw(doc, C.separador);
   doc.rect(cardX[3], cardY, cardW, cardH, 'FD');
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
   setTextColor(doc, C.textoSecundario);
-  doc.text('POR SOCIO', cardX[3] + 2, cardY + 7);
-  doc.setFontSize(13);
+  doc.text('MARGEN', cardX[3] + 2, cardY + 7);
+  doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
-  setTextColor(doc, C.textoOscuro);
-  doc.text(fmt(porSocio), cardX[3] + cardW / 2, cardY + 16, { align: 'center' });
-  doc.setFontSize(6);
-  doc.setFont('helvetica', 'normal');
-  setTextColor(doc, C.textoSecundario);
-  doc.text('Paco / Enrique', cardX[3] + cardW / 2, cardY + 22, { align: 'center' });
+  setTextColor(doc, alertaMargen ? C.montoNegativo : C.textoOscuro);
+  doc.text(`${margenPct.toFixed(1)}%`, cardX[3] + cardW / 2, cardY + 18, { align: 'center' });
 
   // -------------------------------------------------------------------------
   // Barra de distribución (y: 84 → 98mm)

@@ -54,7 +54,7 @@ export const GraficaDistribucion = ({
     {
       name: gananciaReal >= 0 ? 'Ganancia neta' : 'Déficit',
       value: Math.abs(gananciaReal),
-      color: gananciaReal >= 0 ? '#CBF518' : '#ef4444',
+      color: gananciaReal >= 0 ? '#f97316' : '#ef4444',
     },
   ].filter(d => d.value > 0);
 

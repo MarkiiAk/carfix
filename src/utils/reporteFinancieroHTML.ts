@@ -190,7 +190,7 @@ export function abrirReporteFinanciero(params: ReporteParams): void {
   // -----------------------------------------------------------------------
   const cajaSectionHTML = cajaChica ? `
     <div style="background:#fff;border:1px solid #e3e8e0;border-radius:12px;padding:20px;margin-top:20px">
-      <h3 style="font-size:12px;font-weight:700;color:#0f2318;margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #CBF518;padding-bottom:6px">Caja Chica</h3>
+      <h3 style="font-size:12px;font-weight:700;color:#0f2318;margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #f97316;padding-bottom:6px">Caja Chica</h3>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
         <div style="text-align:center;padding:10px;background:#f5f6f2;border-radius:8px">
           <div style="font-size:10px;color:#8a9e90;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Saldo anterior</div>
@@ -241,7 +241,7 @@ body {
 /* Botón imprimir */
 .no-print {
   position: fixed; top: 16px; right: 16px; z-index: 999;
-  background: #CBF518; color: #0f2318; border: none; border-radius: 8px;
+  background: #f97316; color: #1a1a1a; border: none; border-radius: 8px;
   padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
@@ -256,9 +256,9 @@ body {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 28px; margin-bottom: 20px;
 }
-.header-brand .name { font-size: 22px; font-weight: 900; color: #CBF518; letter-spacing: -.5px; }
+.header-brand .name { font-size: 22px; font-weight: 900; color: #f97316; letter-spacing: -.5px; }
 .header-brand .sub  { font-size: 11px; color: #9ab5a0; margin-top: 2px; }
-.header-center .titulo { font-size: 13px; font-weight: 700; color: #CBF518; text-align: center; letter-spacing: 1px; }
+.header-center .titulo { font-size: 13px; font-weight: 700; color: #f97316; text-align: center; letter-spacing: 1px; }
 .header-center .periodo { font-size: 11px; color: #fff; text-align: center; margin-top: 3px; }
 .header-fecha { font-size: 10px; color: #9ab5a0; text-align: right; }
 
@@ -281,7 +281,7 @@ th { padding: 9px 10px; text-align: left; font-size: 10px; font-weight: 700; col
 th.r { text-align: right; } th.c { text-align: center; }
 tr.fila-total { background: #0f2318; color: #fff; }
 tr.fila-total td { padding: 10px; font-weight: 700; font-size: 12px; }
-tr.fila-total td.lime { color: #CBF518; text-align: right; }
+tr.fila-total td.lime { color: #f97316; text-align: right; }
 
 /* Balance hero */
 .hero-card {
@@ -305,7 +305,7 @@ tr.fila-total td.lime { color: #CBF518; text-align: right; }
 /* KPI cards al fondo */
 .kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
 .kpi { background: #fff; border: 1px solid #e3e8e0; border-radius: 10px; padding: 16px; }
-.kpi.destacado { border-color: #CBF518; }
+.kpi.destacado { border-color: #f97316; }
 .kpi-label { font-size: 10px; font-weight: 700; color: #8a9e90; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 6px; }
 .kpi-valor { font-size: 20px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .kpi-sub { font-size: 10px; color: #4a5e50; margin-top: 4px; }
@@ -313,7 +313,7 @@ tr.fila-total td.lime { color: #CBF518; text-align: right; }
 /* Equipo y gastos */
 .col-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .col-card { background: #fff; border: 1px solid #e3e8e0; border-radius: 10px; padding: 18px; }
-.col-title { font-size: 10px; font-weight: 700; color: #0f2318; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; border-bottom: 2px solid #CBF518; padding-bottom: 6px; }
+.col-title { font-size: 10px; font-weight: 700; color: #1a1a1a; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; border-bottom: 2px solid #f97316; padding-bottom: 6px; }
 .sub-title { font-size: 10px; font-weight: 700; color: #8a9e90; text-transform: uppercase; letter-spacing: .4px; margin: 14px 0 8px; }
 
 /* Footer */
@@ -356,14 +356,14 @@ tr.fila-total td.lime { color: #CBF518; text-align: right; }
       <div class="dist-seg" style="width:${pctRefacciones}%;background:#f59e0b" title="Refacciones"></div>
       <div class="dist-seg" style="width:${pctFijos}%;background:#f43f5e" title="Costos fijos"></div>
       <div class="dist-seg" style="width:${pctVariables}%;background:#14b8a6" title="Gastos varios"></div>
-      <div class="dist-seg" style="width:${pctGanancia}%;background:#CBF518" title="Ganancia"></div>
+      <div class="dist-seg" style="width:${pctGanancia}%;background:#f97316" title="Ganancia"></div>
     </div>
     <div class="dist-legend">
       <div class="dist-legend-item"><div class="dist-dot" style="background:#6366f1"></div>Sueldos (${pctSueldos}%)</div>
       <div class="dist-legend-item"><div class="dist-dot" style="background:#f59e0b"></div>Refacciones costo (${pctRefacciones}%)</div>
       <div class="dist-legend-item"><div class="dist-dot" style="background:#f43f5e"></div>Costos fijos (${pctFijos}%)</div>
       <div class="dist-legend-item"><div class="dist-dot" style="background:#14b8a6"></div>Gastos variables (${pctVariables}%)</div>
-      <div class="dist-legend-item"><div class="dist-dot" style="background:#CBF518"></div>Ganancia (${pctGanancia}%)</div>
+      <div class="dist-legend-item"><div class="dist-dot" style="background:#f97316"></div>Ganancia (${pctGanancia}%)</div>
     </div>
   </div>
 
@@ -454,7 +454,7 @@ tr.fila-total td.lime { color: #CBF518; text-align: right; }
 
       <div class="bal-total">
         <span>Ganancia neta</span>
-        <span style="font-size:16px;color:${gananciaNeta >= 0 ? '#CBF518' : '#ef4444'};font-variant-numeric:tabular-nums">${fmt(gananciaNeta)}</span>
+        <span style="font-size:16px;color:${gananciaNeta >= 0 ? '#f97316' : '#ef4444'};font-variant-numeric:tabular-nums">${fmt(gananciaNeta)}</span>
       </div>
 
       <div class="bal-nota">Utilidad estimada. No incluye otros impuestos ni deducciones fiscales.</div>
@@ -514,3 +514,4 @@ function escapeHtml(str: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+

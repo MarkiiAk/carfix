@@ -30,11 +30,11 @@ Font.register({
   ],
 });
 
-// 🎨 PALETA CARFIX - Basada en diseño de referencia
+// 🎨 PALETA CARFIX
 const COLORS = {
-  // Verdes SAG
-  primary: '#8BC34A', // Verde limón principal
-  primaryDark: '#689F38',
+  // Naranja CarFix
+  primary: '#f97316',
+  primaryDark: '#ea580c',
   
   // Headers y acentos
   headerDark: '#37474F', // Azul gris oscuro para tablas
@@ -374,10 +374,9 @@ interface PDFDocumentProps {
   presupuesto: Presupuesto;
 }
 
-/** Direcciones por sucursal. El teléfono es siempre el mismo para todas las sucursales. */
+/** Dirección del taller CarFix. */
 const SUCURSAL_DIRECCIONES: Record<number, string> = {
-  1: 'PRIVADA NICOLAS BRAVO 6, SAN MATEO NOPALA, NAUCALPAN.',
-  2: 'AV 100 METROS 94 COL. NUEVA VALLEJO. CP 07750',
+  1: 'ESTADO DE HIDALGO 78, PROVIDENCIA, GAM, 07550, CDMX.',
 };
 
 export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
@@ -417,10 +416,9 @@ export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.logoSection}>
-        <Image src={`${window.location.origin}/logo.png`} style={styles.logo} />
+        <Image src={`${window.location.origin}${import.meta.env.BASE_URL}logo.png`} style={styles.logo} />
         <View style={styles.titleSection}>
           <Text style={styles.companyName}>CARFIX</Text>
-          <Text style={styles.ownerName}>SERVICIO AUTOMOTRIZ GUDIÑO</Text>
         </View>
       </View>
       <View style={styles.addressSection}>
