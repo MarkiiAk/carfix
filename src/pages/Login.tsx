@@ -65,7 +65,7 @@ export const Login = () => {
           {/* Logo y título */}
           <div className="text-center space-y-2">
             <img
-              src="/logo-light.png"
+              src={`${import.meta.env.BASE_URL}logo-light.png`}
               alt="CarFix Logo"
               className="inline-block h-14 w-auto object-contain mb-4"
             />
