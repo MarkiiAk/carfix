@@ -8,6 +8,17 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+
+/** PointerSensor que solo activa en mouse — deja el touch al TouchSensor */
+class MouseOnlySensor extends PointerSensor {
+  static activators = [
+    {
+      eventName: 'onPointerDown' as const,
+      handler: ({ nativeEvent }: React.PointerEvent) =>
+        nativeEvent.pointerType === 'mouse',
+    },
+  ];
+}
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresupuestoStore } from '../store/usePresupuestoStore';
@@ -62,10 +73,10 @@ export const Dashboard = () => {
   const { showError } = useToastContext();
   const navigate = useNavigate();
 
-  // Sensores con tolerancia mínima de movimiento para no interferir con el click de navegación
+  // Mouse: activa drag al mover 8px. Touch: requiere mantener presionado 2s antes de drag.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 600, tolerance: 8 } }),
+    useSensor(MouseOnlySensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 2000, tolerance: 5 } }),
   );
 
   // Aplicar el tema al documento
