@@ -95,7 +95,7 @@ class UsuariosController {
                 return;
             }
 
-            $rolesValidos = ['sistemas', 'superusuario', 'admin_sucursal'];
+            $rolesValidos = ['sistemas', 'superusuario', 'admin_sucursal', 'asistente'];
             if (!in_array($rol, $rolesValidos, true)) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'rol no válido. Use: ' . implode(', ', $rolesValidos)]);
@@ -145,7 +145,7 @@ class UsuariosController {
             $email  = trim($data['email'] ?? '');
             $rol    = $data['rol'] ?? '';
 
-            $rolesValidos = ['sistemas', 'superusuario', 'admin_sucursal'];
+            $rolesValidos = ['sistemas', 'superusuario', 'admin_sucursal', 'asistente'];
             if ($rol !== '' && !in_array($rol, $rolesValidos, true)) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'rol no válido']);
