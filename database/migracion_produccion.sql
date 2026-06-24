@@ -3,7 +3,7 @@ SET time_zone = '+00:00';
 SET NAMES utf8mb4;
 
 CREATE TABLE `alertas_ejecucion_log` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `sucursal_id` int(11) NOT NULL DEFAULT 1,
   `fecha_ejecucion` date NOT NULL,
   `alertas_generadas` int(11) DEFAULT 0,
@@ -14,7 +14,7 @@ CREATE TABLE `alertas_ejecucion_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Log de ejecuciones diarias del sistema automático de generación de alertas';
 
 CREATE TABLE `alertas_servicio` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `orden_id` int(11) NOT NULL,
   `sucursal_id` int(11) NOT NULL DEFAULT 1,
   `cliente_id` int(11) NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE `alertas_servicio` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tabla principal de alertas con integración WhatsApp - Actualizada 30/03/2026';
 
 CREATE TABLE `caja_chica` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `fecha` date NOT NULL,
   `tipo` enum('ingreso','egreso') NOT NULL,
   `concepto` varchar(150) NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE `caja_chica` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `calendario_disponibilidad` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `sucursal_id` int(11) NOT NULL DEFAULT 1,
   `fecha` date NOT NULL,
   `hora` time NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE `calendario_disponibilidad` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 CREATE TABLE `citas_pre_agendadas` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `alerta_id` int(11) NOT NULL,
   `calendario_slot_id` int(11) NOT NULL,
   `cliente_nombre` varchar(200) NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE `citas_pre_agendadas` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 CREATE TABLE `clientes` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `sucursal_id` int(11) NOT NULL DEFAULT 1,
   `nombre` varchar(200) NOT NULL,
   `telefono` varchar(20) DEFAULT NULL,
@@ -118,7 +118,7 @@ CREATE TABLE `clientes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `conversaciones_whatsapp` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `alerta_id` int(11) NOT NULL,
   `twilio_message_sid` varchar(100) NOT NULL,
   `direction` enum('outbound','inbound') NOT NULL,
@@ -135,7 +135,7 @@ CREATE TABLE `conversaciones_whatsapp` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `danos_vehiculo` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `orden_id` int(11) NOT NULL,
   `ubicacion` varchar(200) NOT NULL,
   `tipo` varchar(100) NOT NULL,
@@ -144,7 +144,7 @@ CREATE TABLE `danos_vehiculo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `empleados_sueldos` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `usuario_id` int(11) DEFAULT NULL,
   `nombre` varchar(120) NOT NULL,
   `puesto` varchar(80) DEFAULT NULL,
@@ -159,7 +159,7 @@ CREATE TABLE `empleados_sueldos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `empleado_asistencia` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `empleado_id` int(11) NOT NULL,
   `semana_inicio` date NOT NULL,
   `dias_trabajados` tinyint(4) NOT NULL DEFAULT 5,
@@ -168,7 +168,7 @@ CREATE TABLE `empleado_asistencia` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `estados_seguridad` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(50) NOT NULL,
   `color` varchar(20) NOT NULL,
   `descripcion` text DEFAULT NULL,
@@ -178,7 +178,7 @@ CREATE TABLE `estados_seguridad` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `gastos_administrativos` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `mes` tinyint(2) NOT NULL COMMENT '1-12',
   `anio` year(4) NOT NULL,
   `concepto` varchar(300) NOT NULL,
@@ -190,7 +190,7 @@ CREATE TABLE `gastos_administrativos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `gastos_orden` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `orden_id` int(11) NOT NULL,
   `concepto` varchar(300) NOT NULL,
   `monto` decimal(10,2) NOT NULL,
@@ -201,7 +201,7 @@ CREATE TABLE `gastos_orden` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `ordenes_servicio` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `numero_orden` varchar(50) NOT NULL,
   `cliente_id` int(11) NOT NULL,
   `vehiculo_id` int(11) NOT NULL,
@@ -266,7 +266,7 @@ CREATE TABLE `ordenes_servicio` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `orden_puntos_seguridad` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `orden_id` int(11) NOT NULL,
   `punto_seguridad_id` int(11) NOT NULL,
   `estado_id` int(11) NOT NULL,
@@ -276,7 +276,7 @@ CREATE TABLE `orden_puntos_seguridad` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `pagos_fijos` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `concepto` varchar(120) NOT NULL,
   `monto` decimal(10,2) NOT NULL DEFAULT 0.00,
   `fecha_inicio` date NOT NULL DEFAULT '2026-01-01',
@@ -290,7 +290,7 @@ CREATE TABLE `pagos_fijos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `puntos_seguridad_catalogo` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(200) NOT NULL,
   `categoria` varchar(100) NOT NULL,
   `descripcion` text DEFAULT NULL,
@@ -301,7 +301,7 @@ CREATE TABLE `puntos_seguridad_catalogo` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `refacciones_orden` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `orden_id` int(11) NOT NULL,
   `sucursal_id` int(11) NOT NULL DEFAULT 1,
   `descripcion` varchar(500) NOT NULL,
@@ -316,7 +316,7 @@ CREATE TABLE `refacciones_orden` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `servicios_orden` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `orden_id` int(11) NOT NULL,
   `sucursal_id` int(11) NOT NULL DEFAULT 1,
   `tipo` enum('servicio','mano_obra') DEFAULT 'mano_obra',
@@ -328,7 +328,7 @@ CREATE TABLE `servicios_orden` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `sucursales` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(200) NOT NULL,
   `direccion` text DEFAULT NULL,
   `telefono` varchar(20) DEFAULT NULL,
@@ -338,7 +338,7 @@ CREATE TABLE `sucursales` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Catálogo de sucursales del taller';
 
 CREATE TABLE `twilio_config` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `config_key` varchar(100) NOT NULL,
   `config_value` text DEFAULT NULL,
   `description` mediumtext DEFAULT NULL,
@@ -348,7 +348,7 @@ CREATE TABLE `twilio_config` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `usuarios` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `username` varchar(100) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
   `nombre_completo` varchar(200) DEFAULT NULL,
@@ -360,7 +360,7 @@ CREATE TABLE `usuarios` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `usuario_sucursales` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `usuario_id` int(11) NOT NULL,
   `sucursal_id` int(11) NOT NULL,
   `rol_sucursal` varchar(50) DEFAULT 'admin_sucursal',
@@ -368,7 +368,7 @@ CREATE TABLE `usuario_sucursales` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Relación N:M entre usuarios y sucursales con rol por sucursal';
 
 CREATE TABLE `vehiculos` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `cliente_id` int(11) NOT NULL,
   `sucursal_id` int(11) NOT NULL DEFAULT 1,
   `marca` varchar(100) NOT NULL,
@@ -626,7 +626,6 @@ INSERT INTO `puntos_seguridad_catalogo` (`id`, `nombre`, `categoria`, `descripci
 -- Passwords: carfix=saggarage | carfix_dev=markiiak (mismas que SAG Garage)
 -- ============================================================
 
--- Limpiar por si hubo import parcial previo
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE `twilio_config`;
 TRUNCATE TABLE `sucursales`;
