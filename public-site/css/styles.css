@@ -1,6 +1,6 @@
 :root {
-    --neon-green: #b7ff00;
-    --neon-green-dark: #9dd600;
+    --brand-orange: #f97316;
+    --brand-orange-dark: #ea580c;
     --dark-bg: #0a0a0a;
     --darker-bg: #050505;
     --card-bg: rgba(20, 20, 20, 0.8);
@@ -8,8 +8,8 @@
     --text-primary: #ffffff;
     --text-secondary: #a0a0a0;
     --accent-dark: #1a1a1a;
-    --glow-green: 0 0 30px rgba(183, 255, 0, 0.6);
-    --glow-green-strong: 0 0 50px rgba(183, 255, 0, 0.8);
+    --glow-orange: 0 0 30px rgba(249, 115, 22, 0.6);
+    --glow-orange-strong: 0 0 50px rgba(249, 115, 22, 0.8);
     
     /* Float Spacing Variables */
     --social-gap: 18px;
@@ -69,12 +69,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .loader-logo {
-    font-size: 80px;
-    font-family: 'Outfit', sans-serif;
-    font-weight: 900;
-    color: var(--neon-green);
-    text-shadow: var(--glow-green-strong);
+    width: 220px;
+    max-width: 70vw;
+    height: auto;
+    display: block;
+    margin: 0 auto 16px;
     animation: pulse 1.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(249, 115, 22, 0.6));
 }
 
 .loader-text {
@@ -95,10 +96,10 @@ h1, h2, h3, h4, h5, h6 {
 
 .loader-progress {
     height: 100%;
-    background: var(--neon-green);
+    background: var(--brand-orange);
     width: 0%;
     animation: loading 2s ease-in-out infinite;
-    box-shadow: var(--glow-green);
+    box-shadow: var(--glow-orange);
 }
 
 @keyframes pulse {
@@ -160,19 +161,17 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .hero-logo {
-    font-size: clamp(80px, 15vw, 180px);
-    font-family: 'Outfit', sans-serif;
-    font-weight: 900;
-    color: var(--neon-green);
-    text-shadow: var(--glow-green-strong);
-    letter-spacing: -5px;
-    margin-bottom: 10px;
-    animation: neonFlicker 3s ease-in-out infinite;
+    width: clamp(260px, 42vw, 520px);
+    height: auto;
+    display: block;
+    margin: 0 auto 24px;
+    animation: brandPulse 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 30px rgba(249, 115, 22, 0.5));
 }
 
-@keyframes neonFlicker {
-    0%, 100% { opacity: 1; text-shadow: var(--glow-green-strong); }
-    50% { opacity: 0.95; text-shadow: var(--glow-green); }
+@keyframes brandPulse {
+    0%, 100% { opacity: 1; filter: drop-shadow(0 0 30px rgba(249, 115, 22, 0.5)); }
+    50% { opacity: 0.95; filter: drop-shadow(0 0 12px rgba(249, 115, 22, 0.25)); }
 }
 
 .hero-subtitle {
@@ -212,25 +211,25 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-primary {
-    background: var(--neon-green);
+    background: var(--brand-orange);
     color: var(--dark-bg);
-    box-shadow: var(--glow-green);
+    box-shadow: var(--glow-orange);
 }
 
 .btn-primary:hover {
-    background: var(--neon-green-dark);
+    background: var(--brand-orange-dark);
     transform: translateY(-3px);
-    box-shadow: var(--glow-green-strong);
+    box-shadow: var(--glow-orange-strong);
 }
 
 .btn-secondary {
     background: transparent;
-    color: var(--neon-green);
-    border: 2px solid var(--neon-green);
+    color: var(--brand-orange);
+    border: 2px solid var(--brand-orange);
 }
 
 .btn-secondary:hover {
-    background: var(--neon-green);
+    background: var(--brand-orange);
     color: var(--dark-bg);
     transform: translateY(-3px);
 }
@@ -245,7 +244,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .scroll-indicator i {
     font-size: 30px;
-    color: var(--neon-green);
+    color: var(--brand-orange);
 }
 
 @keyframes bounce {
@@ -276,27 +275,27 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     font-size: 20px;
     transition: all 0.3s ease;
     text-decoration: none;
 }
 
 .social-icon:hover {
-    background: var(--neon-green);
+    background: var(--brand-orange);
     color: var(--dark-bg);
     transform: translateX(-5px);
-    box-shadow: var(--glow-green);
+    box-shadow: var(--glow-orange);
 }
 
 /* Google Reviews en Social Float */
 .social-icon.google-reviews {
-    background: linear-gradient(135deg, #4285F4 0%, #34A853 50%, #FBBC05 100%);
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
     color: white;
 }
 
 .social-icon.google-reviews:hover {
-    background: linear-gradient(135deg, #3367D6 0%, #2D7D32 50%, #F9A825 100%);
+    background: linear-gradient(135deg, #111827 0%, #0f1f38 50%, #0d2d50 100%);
     color: white;
     transform: translateX(-5px);
     box-shadow: 0 0 20px rgba(66, 133, 244, 0.5);
@@ -321,7 +320,7 @@ h1, h2, h3, h4, h5, h6 {
 .section-title {
     font-size: clamp(40px, 6vw, 60px);
     margin-bottom: 20px;
-    background: linear-gradient(135deg, var(--neon-green) 0%, var(--text-primary) 100%);
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -366,7 +365,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .service-card:hover {
     transform: translateY(-10px);
-    border-color: var(--neon-green);
+    border-color: var(--brand-orange);
     box-shadow: 0 10px 40px rgba(183, 255, 0, 0.2);
 }
 
@@ -376,7 +375,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .service-icon {
     font-size: 50px;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     margin-bottom: 25px;
     display: block;
 }
@@ -401,7 +400,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .info-card {
-    background: linear-gradient(135deg, var(--neon-green) 0%, var(--neon-green-dark) 100%);
+    background: linear-gradient(135deg, var(--brand-orange) 0%, var(--brand-orange-dark) 100%);
     border-radius: 20px;
     padding: 40px 30px;
     text-align: center;
@@ -445,12 +444,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .manual-card:hover {
-    background: linear-gradient(135deg, var(--neon-green-dark) 0%, #8bb000 100%);
+    background: linear-gradient(135deg, var(--brand-orange-dark) 0%, #8bb000 100%);
     transform: translateY(-8px) scale(1.02);
 }
 
 .banking-card:hover {
-    background: linear-gradient(135deg, var(--neon-green) 0%, #c8ff33 100%);
+    background: linear-gradient(135deg, var(--brand-orange) 0%, #c8ff33 100%);
     transform: translateY(-8px) scale(1.02);
 }
 
@@ -503,7 +502,7 @@ h1, h2, h3, h4, h5, h6 {
     align-items: center;
     justify-content: center;
     font-size: 80px;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     background-size: cover;
     background-position: center;
     position: relative;
@@ -539,7 +538,7 @@ h1, h2, h3, h4, h5, h6 {
 .showcase-title {
     font-size: 28px;
     margin-bottom: 10px;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     text-align: center;
 }
 
@@ -551,7 +550,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .swiper-button-next,
 .swiper-button-prev {
-    color: var(--neon-green) !important;
+    color: var(--brand-orange) !important;
     background: rgba(10, 10, 10, 0.8);
     width: 50px;
     height: 50px;
@@ -567,7 +566,7 @@ h1, h2, h3, h4, h5, h6 {
 .swiper-button-next:hover,
 .swiper-button-prev:hover {
     background: rgba(183, 255, 0, 0.1);
-    border-color: var(--neon-green);
+    border-color: var(--brand-orange);
 }
 
 .swiper-pagination-bullet {
@@ -578,7 +577,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .swiper-pagination-bullet-active {
-    background: var(--neon-green);
+    background: var(--brand-orange);
     opacity: 1;
     box-shadow: 0 0 10px rgba(183, 255, 0, 0.5);
 }
@@ -612,13 +611,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .contact-item:hover {
-    border-color: var(--neon-green);
+    border-color: var(--brand-orange);
     transform: translateX(5px);
 }
 
 .contact-item i {
     font-size: 30px;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     min-width: 30px;
 }
 
@@ -635,7 +634,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .contact-item-content a {
-    color: var(--neon-green);
+    color: var(--brand-orange);
     text-decoration: none;
     transition: all 0.3s ease;
 }
@@ -681,7 +680,7 @@ h1, h2, h3, h4, h5, h6 {
 .form-group input:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: var(--neon-green);
+    border-color: var(--brand-orange);
     box-shadow: 0 0 20px rgba(183, 255, 0, 0.2);
 }
 
@@ -693,7 +692,7 @@ h1, h2, h3, h4, h5, h6 {
 .form-submit {
     width: 100%;
     padding: 18px;
-    background: var(--neon-green);
+    background: var(--brand-orange);
     color: var(--dark-bg);
     border: none;
     border-radius: 10px;
@@ -706,9 +705,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .form-submit:hover {
-    background: var(--neon-green-dark);
+    background: var(--brand-orange-dark);
     transform: translateY(-2px);
-    box-shadow: var(--glow-green);
+    box-shadow: var(--glow-orange);
 }
 
 .form-message {
@@ -764,7 +763,7 @@ h1, h2, h3, h4, h5, h6 {
 .footer-section h3 {
     font-size: 22px;
     margin-bottom: 20px;
-    color: var(--neon-green);
+    color: var(--brand-orange);
 }
 
 .footer-section p {
@@ -788,14 +787,14 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     font-size: 18px;
     transition: all 0.3s ease;
     text-decoration: none;
 }
 
 .footer-social a:hover {
-    background: var(--neon-green);
+    background: var(--brand-orange);
     color: var(--dark-bg);
     transform: translateY(-3px);
 }
@@ -815,7 +814,7 @@ h1, h2, h3, h4, h5, h6 {
     right: 30px;
     width: 55px;
     height: 55px;
-    background: var(--neon-green);
+    background: var(--brand-orange);
     color: var(--dark-bg);
     border-radius: 50%;
     display: flex;
@@ -827,7 +826,7 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 0;
     visibility: hidden;
     z-index: 999;
-    box-shadow: var(--glow-green);
+    box-shadow: var(--glow-orange);
 }
 
 .back-to-top.visible {
@@ -837,7 +836,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .back-to-top:hover {
     transform: translateY(-3px);
-    box-shadow: var(--glow-green-strong);
+    box-shadow: var(--glow-orange-strong);
 }
 
 /* MODAL DATOS BANCARIOS */
@@ -898,7 +897,7 @@ h1, h2, h3, h4, h5, h6 {
     right: 30px;
     width: var(--float-button-size);
     height: var(--float-button-size);
-    background: linear-gradient(135deg, #4285F4 0%, #34A853 50%, #FBBC05 100%);
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -929,7 +928,7 @@ h1, h2, h3, h4, h5, h6 {
     right: 30px;
     width: var(--float-button-size);
     height: var(--float-button-size);
-    background: var(--neon-green);
+    background: var(--brand-orange);
     color: var(--dark-bg);
     border-radius: 50%;
     display: flex;
@@ -941,7 +940,7 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 0;
     visibility: hidden;
     z-index: 999;
-    box-shadow: var(--glow-green);
+    box-shadow: var(--glow-orange);
 }
 
 .back-to-top.visible {
@@ -951,7 +950,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .back-to-top:hover {
     transform: translateY(-3px);
-    box-shadow: var(--glow-green-strong);
+    box-shadow: var(--glow-orange-strong);
 }
 
 /* Responsive Design */
@@ -1043,20 +1042,20 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .modal-container::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, var(--neon-green) 0%, var(--neon-green-dark) 100%);
+    background: linear-gradient(180deg, var(--brand-orange) 0%, var(--brand-orange-dark) 100%);
     border-radius: 4px;
     box-shadow: 0 0 10px rgba(183, 255, 0, 0.5);
 }
 
 .modal-container::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, var(--neon-green-dark) 0%, #8bb000 100%);
-    box-shadow: 0 0 15px rgba(183, 255, 0, 0.8);
+    background: linear-gradient(180deg, var(--brand-orange-dark) 0%, #8bb000 100%);
+    box-shadow: 0 0 15px rgba(249, 115, 22, 0.8);
 }
 
 /* Firefox scrollbar */
 .modal-container {
     scrollbar-width: thin;
-    scrollbar-color: var(--neon-green) rgba(0, 0, 0, 0.2);
+    scrollbar-color: var(--brand-orange) rgba(0, 0, 0, 0.2);
 }
 
 .banking-modal.active .modal-container {
@@ -1076,14 +1075,14 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif;
     font-size: 24px;
     font-weight: 700;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     margin: 0;
 }
 
 .modal-close {
     background: transparent;
     border: none;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     font-size: 24px;
     cursor: pointer;
     padding: 5px;
@@ -1129,7 +1128,7 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif;
     font-size: 14px;
     font-weight: 600;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     margin-bottom: 12px;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -1154,8 +1153,8 @@ h1, h2, h3, h4, h5, h6 {
 
 .copy-button {
     background: transparent;
-    border: 2px solid var(--neon-green);
-    color: var(--neon-green);
+    border: 2px solid var(--brand-orange);
+    color: var(--brand-orange);
     padding: 8px 16px;
     border-radius: 12px;
     font-family: 'Outfit', sans-serif;
@@ -1169,16 +1168,16 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .copy-button:hover {
-    background: var(--neon-green);
+    background: var(--brand-orange);
     color: var(--dark-bg);
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(183, 255, 0, 0.4);
 }
 
 .copy-button.copied {
-    background: var(--neon-green);
+    background: var(--brand-orange);
     color: var(--dark-bg);
-    border-color: var(--neon-green);
+    border-color: var(--brand-orange);
 }
 
 .copy-button.copied::before {
@@ -1241,7 +1240,7 @@ h1, h2, h3, h4, h5, h6 {
     }
     
     .hero-logo {
-        letter-spacing: -2px;
+        width: clamp(200px, 70vw, 300px);
     }
     
     .services-grid {
@@ -1366,7 +1365,7 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.12em;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     text-transform: uppercase;
 }
 .cita-title {
@@ -1397,7 +1396,7 @@ h1, h2, h3, h4, h5, h6 {
 .cita-close:hover {
     background: rgba(183, 255, 0, 0.12);
     border-color: rgba(183, 255, 0, 0.3);
-    color: var(--neon-green);
+    color: var(--brand-orange);
 }
 
 .cita-progress {
@@ -1417,7 +1416,7 @@ h1, h2, h3, h4, h5, h6 {
     border-radius: 2px;
     width: 33.33%;
     transition: width 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    box-shadow: 0 0 10px rgba(183, 255, 0, 0.6);
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.6);
 }
 .cita-progress-dots {
     display: flex;
@@ -1439,15 +1438,15 @@ h1, h2, h3, h4, h5, h6 {
     transition: all 0.3s ease;
 }
 .cita-dot.active {
-    background: var(--neon-green);
-    border-color: var(--neon-green);
+    background: var(--brand-orange);
+    border-color: var(--brand-orange);
     color: #0a0a0a;
     box-shadow: 0 0 14px rgba(183, 255, 0, 0.55);
 }
 .cita-dot.done {
     background: rgba(183, 255, 0, 0.15);
     border-color: rgba(183, 255, 0, 0.4);
-    color: var(--neon-green);
+    color: var(--brand-orange);
     font-size: 11px;
 }
 .cita-dot.done span { display: none; }
@@ -1492,7 +1491,7 @@ h1, h2, h3, h4, h5, h6 {
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.45);
 }
-.cita-label .req { color: var(--neon-green); margin-left: 1px; }
+.cita-label .req { color: var(--brand-orange); margin-left: 1px; }
 
 .cita-input {
     background: rgba(255, 255, 255, 0.04);
@@ -1576,7 +1575,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .cita-srv-icon {
     font-size: 21px;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     transition: transform 0.2s;
 }
 .cita-servicio-card.selected .cita-srv-icon { transform: scale(1.18); }
@@ -1601,7 +1600,7 @@ h1, h2, h3, h4, h5, h6 {
     right: 10px;
     width: 18px;
     height: 18px;
-    background: var(--neon-green);
+    background: var(--brand-orange);
     border-radius: 50%;
     align-items: center;
     justify-content: center;
@@ -1645,8 +1644,8 @@ h1, h2, h3, h4, h5, h6 {
     border-color: rgba(183, 255, 0, 0.25);
 }
 .cita-cal-chip.selected {
-    background: var(--neon-green);
-    border-color: var(--neon-green);
+    background: var(--brand-orange);
+    border-color: var(--brand-orange);
     box-shadow: 0 0 16px rgba(183, 255, 0, 0.4);
 }
 .cal-dow {
@@ -1699,8 +1698,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 .cita-hora-chip.selected {
     background: rgba(183, 255, 0, 0.15);
-    border-color: var(--neon-green);
-    color: var(--neon-green);
+    border-color: var(--brand-orange);
+    color: var(--brand-orange);
     box-shadow: 0 0 10px rgba(183, 255, 0, 0.2);
 }
 
@@ -1708,7 +1707,7 @@ h1, h2, h3, h4, h5, h6 {
     flex-shrink: 0;
     font-family: 'Inter', sans-serif;
     font-size: 12px;
-    color: rgba(183, 255, 0, 0.8);
+    color: rgba(249, 115, 22, 0.8);
     text-align: center;
     padding: 0 24px;
     height: 0;
@@ -1774,7 +1773,7 @@ h1, h2, h3, h4, h5, h6 {
     animation: citaCircleDraw 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.15s forwards;
 }
 .cita-check-path {
-    stroke: var(--neon-green);
+    stroke: var(--brand-orange);
     stroke-width: 3;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -1906,7 +1905,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .cita-dropdown-item:hover {
     background: rgba(183,255,0,0.1);
-    color: var(--neon-green);
+    color: var(--brand-orange);
 }
 .cita-input-dd { padding-right: 38px; }
 
@@ -1922,7 +1921,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .cita-auto-wrap.open .cita-dd-arrow {
     transform: translateY(-50%) rotate(180deg);
-    color: var(--neon-green);
+    color: var(--brand-orange);
 }
 
 .cita-dropdown-sep {
@@ -1942,13 +1941,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 .cita-dropdown-other:hover {
     background: rgba(183, 255, 0, 0.08) !important;
-    color: var(--neon-green) !important;
+    color: var(--brand-orange) !important;
 }
 
 .cita-loading-inline {
     display: none;
     align-items: center;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     font-size: 11px;
     margin-left: 6px;
     vertical-align: middle;
@@ -1986,7 +1985,7 @@ h1, h2, h3, h4, h5, h6 {
 .cal-nav-btn:hover:not(:disabled) {
     background: rgba(183,255,0,0.1);
     border-color: rgba(183,255,0,0.3);
-    color: var(--neon-green);
+    color: var(--brand-orange);
 }
 .cal-nav-btn:disabled {
     opacity: 0.25;
@@ -2040,16 +2039,16 @@ button.cal-cell {
 button.cal-cell:hover {
     background: rgba(183,255,0,0.1);
     border-color: rgba(183,255,0,0.3);
-    color: var(--neon-green);
+    color: var(--brand-orange);
 }
 button.cal-cell.cal-today {
     border-color: rgba(183,255,0,0.35);
-    color: var(--neon-green);
+    color: var(--brand-orange);
     font-weight: 700;
 }
 button.cal-cell.selected {
-    background: var(--neon-green) !important;
-    border-color: var(--neon-green) !important;
+    background: var(--brand-orange) !important;
+    border-color: var(--brand-orange) !important;
     color: #0a0a0a !important;
     font-weight: 700;
     box-shadow: 0 0 14px rgba(183,255,0,0.4);
@@ -2111,12 +2110,12 @@ button.cal-cell.selected {
     font-family: 'Outfit', sans-serif;
     font-size: 20px;
     font-weight: 800;
-    color: var(--neon-green);
+    color: var(--brand-orange);
     white-space: nowrap;
     line-height: 1;
 }
 .cita-servicio-card.selected .cita-srv-price {
-    color: var(--neon-green);
+    color: var(--brand-orange);
     text-shadow: 0 0 12px rgba(183,255,0,0.5);
 }
 .cita-srv-price-undef {
