@@ -29,7 +29,7 @@ class OrdenesController {
                        c.nombre  AS cliente_nombre,
                        c.telefono AS cliente_telefono,
                        v.marca, v.modelo, v.anio, v.placas,
-                       v.numero_serie, v.kilometraje AS vehiculo_kilometraje,
+                       v.numero_serie, o.kilometraje_entrada,
                        NOW() AS query_timestamp
                 FROM ordenes_servicio o
                 LEFT JOIN clientes c ON o.cliente_id = c.id

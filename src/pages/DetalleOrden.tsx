@@ -60,6 +60,15 @@ export const DetalleOrden = () => {
     entregado: 'Entregado',
   };
 
+  const NEXT_ESTADO: Record<string, string> = {
+    recibido:      'diagnostico',
+    diagnostico:   'en_reparacion',
+    en_reparacion: 'listo_entrega',
+    listo_entrega: 'entregado',
+  };
+
+  const nextEstado = estadoNormalizado ? NEXT_ESTADO[estadoNormalizado] : undefined;
+
   // Aplicar el tema al documento
   useEffect(() => {
     if (themeMode === 'dark') {
@@ -165,7 +174,7 @@ export const DetalleOrden = () => {
 
     try {
       setShowLoader(true);
-      await ordenesAPI.update(id, { estado: 'entregado', fecha_entregada: fechaEntregada });
+      await ordenesAPI.update(id, { estado: 'entregado' });
       setShowCloseModal(false);
       // Después de cerrar, recargar la orden para actualizar el estado local
       const ordenActualizada = await ordenesAPI.getById(id);
@@ -176,6 +185,22 @@ export const DetalleOrden = () => {
       setShowLoader(false);
       setShowCloseModal(false);
       alert('Hubo un error al cerrar la orden. Por favor intenta de nuevo.');
+    }
+  };
+
+  const handleAvanzarEstado = async () => {
+    if (!id || !nextEstado) return;
+    try {
+      setShowLoader(true);
+      await ordenesAPI.update(id, { estado: nextEstado } as Partial<Orden>);
+      const ordenActualizada = await ordenesAPI.getById(id);
+      if (ordenActualizada) {
+        setOrden(ordenActualizada);
+      }
+      setShowLoader(false);
+    } catch {
+      setShowLoader(false);
+      alert('Hubo un error al avanzar el estado. Por favor intenta de nuevo.');
     }
   };
 
@@ -269,6 +294,18 @@ export const DetalleOrden = () => {
                 </Button>
               )}
 
+              {/* Avanzar al siguiente estado - Solo si hay un estado siguiente */}
+              {nextEstado && (
+                <Button
+                  variant="secondary"
+                  onClick={handleAvanzarEstado}
+                  disabled={showLoader}
+                  className="hidden md:flex"
+                >
+                  Avanzar a {ESTADO_LABELS[nextEstado] ?? nextEstado} →
+                </Button>
+              )}
+
               {/* Marcar como Entregado - Solo si está abierta */}
               {esOrdenAbierta && (
                 <Button
@@ -307,6 +344,16 @@ export const DetalleOrden = () => {
                 >
                   Guardar
                 </Button>
+                {nextEstado && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleAvanzarEstado}
+                    disabled={showLoader}
+                    className="flex-1 !text-sm"
+                  >
+                    → {ESTADO_LABELS[nextEstado] ?? nextEstado}
+                  </Button>
+                )}
                 <Button
                   variant="danger"
                   onClick={() => setShowCloseModal(true)}
@@ -391,8 +438,8 @@ export const DetalleOrden = () => {
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               ¿Marcar como Entregado?
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Al marcar como entregado, la orden pasara al estado final y no podras hacer mas cambios.
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Al marcar como entregado, la orden pasara al estado final y no podras hacer mas cambios. ¿Confirmas que el cliente ya recibio su vehiculo?
             </p>
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

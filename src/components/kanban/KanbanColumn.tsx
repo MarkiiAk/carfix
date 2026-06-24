@@ -56,9 +56,11 @@ export const KANBAN_COLUMNS: KanbanColumnConfig[] = [
 interface KanbanColumnProps {
   config: KanbanColumnConfig;
   ordenes: Orden[];
+  /** Callback para propagar el cambio de estado al padre (actualización optimista) */
+  onEstadoChange?: (id: number, nuevoEstado: string) => void;
 }
 
-export function KanbanColumn({ config, ordenes }: KanbanColumnProps) {
+export function KanbanColumn({ config, ordenes, onEstadoChange }: KanbanColumnProps) {
   const { label, headerBg, cardAccent, iconPath, estado } = config;
   const count = ordenes.length;
 
@@ -116,7 +118,12 @@ export function KanbanColumn({ config, ordenes }: KanbanColumnProps) {
           </div>
         ) : (
           ordenes.map((orden) => (
-            <KanbanCard key={orden.id} orden={orden} cardAccent={cardAccent} />
+            <KanbanCard
+              key={orden.id}
+              orden={orden}
+              cardAccent={cardAccent}
+              onEstadoChange={onEstadoChange}
+            />
           ))
         )}
       </div>
