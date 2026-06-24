@@ -14,7 +14,7 @@
  * - Recarga de configuración en tiempo real
  * - Logging detallado de configuraciones cargadas
  * 
- * @author Sistema CarFix - Refactorización 2026
+ * @author Sistema SAG Garage - Refactorización 2026
  * @version 1.0.0
  */
 

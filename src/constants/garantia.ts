@@ -1,10 +1,10 @@
 import { PolizaGarantia } from '../types';
 
-// Datos de la póliza de garantía de CarFix (extraídos del PDF)
+// Datos de la póliza de garantía de SAG Garage (extraídos del PDF)
 export const POLIZA_GARANTIA: PolizaGarantia = {
-  cobertura: 'Todas las reparaciones y servicios realizados en CarFix cuentan con garantía de 30 días naturales a partir de la fecha de entrega del vehículo. En partes eléctricas en ningún caso hay garantía. La garantía cubre únicamente las piezas y mano de obra relacionadas con la reparación realizada.',
+  cobertura: 'Todas las reparaciones y servicios realizados en SAG Garage cuentan con garantía de 30 días naturales a partir de la fecha de entrega del vehículo. En partes eléctricas en ningún caso hay garantía. La garantía cubre únicamente las piezas y mano de obra relacionadas con la reparación realizada.',
   
-  lugarGarantia: 'La garantía se hará válida únicamente en las instalaciones de CarFix. El cliente deberá presentar esta póliza junto con la factura o comprobante del servicio.',
+  lugarGarantia: 'La garantía se hará válida únicamente en las instalaciones de SAG Garage. El cliente deberá presentar esta póliza junto con la factura o comprobante del servicio.',
   
   exclusiones: [
     'Si el vehículo es manipulado por terceros después del servicio realizado.',
@@ -19,11 +19,11 @@ export const POLIZA_GARANTIA: PolizaGarantia = {
   
   tiempoRevision: 'El taller contará con un plazo razonable de hasta 5 días hábiles para revisar y diagnosticar el vehículo antes de determinar la procedencia de la garantía.',
   
-  alcance: 'La garantía aplica únicamente a la reparación realizada y no cubre daños colaterales o piezas no intervenidas por CarFix.',
+  alcance: 'La garantía aplica únicamente a la reparación realizada y no cubre daños colaterales o piezas no intervenidas por SAG Garage.',
   
   horarios: 'Las garantías solo podrán hacerse válidas dentro de los horarios de atención del taller: Lunes a viernes de 9:00 a.m. a 6:00 p.m. / Sábados de 10:00 a.m. a 2:00 p.m. No se atenderán reclamaciones fuera de este horario.',
   
-  traslado: 'La póliza de garantía no incluye de ninguna manera el traslado del vehículo desde el lugar donde se presente la falla hasta el taller. El cliente es responsable de llevar el vehículo a las instalaciones de CarFix.',
+  traslado: 'La póliza de garantía no incluye de ninguna manera el traslado del vehículo desde el lugar donde se presente la falla hasta el taller. El cliente es responsable de llevar el vehículo a las instalaciones de SAG Garage.',
   
   responsabilidadLimitada: [
     'Daños indirectos, o en consecuencia de pérdidas económicas.',

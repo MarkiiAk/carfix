@@ -124,11 +124,11 @@ export function generarReporteFinanciero(params: ReporteFinancieroParams): void 
   setFill(doc, C.fondoOscuro);
   doc.rect(0, 0, 210, 42, 'F');
 
-  // "CARFIX" — izquierda, bold 18pt, lime
+  // "SAG GARAGE" — izquierda, bold 18pt, lime
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
   setTextColor(doc, C.lime);
-  doc.text('CARFIX', 14, 18);
+  doc.text('SAG GARAGE', 14, 18);
 
   // "Reporte Financiero" — 9pt blanco
   doc.setFont('helvetica', 'normal');
@@ -416,7 +416,7 @@ export function generarReporteFinanciero(params: ReporteFinancieroParams): void 
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
   setTextColor(doc, C.textoSecundario);
-  doc.text('CarFix × AkLabs  ·  Reporte confidencial  ·  Página 1 de 2', 105, 291, { align: 'center' });
+  doc.text('SAG Garage × AkLabs  ·  Reporte confidencial  ·  Página 1 de 2', 105, 291, { align: 'center' });
 
   // =========================================================================
   // PÁGINA 2
@@ -431,7 +431,7 @@ export function generarReporteFinanciero(params: ReporteFinancieroParams): void 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   setTextColor(doc, C.blanco);
-  doc.text(`CARFIX  ·  ${labelPeriodo}  ·  Página 2`, 105, 11, { align: 'center' });
+  doc.text(`SAG GARAGE  ·  ${labelPeriodo}  ·  Página 2`, 105, 11, { align: 'center' });
 
   setDraw(doc, C.lime);
   doc.setLineWidth(1.5);
@@ -599,10 +599,10 @@ export function generarReporteFinanciero(params: ReporteFinancieroParams): void 
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
   setTextColor(doc, C.textoSecundario);
-  doc.text('CarFix × AkLabs  ·  Reporte confidencial  ·  Página 2 de 2', 105, 291, { align: 'center' });
+  doc.text('SAG Garage × AkLabs  ·  Reporte confidencial  ·  Página 2 de 2', 105, 291, { align: 'center' });
 
   // =========================================================================
   // Guardar
   // =========================================================================
-  doc.save('reporte-carfix.pdf');
+  doc.save('reporte-sag-garage.pdf');
 }

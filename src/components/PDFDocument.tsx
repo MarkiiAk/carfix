@@ -30,9 +30,9 @@ Font.register({
   ],
 });
 
-// 🎨 PALETA CARFIX - Basada en diseño de referencia
+// 🎨 PALETA SAG GARAGE - Basada en diseño de referencia
 const COLORS = {
-  // Colores CarFix
+  // Verdes SAG
   primary: '#8BC34A', // Verde limón principal
   primaryDark: '#689F38',
   
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray,
   },
   
-  // ===== HEADER CARFIX =====
+  // ===== HEADER SAG GARAGE =====
   header: {
     backgroundColor: COLORS.white,
     padding: 12,
@@ -419,8 +419,8 @@ export const PDFDocument: React.FC<PDFDocumentProps> = ({ presupuesto }) => {
       <View style={styles.logoSection}>
         <Image src={`${window.location.origin}/logo.png`} style={styles.logo} />
         <View style={styles.titleSection}>
-          <Text style={styles.companyName}>CARFIX</Text>
-          <Text style={styles.ownerName}>SERVICIO AUTOMOTRIZ</Text>
+          <Text style={styles.companyName}>SAG GARAGE</Text>
+          <Text style={styles.ownerName}>SERVICIO AUTOMOTRIZ GUDIÑO</Text>
         </View>
       </View>
       <View style={styles.addressSection}>

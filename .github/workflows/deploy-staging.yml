@@ -33,7 +33,7 @@ jobs:
         env:
           NODE_ENV: production
           VITE_BASE_PATH: /staging/
-          VITE_API_URL: https://tallercarfix.com.mx/staging/backend-php
+          VITE_API_URL: https://saggarage.com.mx/staging/backend-php
 
       # 5. Verificar que el build se creó correctamente
       - name: Verificar build
@@ -155,7 +155,7 @@ jobs:
         if: success()
         run: |
           echo "Deploy exitoso a staging"
-          echo "URL: https://tallercarfix.com.mx/staging/"
+          echo "URL: https://saggarage.com.mx/staging/"
           echo "Fecha: $(date)"
 
       # 11. Notificacion de error

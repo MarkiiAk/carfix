@@ -66,7 +66,7 @@ const generateFolio = () => {
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   const random = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
-  return `CF-${year}${month}${day}-${random}`;
+  return `SAG-${year}${month}${day}-${random}`;
 };
 
 const initialInspeccion: InspeccionVehiculo = {
@@ -105,7 +105,7 @@ const initialPresupuesto: Presupuesto = {
   fecha: new Date(),
   fechaEntrada: new Date(),
   taller: {
-    nombre: 'CarFix',
+    nombre: 'SAG Garage',
     encargado: '',
     telefono: '',
     direccion: '',
@@ -540,7 +540,7 @@ export const usePresupuestoStore = create<PresupuestoState>()((set, get) => ({
     } : orden.vehiculo;
     
     const taller = ordenAny.taller_encargado ? {
-      nombre: 'CarFix',
+      nombre: 'SAG Garage',
       encargado: ordenAny.taller_encargado || '',
       telefono: ordenAny.taller_telefono || '',
       direccion: ordenAny.taller_direccion || '',

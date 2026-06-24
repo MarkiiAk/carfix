@@ -186,7 +186,7 @@ try {
     echo "2. Configurar cron jobs en cPanel\n";
     echo "3. Probar envío de mensajes\n\n";
     
-    echo "URL Webhook: https://tallercarfix.com.mx/gestion/backend-php/webhook/twilio_whatsapp.php\n";
+    echo "URL Webhook: https://saggarage.com.mx/gestion/backend-php/webhook/twilio_whatsapp.php\n";
     
 } catch (Exception $e) {
     echo "💥 ERROR CRÍTICO: " . $e->getMessage() . "\n";

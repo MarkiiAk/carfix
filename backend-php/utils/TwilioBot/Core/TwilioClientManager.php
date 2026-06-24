@@ -13,7 +13,7 @@
  * - Modo simulación para testing sin API calls reales
  * - Logging detallado para debugging
  * 
- * @author Sistema CarFix - Refactorización 2026
+ * @author Sistema SAG Garage - Refactorización 2026
  * @version 1.0.0
  */
 

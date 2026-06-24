@@ -13,7 +13,7 @@
  * - Filtrado por niveles de logging
  * - Rotación automática de archivos de log
  * 
- * @author Sistema CarFix - Refactorización 2026
+ * @author Sistema SAG Garage - Refactorización 2026
  * @version 1.0.0
  */
 

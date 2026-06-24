@@ -1,12 +1,12 @@
 <?php
 /**
- * Cron Job: Generar Alertas - CarFix
- *
+ * Cron Job: Generar Alertas - SAG Garage
+ * 
  * Se ejecuta automáticamente según configuración de cPanel cron
  * Genera alertas automáticamente para clientes que necesitan servicio
- *
+ * 
  * Configuración cron ejemplo:
- * 25 10 * * * /usr/local/bin/php /home/carfix/public_html/backend-php/cron/generar_alertas.php
+ * 25 10 * * * /usr/local/bin/php /home/saggarag/public_html/backend-php/cron/generar_alertas.php
  * 
  * @author Marco Candiani
  * @version 1.1

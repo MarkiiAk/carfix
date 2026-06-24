@@ -12,7 +12,7 @@
  * - Manejo de respuestas de clientes  
  * - Generación de fechas disponibles
  * - Pre-agendamiento automático
- * - Notificaciones a CarFix
+ * - Notificaciones a SAG Garage
  * 
  * MEJORAS REFACTORIZADAS:
  * - Arquitectura SOLID (8 clases especializadas)
@@ -21,7 +21,7 @@
  * - Manejo de errores mejorado
  * - Código mantenible y testeable
  * 
- * @author Sistema CarFix - Refactorización 2026
+ * @author Sistema SAG Garage - Refactorización 2026
  * @version 2.0.0 REFACTORIZADO
  * @date 17/04/2026
  */

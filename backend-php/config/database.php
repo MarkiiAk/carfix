@@ -31,11 +31,11 @@ class Database {
             
             // Log del entorno detectado (solo en desarrollo)
             if ($this->isLocalEnvironment()) {
-                error_log('CarFix: Conectado a entorno LOCAL (XAMPP)');
+                error_log('SAG Garage: Conectado a entorno LOCAL (XAMPP)');
             }
             
         } catch (PDOException $e) {
-            error_log('CarFix: Error de conexión a base de datos');
+            error_log('SAG Garage: Error de conexión a base de datos');
             http_response_code(500);
             die(json_encode([
                 'success' => false,
@@ -54,7 +54,7 @@ class Database {
         // 1. PRIORIDAD MÁXIMA: .env.local (desarrollo local)
         if (file_exists($baseDir . '/.env.local')) {
             $this->loadEnvFile($baseDir . '/.env.local');
-            error_log('CarFix: Usando .env.local (desarrollo)');
+            error_log('SAG Garage: Usando .env.local (desarrollo)');
         }
         // 2. SEGUNDA PRIORIDAD: .env (producción)
         else if (file_exists($baseDir . '/.env')) {
@@ -63,8 +63,8 @@ class Database {
         
         // 3. Configurar con variables de entorno o fallbacks
         $this->host = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?: 'localhost';
-        $this->dbname = $_ENV['DB_NAME'] ?? getenv('DB_NAME') ?: 'carfix_produccion';
-        $this->username = $_ENV['DB_USER'] ?? getenv('DB_USER') ?: 'carfix_admin';
+        $this->dbname = $_ENV['DB_NAME'] ?? getenv('DB_NAME') ?: 'saggarag_GestionPresupuestos';
+        $this->username = $_ENV['DB_USER'] ?? getenv('DB_USER') ?: 'saggarag_admin';
         
         // Manejar contraseña vacía correctamente para XAMPP
         $password = $_ENV['DB_PASSWORD'] ?? $_ENV['DB_PASS'] ?? getenv('DB_PASSWORD') ?: getenv('DB_PASS');

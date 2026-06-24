@@ -1,6 +1,6 @@
 <?php
 /**
- * CRON: Enviar WhatsApp - CarFix
+ * CRON: Enviar WhatsApp - SAG Garage
  * Sistema automático de envío de recordatorios por WhatsApp
  * 
  * Flujo:
@@ -10,9 +10,9 @@
  * 4. Reporta resultados y estadísticas
  * 
  * Configuración cron ejemplo:
- * 45 10 * * * /usr/local/bin/php /home/carfix/public_html/backend-php/cron/enviar_whatsapp.php
- *
- * @author Sistema CarFix
+ * 45 10 * * * /usr/local/bin/php /home/saggarag/public_html/backend-php/cron/enviar_whatsapp.php
+ * 
+ * @author Sistema SAG Garage
  * @version 2.0.0
  * @date 01/04/2026
  */
