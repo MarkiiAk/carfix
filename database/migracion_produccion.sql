@@ -21,230 +21,6 @@ SET time_zone = "+00:00";
 -- Database: `saggarag_GestionPresupuestos`
 --
 
-DELIMITER $$
---
--- Procedures
---
-CREATE PROCEDURE `InicializarCalendario` (`dias_adelante` INT)   BEGIN
-    DECLARE fecha_actual DATE DEFAULT CURDATE();
-    DECLARE fecha_limite DATE DEFAULT DATE_ADD(CURDATE(), INTERVAL dias_adelante DAY);
-    DECLARE horario_am TIME DEFAULT TIME(GetTwilioConfig('horario_matutino'));
-    DECLARE horario_pm TIME DEFAULT TIME(GetTwilioConfig('horario_vespertino'));
-    
-    WHILE fecha_actual <= fecha_limite DO
-        -- Solo días laborales
-        IF WEEKDAY(fecha_actual) BETWEEN 0 AND 4 THEN
-            -- Insertar slot matutino
-            INSERT IGNORE INTO calendario_disponibilidad (fecha, hora, es_dia_laborable)
-            VALUES (fecha_actual, horario_am, TRUE);
-            
-            -- Insertar slot vespertino
-            INSERT IGNORE INTO calendario_disponibilidad (fecha, hora, es_dia_laborable)
-            VALUES (fecha_actual, horario_pm, TRUE);
-        END IF;
-        
-        SET fecha_actual = DATE_ADD(fecha_actual, INTERVAL 1 DAY);
-    END WHILE;
-END$$
-
-CREATE PROCEDURE `LimpiarDatosAntiguos` ()   BEGIN
-    -- Limpiar conversaciones mayores a 3 meses
-    DELETE FROM conversaciones_whatsapp 
-    WHERE created_at < DATE_SUB(NOW(), INTERVAL 3 MONTH);
-    
-    -- Limpiar slots de calendario pasados
-    DELETE FROM calendario_disponibilidad 
-    WHERE fecha < CURDATE();
-    
-    -- Limpiar citas pre-agendadas muy antiguas
-    DELETE FROM citas_pre_agendadas 
-    WHERE estado != 'confirmada' 
-    AND fecha_pre_agenda < DATE_SUB(NOW(), INTERVAL 1 MONTH);
-    
-    SELECT ROW_COUNT() as registros_limpiados;
-END$$
-
-CREATE PROCEDURE `sp_reporte_anual` (IN `p_anio` INT)   BEGIN
-    SELECT 
-        '=== REPORTE ANUAL ===' as titulo,
-        p_anio as anio;
-        
-    SELECT 
-        periodo,
-        nombre_mes,
-        FORMAT(ingresos, 2) as ingresos_formatted,
-        FORMAT(egresos, 2) as egresos_formatted, 
-        FORMAT(ganancia_neta, 2) as ganancia_formatted,
-        CONCAT(porcentaje_rentabilidad, '%') as rentabilidad,
-        ordenes_completadas
-    FROM vista_reporte_mensual
-    WHERE anio = p_anio
-    ORDER BY mes;
-    
-    -- Resumen anual
-    SELECT 
-        '=== RESUMEN ANUAL ===' as resumen,
-        FORMAT(SUM(ingresos), 2) as total_ingresos,
-        FORMAT(SUM(egresos), 2) as total_egresos,
-        FORMAT(SUM(ganancia_neta), 2) as ganancia_total,
-        FORMAT(AVG(porcentaje_rentabilidad), 2) as rentabilidad_promedio,
-        SUM(ordenes_completadas) as total_ordenes
-    FROM vista_reporte_mensual
-    WHERE anio = p_anio;
-END$$
-
-CREATE PROCEDURE `sp_reporte_mensual` (IN `p_anio` INT, IN `p_mes` INT)   BEGIN
-    DECLARE v_nombre_mes VARCHAR(20);
-    
-    SELECT MONTHNAME(CONCAT(p_anio, '-', LPAD(p_mes, 2, '0'), '-01')) INTO v_nombre_mes;
-    
-    SELECT 
-        CONCAT('=== REPORTE MENSUAL: ', v_nombre_mes, ' ', p_anio, ' ===') as titulo;
-    
-    -- Resumen del mes
-    SELECT 
-        periodo,
-        nombre_mes,
-        FORMAT(ingresos, 2) as 'Ingresos Totales',
-        FORMAT(ingresos_mano_obra, 2) as 'Mano de Obra',
-        FORMAT(ingresos_servicios, 2) as 'Servicios',
-        FORMAT(ingresos_refacciones, 2) as 'Refacciones Cobradas',
-        FORMAT(egresos, 2) as 'Costo Refacciones',
-        FORMAT(ganancia_neta, 2) as 'Ganancia Neta',
-        CONCAT(porcentaje_rentabilidad, '%') as 'Rentabilidad',
-        ordenes_completadas as 'Órdenes Completadas'
-    FROM vista_reporte_mensual
-    WHERE anio = p_anio AND mes = p_mes;
-    
-    -- Detalle de órdenes del mes
-    SELECT 
-        '=== DETALLE DE ÓRDENES ===' as detalle;
-        
-    SELECT 
-        o.numero_orden as 'No. Orden',
-        c.nombre as Cliente,
-        CONCAT(v.marca, ' ', v.modelo, ' ', IFNULL(v.anio, '')) as Vehiculo,
-        DATE_FORMAT(o.fecha_ingreso, '%d/%m/%Y') as 'Fecha',
-        FORMAT(o.total, 2) as 'Total Cobrado',
-        FORMAT(IFNULL(ref_total.costo_refacciones, 0), 2) as 'Costo Refacciones',
-        FORMAT(o.total - IFNULL(ref_total.costo_refacciones, 0), 2) as 'Ganancia'
-    FROM ordenes_servicio o
-    INNER JOIN clientes c ON o.cliente_id = c.id
-    INNER JOIN vehiculos v ON o.vehiculo_id = v.id
-    LEFT JOIN (
-        SELECT 
-            orden_id,
-            SUM(precio_unitario * cantidad) as costo_refacciones
-        FROM refacciones_orden
-        GROUP BY orden_id
-    ) ref_total ON o.id = ref_total.orden_id
-    WHERE o.estado = 'cerrada'
-        AND o.fecha_ingreso IS NOT NULL
-        AND YEAR(o.fecha_ingreso) = p_anio
-        AND MONTH(o.fecha_ingreso) = p_mes
-    ORDER BY o.fecha_ingreso;
-END$$
-
---
--- Functions
---
-CREATE FUNCTION `FormatearTelefono` (`numero` VARCHAR(20)) RETURNS VARCHAR(20) CHARSET latin1 COLLATE latin1_swedish_ci DETERMINISTIC READS SQL DATA BEGIN
-    DECLARE numero_limpio VARCHAR(20);
-    
-    -- Limpiar el número (solo dígitos)
-    SET numero_limpio = REGEXP_REPLACE(numero, '[^0-9]', '');
-    
-    -- Si empieza con 52, ya es formato internacional
-    IF LEFT(numero_limpio, 2) = '52' AND LENGTH(numero_limpio) = 12 THEN
-        RETURN CONCAT('+', numero_limpio);
-    END IF;
-    
-    -- Si empieza con 1 y tiene 10 dígitos, agregar 52
-    IF LEFT(numero_limpio, 1) IN ('1','2','3','4','5','6','7','8','9') AND LENGTH(numero_limpio) = 10 THEN
-        RETURN CONCAT('+52', numero_limpio);
-    END IF;
-    
-    -- Si tiene 8 dígitos, asumir que necesita código de área de México
-    IF LENGTH(numero_limpio) = 8 THEN
-        RETURN CONCAT('+521', numero_limpio);
-    END IF;
-    
-    -- Si no se puede determinar, devolver como está
-    RETURN numero;
-END$$
-
-CREATE FUNCTION `GenerarFechasDisponibles` (`dias_adelante` INT) RETURNS LONGTEXT CHARSET utf8mb4 COLLATE utf8mb4_bin DETERMINISTIC READS SQL DATA BEGIN
-    DECLARE fechas_json JSON DEFAULT JSON_ARRAY();
-    DECLARE fecha_actual DATE DEFAULT DATE_ADD(CURDATE(), INTERVAL 1 DAY);
-    DECLARE contador INT DEFAULT 0;
-    DECLARE dias_generados INT DEFAULT 0;
-    
-    -- Obtener configuración
-    DECLARE horario_am TIME DEFAULT TIME(GetTwilioConfig('horario_matutino'));
-    DECLARE horario_pm TIME DEFAULT TIME(GetTwilioConfig('horario_vespertino'));
-    DECLARE capacidad_max INT DEFAULT CAST(GetTwilioConfig('capacidad_por_horario') AS UNSIGNED);
-    
-    WHILE dias_generados < dias_adelante AND contador < 30 DO
-        SET contador = contador + 1;
-        
-        -- Solo días laborales (Lunes=0 a Viernes=4)
-        IF WEEKDAY(fecha_actual) BETWEEN 0 AND 4 THEN
-            -- Verificar slot matutino
-            SET @citas_am = (
-                SELECT COALESCE(citas_ocupadas, 0) 
-                FROM calendario_disponibilidad 
-                WHERE fecha = fecha_actual AND hora = horario_am
-            );
-            
-            IF @citas_am < capacidad_max THEN
-                SET fechas_json = JSON_ARRAY_APPEND(fechas_json, '$', JSON_OBJECT(
-                    'fecha', fecha_actual,
-                    'hora', horario_am,
-                    'horario', 'matutino',
-                    'texto', CONCAT(DATE_FORMAT(fecha_actual, '%W %e de %M'), ' - ', TIME_FORMAT(horario_am, '%H:%i')),
-                    'disponible', TRUE
-                ));
-            END IF;
-            
-            -- Verificar slot vespertino  
-            SET @citas_pm = (
-                SELECT COALESCE(citas_ocupadas, 0) 
-                FROM calendario_disponibilidad 
-                WHERE fecha = fecha_actual AND hora = horario_pm
-            );
-            
-            IF @citas_pm < capacidad_max THEN
-                SET fechas_json = JSON_ARRAY_APPEND(fechas_json, '$', JSON_OBJECT(
-                    'fecha', fecha_actual,
-                    'hora', horario_pm,
-                    'horario', 'vespertino', 
-                    'texto', CONCAT(DATE_FORMAT(fecha_actual, '%W %e de %M'), ' - ', TIME_FORMAT(horario_pm, '%H:%i')),
-                    'disponible', TRUE
-                ));
-            END IF;
-            
-            SET dias_generados = dias_generados + 1;
-        END IF;
-        
-        SET fecha_actual = DATE_ADD(fecha_actual, INTERVAL 1 DAY);
-    END WHILE;
-    
-    RETURN fechas_json;
-END$$
-
-CREATE FUNCTION `GetTwilioConfig` (`config_key_param` VARCHAR(100)) RETURNS TEXT CHARSET latin1 COLLATE latin1_swedish_ci DETERMINISTIC READS SQL DATA BEGIN
-    DECLARE config_val TEXT DEFAULT NULL;
-    
-    SELECT config_value INTO config_val 
-    FROM twilio_config 
-    WHERE config_key = config_key_param 
-      AND is_active = TRUE
-    LIMIT 1;
-    
-    RETURN config_val;
-END$$
-
-DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -325,56 +101,19 @@ CREATE TABLE `alertas_servicio` (
 --
 --
 
-  `id` int(11) NOT NULL DEFAULT 0,
-  `orden_id` int(11) NOT NULL,
-  `cliente_id` int(11) NOT NULL,
-  `vehiculo_id` int(11) NOT NULL,
-  `fecha_ultimo_servicio` timestamp NOT NULL,
-  `servicios_que_dispararon` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `todos_los_servicios` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `estado` enum('pendiente','leida') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pendiente',
-  `estado_whatsapp` enum('borrador','enviado','esperando_respuesta','esperando_fecha','pre_agendado','confirmado','rechazado','requiere_contacto','cancelado','completado') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'borrador',
-  `twilio_conversation_sid` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `fecha_envio_whatsapp` datetime DEFAULT NULL,
-  `respuesta_inicial` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `fecha_respuesta_inicial` datetime DEFAULT NULL,
-  `fecha_cita_seleccionada` date DEFAULT NULL,
-  `hora_cita_seleccionada` time DEFAULT NULL,
-  `fecha_pre_agendado` datetime DEFAULT NULL,
-  `confirmacion_sag` enum('pendiente','confirmado','cancelado') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `estado_twilio` enum('borrador','enviado','esperando_respuesta','esperando_fecha','pre_agendado','confirmado','cancelado','completado','requiere_atencion','reprogramar') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'borrador',
-  `twilio_message_sid` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `respuesta_cliente` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `fecha_respuesta` datetime DEFAULT NULL,
-  `fecha_seleccionada_cliente` date DEFAULT NULL,
-  `hora_seleccionada_cliente` time DEFAULT NULL,
-  `fecha_confirmacion_sag` datetime DEFAULT NULL,
-  `usuario_confirmo_sag` int(11) DEFAULT NULL,
-  `requiere_atencion` tinyint(1) DEFAULT 0,
-  `prioridad` enum('baja','media','alta') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'media',
-  `ultima_actividad` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `confirmado_por` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `fecha_cancelacion` datetime DEFAULT NULL,
-  `cancelado_por` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `fecha_reprogramacion` datetime DEFAULT NULL,
-  `prioridad_atencion` enum('baja','media','alta') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'media',
-  `fecha_generada` timestamp NULL DEFAULT current_timestamp(),
-  `fecha_marcada_leida` timestamp NULL DEFAULT NULL,
-  `usuario_marco_leida` int(11) DEFAULT NULL,
-  `dias_desde_servicio` int(11) NOT NULL,
-  `whatsapp_estado` enum('pendiente','programado','enviado','entregado','leido','error','omitido') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pendiente' COMMENT 'Estado del envío de WhatsApp',
-  `whatsapp_fecha_programada` timestamp NULL DEFAULT NULL COMMENT 'Cuándo se programó el envío',
-  `whatsapp_fecha_enviada` timestamp NULL DEFAULT NULL COMMENT 'Cuándo se envió realmente',
-  `whatsapp_template_id` int(11) DEFAULT NULL COMMENT 'ID del template usado',
-  `whatsapp_mensaje_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ID del mensaje en WhatsApp API',
-  `whatsapp_error_mensaje` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Descripción del error si falla',
-  `whatsapp_intentos_envio` int(11) DEFAULT 0 COMMENT 'Número de intentos de envío',
-  `whatsapp_ultimo_intento` timestamp NULL DEFAULT NULL COMMENT 'Fecha del último intento'
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 --
 --
 
+(36, 1694, 80, 73, '2026-03-11 23:40:34', '[\"MANTENIMIENTO AL CUERPO DE VALVULAS Y CAMBIO DE ACEITE\"]', '[\"DESMONTAR Y MONTAR TRANSMISION\",\"MANTENIMIENTO AL CUERPO DE VALVULAS Y CAMBIO DE ACEITE\",\"REPARACION ELECTRONICA DE LINEAS ABS\"]', 'pendiente', 'enviado', 'MM649a1612c4a5986de2aca2ec1327441a', '2026-04-08 20:26:02', NULL, NULL, NULL, NULL, NULL, NULL, 'borrador', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 'alta', '2026-04-08 20:26:02', NULL, NULL, NULL, NULL, 'media', '2026-04-06 05:25:02', NULL, NULL, 25, 'pendiente', NULL, NULL, NULL, NULL, NULL, 0, NULL),
+(44, 1679, 65, 58, '2026-02-26 01:04:38', '[\"SERVICIO MAYOR DE AFINACION CON CAMBIO DE ACEITE\"]', '[\"CAMBIO TEFLONES COMPLETOS 1 INYECTOR\",\"SERVICIO MAYOR DE AFINACION CON CAMBIO DE ACEITE\",\"BUJIAS DOBLE PLATINO\",\"FILTROS\"]', 'pendiente', 'enviado', 'SM55bd6aeeb917e01f6a45f5dbe8471925', '2026-04-05 23:40:04', NULL, NULL, NULL, NULL, NULL, NULL, 'borrador', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'media', '2026-04-05 23:40:04', NULL, NULL, NULL, NULL, 'media', '2026-04-06 05:40:03', NULL, NULL, 39, 'pendiente', NULL, NULL, NULL, NULL, NULL, 0, NULL),
+(45, 1676, 62, 55, '2026-02-25 17:31:22', '[\"CAMBIO DE ACEITE Y SERVICIO DE VERIFICACION\"]', '[\"CAMBIO DE ACEITE Y SERVICIO DE VERIFICACION\",\"LAVADO DE MOTOR\",\"REVISION NIVELES Y ESCANEO\"]', 'pendiente', 'enviado', 'SMf8337c1ada7e8b2e71f41225498a1084', '2026-04-05 23:45:03', NULL, NULL, NULL, NULL, NULL, NULL, 'borrador', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'media', '2026-04-05 23:45:03', NULL, NULL, NULL, NULL, 'media', '2026-04-06 05:40:03', NULL, NULL, 39, 'pendiente', NULL, NULL, NULL, NULL, NULL, 0, NULL),
+(46, 1672, 58, 47, '2026-02-20 02:42:10', '[\"JEEP: CAMBIO DE ACEITE\"]', '[\"JEEP: CAMBIO DE ACEITE\",\"RECTIFICAR ESCAPE\",\"SELLADOR\",\"CAMBIO DE ANTICONGELANTE\",\"BMW CAMBIO DE DEPOSITO\",\"ANTICONGELANTE Y GASOLINA PARA ESTAR PROBANDO\"]', 'pendiente', 'enviado', 'SM905896aa5a7c861c75ea73ac0a4b1d82', '2026-04-05 23:45:03', NULL, NULL, NULL, NULL, NULL, NULL, 'borrador', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'media', '2026-04-05 23:45:03', NULL, NULL, NULL, NULL, 'media', '2026-04-06 05:40:03', NULL, NULL, 45, 'pendiente', NULL, NULL, NULL, NULL, NULL, 0, NULL),
+(51, 1666, 52, 46, '2026-02-18 10:48:20', '[\"CAMBIO DE ACEITE\",\"FILTRO DE AIRE Y VERIFICACION\"]', '[\"CAMBIO DE ACEITE\",\"FILTRO DE AIRE Y VERIFICACION\"]', 'pendiente', 'enviado', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'borrador', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'media', '2026-04-06 00:01:22', NULL, NULL, NULL, NULL, 'media', '2026-04-06 06:00:03', NULL, NULL, 47, 'pendiente', NULL, NULL, NULL, NULL, NULL, 0, NULL),
+(52, 1656, 41, 37, '2026-02-13 12:44:01', '[\"FULL SERVICE CON CAMBIO DE ACEITE\"]', '[\"FULL SERVICE CON CAMBIO DE ACEITE\",\"BUJIAS\",\"FILTROS\",\"LAVADO DE INYECTORES\",\"CUERPO ACELERACION. ESCANEO\"]', 'pendiente', 'enviado', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'borrador', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'media', '2026-04-06 00:01:28', NULL, NULL, NULL, NULL, 'media', '2026-04-06 06:00:03', NULL, NULL, 52, 'pendiente', NULL, NULL, NULL, NULL, NULL, 0, NULL),
+(53, 1654, 40, 35, '2026-02-07 18:47:24', '[\"AFINACION CON CAMBIO DE ACEITE . CLIENTE TRAJO SUS REFACCIONES\"]', '[\"RECTIFICACION DISCOS DELANTEROS\",\"AFINACION CON CAMBIO DE ACEITE . CLIENTE TRAJO SUS REFACCIONES\",\"Cambio de balatas traseras\",\"Cambio de balatas delanteras\"]', 'pendiente', 'enviado', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'borrador', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'media', '2026-04-06 00:01:37', NULL, NULL, NULL, NULL, 'media', '2026-04-06 06:00:03', NULL, NULL, 58, 'pendiente', NULL, NULL, NULL, NULL, NULL, 0, NULL),
+(54, 1652, 34, 33, '2026-02-07 05:24:44', '[\"SERVICIO BASICO DE AFINACION Y CAMBIO DE ACEITE\"]', '[\"SERVICIO BASICO DE AFINACION Y CAMBIO DE ACEITE\"]', 'pendiente', 'enviado', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'borrador', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'media', '2026-04-06 00:01:44', NULL, NULL, NULL, NULL, 'media', '2026-04-06 06:00:03', NULL, NULL, 59, 'pendiente', NULL, NULL, NULL, NULL, NULL, 0, NULL),
+(55, 1697, 83, 33, '2026-03-18 00:58:04', '[\"SERVICIO BASICO DE AFINACION Y CAMBIO DE ACEITE\"]', '[\"ASENTAMIENTO Y LIMPIEZA DE FRENOS DELANTEROS\",\"SERVICIO BASICO DE AFINACION Y CAMBIO DE ACEITE\"]', 'pendiente', 'enviado', 'SMf1174df538b9a70f6714f74820d714da', '2026-04-07 00:05:02', NULL, NULL, NULL, NULL, NULL, NULL, 'borrador', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'media', '2026-04-07 00:05:02', NULL, NULL, NULL, NULL, 'media', '2026-04-07 06:00:02', NULL, NULL, 21, 'pendiente', NULL, NULL, NULL, NULL, NULL, 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -954,23 +693,6 @@ CREATE TABLE `vehiculos` (
 -- Stand-in structure for view `vista_campanita_whatsapp`
 -- (See below for the actual view)
 --
-CREATE TABLE `vista_campanita_whatsapp` (
-`id` int(11)
-,`estado_whatsapp` enum('borrador','enviado','esperando_respuesta','esperando_fecha','pre_agendado','confirmado','rechazado','requiere_contacto','cancelado','completado')
-,`requiere_atencion` tinyint(1)
-,`prioridad` enum('baja','media','alta')
-,`ultima_actividad` datetime
-,`cliente_nombre` varchar(200)
-,`cliente_telefono` varchar(20)
-,`vehiculo_info` varchar(206)
-,`tipo_servicio` text
-,`fecha_cita_seleccionada` date
-,`hora_cita_seleccionada` time
-,`confirmacion_sag` enum('pendiente','confirmado','cancelado')
-,`tipo_notificacion` varchar(11)
-,`mensaje_campanita` mediumtext
-,`link_whatsapp` text
-);
 
 -- --------------------------------------------------------
 
@@ -978,23 +700,6 @@ CREATE TABLE `vista_campanita_whatsapp` (
 -- Stand-in structure for view `vista_conversaciones_whatsapp`
 -- (See below for the actual view)
 --
-CREATE TABLE `vista_conversaciones_whatsapp` (
-`alerta_id` int(11)
-,`estado_whatsapp` enum('borrador','enviado','esperando_respuesta','esperando_fecha','pre_agendado','confirmado','rechazado','requiere_contacto','cancelado','completado')
-,`ultima_actividad` datetime
-,`cliente_nombre` varchar(200)
-,`cliente_telefono` varchar(20)
-,`twilio_conversation_sid` varchar(100)
-,`fecha_envio_whatsapp` datetime
-,`respuesta_inicial` varchar(50)
-,`fecha_respuesta_inicial` datetime
-,`fecha_cita_seleccionada` date
-,`hora_cita_seleccionada` time
-,`confirmacion_sag` enum('pendiente','confirmado','cancelado')
-,`ultimo_mensaje` mediumtext
-,`fecha_ultimo_mensaje` timestamp /* mariadb-5.3 */
-,`total_mensajes` bigint(21)
-);
 
 -- --------------------------------------------------------
 
@@ -1002,22 +707,6 @@ CREATE TABLE `vista_conversaciones_whatsapp` (
 -- Stand-in structure for view `vista_ordenes_completa`
 -- (See below for the actual view)
 --
-CREATE TABLE `vista_ordenes_completa` (
-`id` int(11)
-,`numero_orden` varchar(50)
-,`fecha_ingreso` timestamp
-,`fecha_promesa_entrega` timestamp
-,`estado` varchar(20)
-,`total` decimal(10,2)
-,`cliente_nombre` varchar(200)
-,`cliente_telefono` varchar(20)
-,`vehiculo_marca` varchar(100)
-,`vehiculo_modelo` varchar(100)
-,`vehiculo_anio` year(4)
-,`vehiculo_placas` varchar(20)
-,`usuario_nombre` varchar(200)
-,`problema_reportado` text
-);
 
 -- --------------------------------------------------------
 
@@ -1025,13 +714,6 @@ CREATE TABLE `vista_ordenes_completa` (
 -- Stand-in structure for view `vista_rentabilidad_servicios`
 -- (See below for the actual view)
 --
-CREATE TABLE `vista_rentabilidad_servicios` (
-`tipo_servicio` varchar(12)
-,`descripcion` varchar(500)
-,`veces_realizado` bigint(21)
-,`precio_promedio` varchar(16)
-,`ingresos_totales` varchar(44)
-);
 
 -- --------------------------------------------------------
 
@@ -1039,23 +721,6 @@ CREATE TABLE `vista_rentabilidad_servicios` (
 -- Stand-in structure for view `vista_reporte_mensual`
 -- (See below for the actual view)
 --
-CREATE TABLE `vista_reporte_mensual` (
-`anio` int(5)
-,`mes` int(3)
-,`periodo` varchar(7)
-,`nombre_mes` varchar(9)
-,`ingresos` decimal(32,2)
-,`ingresos_mano_obra` decimal(32,2)
-,`ingresos_servicios` decimal(32,2)
-,`ingresos_refacciones` decimal(32,2)
-,`iva_cobrado` decimal(32,2)
-,`ordenes_completadas` bigint(21)
-,`egresos` decimal(40,4)
-,`balance_bruto` decimal(41,4)
-,`margen_refacciones` decimal(43,6)
-,`ganancia_neta` decimal(42,4)
-,`porcentaje_rentabilidad` decimal(47,2)
-);
 
 -- --------------------------------------------------------
 
@@ -1063,15 +728,6 @@ CREATE TABLE `vista_reporte_mensual` (
 -- Stand-in structure for view `vista_top_clientes_anual`
 -- (See below for the actual view)
 --
-CREATE TABLE `vista_top_clientes_anual` (
-`id` int(11)
-,`cliente` varchar(200)
-,`telefono` varchar(20)
-,`ordenes_completadas` bigint(21)
-,`facturación_total` varchar(44)
-,`promedio_por_orden` varchar(16)
-,`ultima_visita` varchar(10)
-);
 
 --
 -- Indexes for dumped tables
@@ -1468,54 +1124,42 @@ ALTER TABLE `vehiculos`
 --
 -- Structure for view `vista_campanita_whatsapp`
 --
-DROP TABLE IF EXISTS `vista_campanita_whatsapp`;
 
-CREATE OR REPLACE VIEW `vista_campanita_whatsapp`  AS SELECT `a`.`id` AS `id`, `a`.`estado_whatsapp` AS `estado_whatsapp`, `a`.`requiere_atencion` AS `requiere_atencion`, `a`.`prioridad` AS `prioridad`, `a`.`ultima_actividad` AS `ultima_actividad`, `c`.`nombre` AS `cliente_nombre`, `c`.`telefono` AS `cliente_telefono`, concat(`v`.`marca`,' ',`v`.`modelo`,' ',`v`.`anio`) AS `vehiculo_info`, `a`.`servicios_que_dispararon` AS `tipo_servicio`, `a`.`fecha_cita_seleccionada` AS `fecha_cita_seleccionada`, `a`.`hora_cita_seleccionada` AS `hora_cita_seleccionada`, `a`.`confirmacion_sag` AS `confirmacion_sag`, CASE WHEN `a`.`estado_whatsapp` = 'pre_agendado' AND `a`.`confirmacion_sag` = 'pendiente' THEN 'urgente' WHEN `a`.`estado_whatsapp` = 'requiere_contacto' THEN 'contacto' WHEN `a`.`estado_whatsapp` = 'rechazado' THEN 'informativo' WHEN `a`.`estado_whatsapp` = 'cancelado' THEN 'informativo' ELSE 'normal' END AS `tipo_notificacion`, CASE WHEN `a`.`estado_whatsapp` = 'pre_agendado' AND `a`.`confirmacion_sag` = 'pendiente' THEN concat('🔴 CONFIRMAR: ',`c`.`nombre`,' - ',`a`.`fecha_cita_seleccionada`,' ',`a`.`hora_cita_seleccionada`) WHEN `a`.`estado_whatsapp` = 'requiere_contacto' THEN concat('🟡 CONTACTAR: ',`c`.`nombre`,' pidió otra fecha para ',`a`.`servicios_que_dispararon`) WHEN `a`.`estado_whatsapp` = 'rechazado' THEN concat('🔵 INFO: ',`c`.`nombre`,' no está interesado en ',`a`.`servicios_que_dispararon`) WHEN `a`.`estado_whatsapp` = 'cancelado' THEN concat('🔵 CANCELADO: ',`c`.`nombre`,' - ',`a`.`fecha_cita_seleccionada`) ELSE concat('📝 ',`c`.`nombre`,' - ',`a`.`estado_whatsapp`) END AS `mensaje_campanita`, concat('https://wa.me/52',`c`.`telefono`,'?text=Hola%20',replace(`c`.`nombre`,' ','%20'),'%20nos%20comunicamos%20de%20SAG%20Garage') AS `link_whatsapp` FROM ((`alertas_servicio` `a` join `clientes` `c` on(`a`.`cliente_id` = `c`.`id`)) join `vehiculos` `v` on(`a`.`vehiculo_id` = `v`.`id`)) WHERE `a`.`requiere_atencion` = 1 AND `a`.`estado_whatsapp` in ('pre_agendado','requiere_contacto','rechazado','cancelado') ORDER BY CASE WHEN `a`.`estado_whatsapp` = 'pre_agendado' AND `a`.`confirmacion_sag` = 'pendiente' THEN 1 WHEN `a`.`estado_whatsapp` = 'requiere_contacto' THEN 2 ELSE 3 END ASC, `a`.`prioridad` DESC, `a`.`ultima_actividad` DESC ;
 
 -- --------------------------------------------------------
 
 --
 -- Structure for view `vista_conversaciones_whatsapp`
 --
-DROP TABLE IF EXISTS `vista_conversaciones_whatsapp`;
 
-CREATE OR REPLACE VIEW `vista_conversaciones_whatsapp`  AS SELECT `a`.`id` AS `alerta_id`, `a`.`estado_whatsapp` AS `estado_whatsapp`, `a`.`ultima_actividad` AS `ultima_actividad`, `c`.`nombre` AS `cliente_nombre`, `c`.`telefono` AS `cliente_telefono`, `a`.`twilio_conversation_sid` AS `twilio_conversation_sid`, `a`.`fecha_envio_whatsapp` AS `fecha_envio_whatsapp`, `a`.`respuesta_inicial` AS `respuesta_inicial`, `a`.`fecha_respuesta_inicial` AS `fecha_respuesta_inicial`, `a`.`fecha_cita_seleccionada` AS `fecha_cita_seleccionada`, `a`.`hora_cita_seleccionada` AS `hora_cita_seleccionada`, `a`.`confirmacion_sag` AS `confirmacion_sag`, (select `conversaciones_whatsapp`.`message_body` from `conversaciones_whatsapp` where `conversaciones_whatsapp`.`alerta_id` = `a`.`id` order by `conversaciones_whatsapp`.`created_at` desc limit 1) AS `ultimo_mensaje`, (select `conversaciones_whatsapp`.`created_at` from `conversaciones_whatsapp` where `conversaciones_whatsapp`.`alerta_id` = `a`.`id` order by `conversaciones_whatsapp`.`created_at` desc limit 1) AS `fecha_ultimo_mensaje`, (select count(0) from `conversaciones_whatsapp` where `conversaciones_whatsapp`.`alerta_id` = `a`.`id`) AS `total_mensajes` FROM (`alertas_servicio` `a` join `clientes` `c` on(`a`.`cliente_id` = `c`.`id`)) WHERE `a`.`estado_whatsapp` <> 'borrador' ORDER BY `a`.`ultima_actividad` DESC ;
 
 -- --------------------------------------------------------
 
 --
 -- Structure for view `vista_ordenes_completa`
 --
-DROP TABLE IF EXISTS `vista_ordenes_completa`;
 
-CREATE OR REPLACE VIEW `vista_ordenes_completa`  AS SELECT `o`.`id` AS `id`, `o`.`numero_orden` AS `numero_orden`, `o`.`fecha_ingreso` AS `fecha_ingreso`, `o`.`fecha_promesa_entrega` AS `fecha_promesa_entrega`, `o`.`estado` AS `estado`, `o`.`total` AS `total`, `c`.`nombre` AS `cliente_nombre`, `c`.`telefono` AS `cliente_telefono`, `v`.`marca` AS `vehiculo_marca`, `v`.`modelo` AS `vehiculo_modelo`, `v`.`anio` AS `vehiculo_anio`, `v`.`placas` AS `vehiculo_placas`, `u`.`nombre_completo` AS `usuario_nombre`, `o`.`problema_reportado` AS `problema_reportado` FROM (((`ordenes_servicio` `o` join `clientes` `c` on(`o`.`cliente_id` = `c`.`id`)) join `vehiculos` `v` on(`o`.`vehiculo_id` = `v`.`id`)) join `usuarios` `u` on(`o`.`usuario_id` = `u`.`id`)) ;
 
 -- --------------------------------------------------------
 
 --
 -- Structure for view `vista_rentabilidad_servicios`
 --
-DROP TABLE IF EXISTS `vista_rentabilidad_servicios`;
 
-CREATE OR REPLACE VIEW `vista_rentabilidad_servicios`  AS SELECT CASE WHEN `so`.`tipo` = 'mano_obra' THEN 'Mano de Obra' ELSE 'Servicios' END AS `tipo_servicio`, `so`.`descripcion` AS `descripcion`, count(0) AS `veces_realizado`, format(avg(`so`.`precio_unitario`),2) AS `precio_promedio`, format(sum(`so`.`subtotal`),2) AS `ingresos_totales` FROM (`servicios_orden` `so` join `ordenes_servicio` `o` on(`so`.`orden_id` = `o`.`id`)) WHERE `o`.`estado` in ('completada','entregada') AND year(ifnull(`o`.`fecha_completada`,`o`.`fecha_entregada`)) = year(curdate()) GROUP BY `so`.`tipo`, `so`.`descripcion` ORDER BY sum(`so`.`subtotal`) DESC ;
 
 -- --------------------------------------------------------
 
 --
 -- Structure for view `vista_reporte_mensual`
 --
-DROP TABLE IF EXISTS `vista_reporte_mensual`;
 
-CREATE OR REPLACE VIEW `vista_reporte_mensual`  AS SELECT year(`periodos`.`fecha_periodo`) AS `anio`, month(`periodos`.`fecha_periodo`) AS `mes`, date_format(`periodos`.`fecha_periodo`,'%Y-%m') AS `periodo`, monthname(`periodos`.`fecha_periodo`) AS `nombre_mes`, ifnull(`ingresos`.`ingresos_totales`,0.00) AS `ingresos`, ifnull(`ingresos`.`ingresos_mano_obra`,0.00) AS `ingresos_mano_obra`, ifnull(`ingresos`.`ingresos_servicios`,0.00) AS `ingresos_servicios`, ifnull(`ingresos`.`ingresos_refacciones`,0.00) AS `ingresos_refacciones`, ifnull(`ingresos`.`total_iva_cobrado`,0.00) AS `iva_cobrado`, ifnull(`ingresos`.`ordenes_completadas`,0) AS `ordenes_completadas`, ifnull(`egresos`.`egresos_refacciones`,0.00) AS `egresos`, ifnull(`ingresos`.`ingresos_totales`,0.00) - ifnull(`egresos`.`egresos_refacciones`,0.00) AS `balance_bruto`, ifnull(`egresos`.`egresos_refacciones`,0.00) * 0.30 AS `margen_refacciones`, ifnull(`ingresos`.`ingresos_mano_obra`,0.00) + ifnull(`ingresos`.`ingresos_servicios`,0.00) + (ifnull(`ingresos`.`ingresos_refacciones`,0.00) - ifnull(`egresos`.`egresos_refacciones`,0.00)) AS `ganancia_neta`, CASE WHEN ifnull(`egresos`.`egresos_refacciones`,0.00) > 0 THEN round((ifnull(`ingresos`.`ingresos_totales`,0.00) - ifnull(`egresos`.`egresos_refacciones`,0.00)) / ifnull(`egresos`.`egresos_refacciones`,0.00) * 100,2) ELSE 100.00 END AS `porcentaje_rentabilidad` FROM (((select '2025-01-01' + interval `numbers`.`n` month AS `fecha_periodo` from (select `a`.`N` + `b`.`N` * 10 + `c`.`N` * 100 AS `n` from (((select 0 AS `N` union select 1 AS `1` union select 2 AS `2` union select 3 AS `3` union select 4 AS `4` union select 5 AS `5` union select 6 AS `6` union select 7 AS `7` union select 8 AS `8` union select 9 AS `9`) `a` join (select 0 AS `N` union select 1 AS `1` union select 2 AS `2` union select 3 AS `3` union select 4 AS `4` union select 5 AS `5` union select 6 AS `6` union select 7 AS `7` union select 8 AS `8` union select 9 AS `9`) `b`) join (select 0 AS `N` union select 1 AS `1` union select 2 AS `2` union select 3 AS `3` union select 4 AS `4` union select 5 AS `5` union select 6 AS `6` union select 7 AS `7` union select 8 AS `8` union select 9 AS `9`) `c`)) `numbers` where '2025-01-01' + interval `numbers`.`n` month <= curdate()) `periodos` left join (select date_format(`ordenes_servicio`.`fecha_ingreso`,'%Y-%m-01') AS `periodo_ingreso`,count(0) AS `ordenes_completadas`,sum(`ordenes_servicio`.`total`) AS `ingresos_totales`,sum(`ordenes_servicio`.`subtotal_mano_obra`) AS `ingresos_mano_obra`,sum(`ordenes_servicio`.`subtotal_servicios`) AS `ingresos_servicios`,sum(`ordenes_servicio`.`subtotal_refacciones`) AS `ingresos_refacciones`,sum(`ordenes_servicio`.`iva`) AS `total_iva_cobrado` from `ordenes_servicio` where `ordenes_servicio`.`estado` = 'cerrada' and `ordenes_servicio`.`fecha_ingreso` is not null and date_format(`ordenes_servicio`.`fecha_ingreso`,'%Y-%m') >= '2025-01' group by date_format(`ordenes_servicio`.`fecha_ingreso`,'%Y-%m')) `ingresos` on(`periodos`.`fecha_periodo` = `ingresos`.`periodo_ingreso`)) left join (select date_format(`o`.`fecha_ingreso`,'%Y-%m-01') AS `periodo_egreso`,sum(`r`.`precio_unitario` * `r`.`cantidad`) AS `egresos_refacciones` from (`refacciones_orden` `r` join `ordenes_servicio` `o` on(`r`.`orden_id` = `o`.`id`)) where `o`.`estado` = 'cerrada' and `o`.`fecha_ingreso` is not null and date_format(`o`.`fecha_ingreso`,'%Y-%m') >= '2025-01' group by date_format(`o`.`fecha_ingreso`,'%Y-%m')) `egresos` on(`periodos`.`fecha_periodo` = `egresos`.`periodo_egreso`)) WHERE year(`periodos`.`fecha_periodo`) >= 2025 ORDER BY year(`periodos`.`fecha_periodo`) DESC, month(`periodos`.`fecha_periodo`) DESC ;
 
 -- --------------------------------------------------------
 
 --
 -- Structure for view `vista_top_clientes_anual`
 --
-DROP TABLE IF EXISTS `vista_top_clientes_anual`;
 
-CREATE OR REPLACE VIEW `vista_top_clientes_anual`  AS SELECT `c`.`id` AS `id`, `c`.`nombre` AS `cliente`, `c`.`telefono` AS `telefono`, count(distinct `o`.`id`) AS `ordenes_completadas`, format(sum(`o`.`total`),2) AS `facturación_total`, format(avg(`o`.`total`),2) AS `promedio_por_orden`, date_format(max(ifnull(`o`.`fecha_completada`,`o`.`fecha_entregada`)),'%d/%m/%Y') AS `ultima_visita` FROM (`clientes` `c` join `ordenes_servicio` `o` on(`c`.`id` = `o`.`cliente_id`)) WHERE `o`.`estado` in ('completada','entregada') AND year(ifnull(`o`.`fecha_completada`,`o`.`fecha_entregada`)) = year(curdate()) GROUP BY `c`.`id`, `c`.`nombre`, `c`.`telefono` ORDER BY sum(`o`.`total`) DESC LIMIT 0, 10 ;
 
 --
 -- Constraints for dumped tables
@@ -1614,42 +1258,33 @@ COMMIT;
 INSERT INTO `sucursales` (`id`, `nombre`, `activo`, `created_at`, `updated_at`)
 VALUES (1, 'CarFix Matriz', 1, NOW(), NOW());
 
--- Contrasenas iniciales iguales a las de SAG Garage:
---   carfix     = contrasena del usuario saggarage
---   carfix_dev = contrasena del usuario markiiak
+-- Passwords: carfix=saggarage | carfix_dev=markiiak (mismas que SAG Garage)
 -- Cambiar desde Sistemas > Usuarios despues del primer login.
 INSERT INTO `usuarios`
-  (`id`, `username`, `password_hash`, `nombre_completo`, `email`, `rol`, `activo`, `fecha_creacion`, `ultima_modificacion`)
+  (`id`,`username`,`password_hash`,`nombre_completo`,`email`,`rol`,`activo`,`fecha_creacion`,`ultima_modificacion`)
 VALUES
-(1,'carfix','\\\/gLD1RB2qAC',
+(1,'carfix','$2y$10$BJhm2i5g4ApTLAUYHhDzZOXebkjv9dZxU3R3kNlJWD/gLD1RB2qAC',
    'CarFix Admin','admin@tallercarfix.com.mx','superusuario',1,NOW(),NOW()),
-(2,'carfix_dev','\\\$.rF6JqF1Xhf13FjOFnrSeeOv0BftEdb.uXcNnt/bpEAADjWeTLIXG',
+(2,'carfix_dev','$2y$10$.rF6JqF1Xhf13FjOFnrSeeOv0BftEdb.uXcNnt/bpEAADjWeTLIXG',
    'CarFix Dev','dev@tallercarfix.com.mx','sistemas',1,NOW(),NOW());
 
-INSERT INTO `twilio_config` (`config_key`, `config_value`, `description`, `is_active`) VALUES
+INSERT INTO `twilio_config` (`config_key`,`config_value`,`description`,`is_active`) VALUES
 ('account_sid','','Twilio Account SID',1),
 ('auth_token','','Twilio Auth Token',1),
-('whatsapp_from','','Numero WhatsApp de envio (whatsapp:+521XXXXXXXXXX)',1),
-('sag_admin_phone','','Numero WhatsApp del admin CarFix (sin +52)',1),
+('whatsapp_from','','Numero de envio (whatsapp:+521XXXXXXXXXX)',1),
+('sag_admin_phone','','Numero admin CarFix sin +52',1),
 ('sag_business_name','CarFix','Nombre del negocio',1),
-('horario_matutino','09:00','Hora de citas matutinas',1),
-('horario_vespertino','14:00','Hora de citas vespertinas',1),
-('dias_laborables','L,M,M,J,V','Dias laborables',1),
-('capacidad_por_horario','2','Maximo de citas por slot',1),
-('dias_anticipacion','7','Dias hacia adelante para fechas disponibles',1),
-('dias_minimo_agenda','1','Dias minimos de anticipacion para agendar',1),
-('horarios_atencion','10:00,12:00,14:00,16:00','Horarios disponibles para citas',1),
-('slots_maximo_mostrar','8','Maximo de slots a mostrar al cliente',1),
+('horario_matutino','09:00','Hora citas matutinas',1),
+('horario_vespertino','14:00','Hora citas vespertinas',1),
+('capacidad_por_horario','2','Maximo citas por slot',1),
+('dias_anticipacion','7','Dias hacia adelante para fechas',1),
+('horarios_atencion','10:00,12:00,14:00,16:00','Horarios disponibles',1),
+('slots_maximo_mostrar','8','Maximo slots a mostrar',1),
 ('template_mode','interactive','Modo template Twilio',1),
-('max_intentos_respuesta','3','Maximo de intentos para respuesta valida',1),
-('template_interactive_sid','','ContentSid template recordatorio',0),
-('template_agendar_sid','','ContentSid template de horarios',0),
-('sag_confirma_cita','','ContentSid para notificaciones al admin',0),
-('template_otro_horario_sid','','ContentSid cuando cliente pide otro horario',0),
-('template_atencion_personalizada_sid','','ContentSid para escalada al admin',0),
-('webhook_url','https://tallercarfix.com.mx/gestion/backend-php/webhook/twilio_whatsapp.php','URL del webhook de Twilio',1),
+('max_intentos_respuesta','3','Maximo intentos respuesta valida',1),
+('webhook_url','https://tallercarfix.com.mx/gestion/backend-php/webhook/twilio_whatsapp.php','URL webhook Twilio',1),
 ('dias_festivos_2026','["2026-01-01","2026-02-03","2026-03-16","2026-04-13","2026-04-14","2026-05-01","2026-09-16","2026-11-02","2026-11-16","2026-12-25"]','Dias festivos Mexico 2026',1),
-('mensaje_rechazo','Claro, muchas gracias por responder. Cuando sea el momento indicado, con gusto estaremos para ti.','Mensaje para respuesta NO',1),
-('mensaje_contacto_directo','Un ejecutivo de CarFix se pondra en contacto contigo para agendar en la fecha que mejor te convenga.','Mensaje para contacto directo',1),
-('mensaje_cancelacion','Disculpa las molestias. Un ejecutivo se pondra en contacto contigo para reagendar tu cita.','Mensaje cuando CarFix cancela',1),
-('mensaje_otro_horario','Entendido. Nuestro equipo se pondra en contacto contigo para coordinar un horario que te convenga mejor.','Mensaje cuando cliente elige Otro horario',1);
+('mensaje_rechazo','Claro, muchas gracias por responder. Cuando sea el momento, con gusto estaremos para ti.','Mensaje respuesta NO',1),
+('mensaje_contacto_directo','Un ejecutivo de CarFix se pondra en contacto contigo para agendar.','Mensaje contacto directo',1),
+('mensaje_cancelacion','Disculpa las molestias. Un ejecutivo te contactara para reagendar.','Mensaje cancelacion',1),
+('mensaje_otro_horario','Nuestro equipo se pondra en contacto para coordinar un horario que te convenga.','Mensaje otro horario',1);
