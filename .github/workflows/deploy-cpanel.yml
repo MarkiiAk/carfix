@@ -87,9 +87,9 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT || 21 }}
           
-          # Subir solo el sitio público a la raíz
+          # Subir solo el sitio público a la raíz web (public_html)
           local-dir: deploy-temp/
-          server-dir: ./
+          server-dir: ./public_html/
           
           # NO usar dangerous-clean-slate aquí porque solo queremos actualizar archivos específicos
           dangerous-clean-slate: false
@@ -116,7 +116,7 @@ jobs:
           
           # Subir contenido de gestion/ a la carpeta remota /gestion/
           local-dir: deploy-temp/gestion/
-          server-dir: ./gestion/
+          server-dir: ./public_html/gestion/
           
           # NO limpiar para preservar archivos existentes (backend-php, .htaccess)
           dangerous-clean-slate: false
@@ -143,7 +143,7 @@ jobs:
           
           # Subir backend PHP
           local-dir: backend-php/
-          server-dir: ./gestion/backend-php/
+          server-dir: ./public_html/gestion/backend-php/
           
           # NO LIMPIAR para preservar archivos críticos como .env
           dangerous-clean-slate: false
@@ -176,7 +176,7 @@ jobs:
           
           # Subir SOLO el .htaccess del backend
           local-dir: backend-php/
-          server-dir: ./gestion/backend-php/
+          server-dir: ./public_html/gestion/backend-php/
           
           dangerous-clean-slate: false
           
@@ -200,7 +200,7 @@ jobs:
           
           # Subir .htaccess del frontend a /gestion/
           local-dir: frontend-htaccess/
-          server-dir: ./gestion/
+          server-dir: ./public_html/gestion/
           
           dangerous-clean-slate: false
           
