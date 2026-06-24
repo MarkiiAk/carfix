@@ -64,14 +64,11 @@ export const Login = () => {
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 space-y-8 backdrop-blur-sm border border-gray-100 dark:border-gray-700">
           {/* Logo y título */}
           <div className="text-center space-y-2">
-            <img 
-              src="/logo.png" 
-              alt="CarFix Logo" 
-              className="inline-block w-20 h-20 rounded-2xl object-cover mb-4 shadow-lg"
+            <img
+              src="/logo-light.png"
+              alt="CarFix Logo"
+              className="inline-block h-14 w-auto object-contain mb-4"
             />
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-sag-600 to-sag-600 bg-clip-text text-transparent">
-              CarFix
-            </h1>
             <p className="text-gray-600 dark:text-gray-400">
               Sistema de Gestión de Órdenes
             </p>

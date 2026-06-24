@@ -133,19 +133,19 @@ export default {
           950: '#172554',
         },
         
-        // SAG Brand - Verde lima brillante del logo
+        // CarFix Brand - Naranja del logo
         sag: {
-          50: '#fefff0',
-          100: '#fdfee0',
-          200: '#fbfdc7',
-          300: '#f6faa0',
-          400: '#eff669',
-          500: '#CBF518',  // Color principal del logo
-          600: '#a8c914',
-          700: '#7f9610',
-          800: '#65770d',
-          900: '#4d5c0a',
-          950: '#2a3305',
+          50: '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          300: '#fdba74',
+          400: '#fb923c',
+          500: '#f97316',  // Color principal CarFix
+          600: '#ea580c',
+          700: '#c2410c',
+          800: '#9a3412',
+          900: '#7c2d12',
+          950: '#431407',
         },
       },
       fontFamily: {

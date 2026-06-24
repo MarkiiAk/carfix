@@ -147,12 +147,8 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
         <img
           src="/logo.png"
           alt="CarFix"
-          className="w-8 h-8 rounded-lg object-cover"
+          className="h-7 w-auto object-contain"
         />
-        <div>
-          <p className="text-white font-semibold text-sm leading-tight">CarFix</p>
-          <p className="text-gray-500 text-xs leading-tight">Gestión de taller</p>
-        </div>
       </div>
 
       {/* Branch Switcher — solo sistemas/superusuario con 2+ sucursales */}
