@@ -108,6 +108,13 @@ if (!$esCorsPreflightRequest && !$esRutaPublica) {
         echo json_encode(['error' => 'No autorizado']);
         exit();
     }
+
+    // Rol 'asistente' no tiene acceso al módulo financiero.
+    if (($routerAuth['rol'] ?? '') === 'asistente' && str_starts_with($path, 'financiero')) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Sin permisos para el módulo financiero']);
+        exit();
+    }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 

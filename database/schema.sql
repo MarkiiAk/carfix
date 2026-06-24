@@ -1032,7 +1032,7 @@ CREATE TABLE IF NOT EXISTS `usuario_sucursales` (
   `id`           INT NOT NULL AUTO_INCREMENT,
   `usuario_id`   INT NOT NULL,
   `sucursal_id`  INT NOT NULL,
-  `rol_sucursal` ENUM('admin_sucursal') NOT NULL DEFAULT 'admin_sucursal',
+  `rol_sucursal` ENUM('admin_sucursal','asistente') NOT NULL DEFAULT 'admin_sucursal',
   `created_at`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_usuario_sucursal` (`usuario_id`, `sucursal_id`),
@@ -1044,7 +1044,7 @@ CREATE TABLE IF NOT EXISTS `usuario_sucursales` (
 -- Nuevos roles: sistemas (SaaS admin), superusuario (dueño del taller), admin_sucursal (gerente).
 -- tecnico y recepcionista quedan fuera del sistema por ahora.
 ALTER TABLE `usuarios`
-  MODIFY COLUMN `rol` ENUM('sistemas','superusuario','admin_sucursal') NOT NULL DEFAULT 'admin_sucursal';
+  MODIFY COLUMN `rol` ENUM('sistemas','superusuario','admin_sucursal','asistente') NOT NULL DEFAULT 'admin_sucursal';
 
 -- sucursal_id en TODAS las tablas operativas (default 1 = Matriz).
 -- Los registros existentes quedan asignados a sucursal 1 por el DEFAULT.
