@@ -55,7 +55,7 @@ jobs:
           port: 21
 
           local-dir: dist/
-          server-dir: ${{ secrets.FTP_PATH_STAGING }}
+          server-dir: ./public_html/staging/
 
           # NO limpiar para preservar archivos existentes (backend-php, .htaccess)
           dangerous-clean-slate: false
@@ -83,7 +83,7 @@ jobs:
           port: 21
 
           local-dir: backend-php/
-          server-dir: ${{ secrets.FTP_PATH_STAGING }}backend-php/
+          server-dir: ./public_html/staging/backend-php/
 
           # NO LIMPIAR — preserva el .env del servidor de staging
           dangerous-clean-slate: false
@@ -116,7 +116,7 @@ jobs:
           port: 21
 
           local-dir: backend-php/
-          server-dir: ${{ secrets.FTP_PATH_STAGING }}backend-php/
+          server-dir: ./public_html/staging/backend-php/
 
           dangerous-clean-slate: false
 
@@ -138,7 +138,7 @@ jobs:
           port: 21
 
           local-dir: frontend-htaccess-staging/
-          server-dir: ${{ secrets.FTP_PATH_STAGING }}
+          server-dir: ./public_html/staging/
 
           dangerous-clean-slate: false
 
