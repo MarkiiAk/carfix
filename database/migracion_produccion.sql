@@ -626,6 +626,15 @@ INSERT INTO `puntos_seguridad_catalogo` (`id`, `nombre`, `categoria`, `descripci
 -- Passwords: carfix=saggarage | carfix_dev=markiiak (mismas que SAG Garage)
 -- ============================================================
 
+-- Limpiar por si hubo import parcial previo
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE `twilio_config`;
+TRUNCATE TABLE `sucursales`;
+TRUNCATE TABLE `usuarios`;
+TRUNCATE TABLE `estados_seguridad`;
+TRUNCATE TABLE `puntos_seguridad_catalogo`;
+SET FOREIGN_KEY_CHECKS = 1;
+
 INSERT INTO `sucursales` (`id`,`nombre`,`activo`,`created_at`,`updated_at`)
 VALUES (1,'CarFix Matriz',1,NOW(),NOW());
 
