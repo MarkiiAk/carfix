@@ -1,5 +1,5 @@
-// SAG Garage - Main JavaScript
-// Autor: SAG Garage Development Team
+// CarFix - Main JavaScript
+// Autor: CarFix Development Team
 // Versión: 1.0.0
 
 'use strict';
@@ -108,7 +108,7 @@ contactForm.addEventListener('submit', function(e) {
     }
     
     // Create mailto link
-    const subject = encodeURIComponent('Solicitud de Información - SAG Garage');
+    const subject = encodeURIComponent('Solicitud de Información - CarFix');
     const body = encodeURIComponent(
         `Nombre: ${name}\n` +
         `Email: ${email}\n` +
@@ -182,7 +182,7 @@ if (manualCard) {
         // Create download link
         const link = document.createElement('a');
         link.href = 'ManualCorporativo.pdf';
-        link.download = 'Manual_Corporativo_SAG_Garage.pdf';
+        link.download = 'Manual_CarFix.pdf';
         link.target = '_blank';
         
         // Trigger download
@@ -1018,7 +1018,7 @@ document.addEventListener('click', function(e) {
             var precioLinea = citaData.precio && citaData.precio !== 'A definir'
                 ? '\n• Precio cotizado: ' + citaData.precio
                 : '\n• Precio: Por definir (favor de confirmar)';
-            var msg = 'Hola SAG Garage, quisiera confirmar mi cita:\n\n' +
+            var msg = 'Hola CarFix, quisiera confirmar mi cita:\n\n' +
                 '• Nombre: ' + citaData.nombre + '\n• Teléfono: ' + citaData.tel +
                 '\n• Vehículo: ' + auto + '\n• Servicio: ' + citaData.servicio +
                 precioLinea +
@@ -1182,7 +1182,7 @@ document.addEventListener('click', function(e) {
 // CONSOLE BRANDING
 // ===================================
 console.log(
-    '%c SAG GARAGE ',
+    '%c CARFIX ',
     'background: #b7ff00; color: #0a0a0a; font-size: 20px; font-weight: bold; padding: 10px;'
 );
 console.log(
@@ -1190,7 +1190,7 @@ console.log(
     'background: #0a0a0a; color: #b7ff00; font-size: 14px; padding: 5px;'
 );
 console.log(
-    '%c Developed with ❤️ for SAG Garage ',
+    '%c Developed with ❤️ for CarFix ',
     'color: #a0a0a0; font-size: 12px;'
 );
 

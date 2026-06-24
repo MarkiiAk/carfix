@@ -1,6 +1,6 @@
 <?php
 /**
- * SAG Garage - Backend API PHP
+ * CarFix - Backend API PHP
  * Compatible con cPanel / Hosting compartido
  */
 

@@ -146,11 +146,11 @@ export const Sidebar = ({ alertasPendientes = 0 }: SidebarProps) => {
       <div className="flex items-center gap-2.5 px-4 py-5 border-b border-gray-800">
         <img
           src="/logo.png"
-          alt="SAG Garage"
+          alt="CarFix"
           className="w-8 h-8 rounded-lg object-cover"
         />
         <div>
-          <p className="text-white font-semibold text-sm leading-tight">SAG Garage</p>
+          <p className="text-white font-semibold text-sm leading-tight">CarFix</p>
           <p className="text-gray-500 text-xs leading-tight">Gestión de taller</p>
         </div>
       </div>
@@ -384,7 +384,7 @@ export const AppShell = ({ children, moduleName }: AppShellProps) => {
         >
           <div className="flex flex-row items-center gap-2">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-              {moduleName ?? 'SAG Garage'}
+              {moduleName ?? 'CarFix'}
             </span>
             {/* Selector de sucursal en móvil — solo superadmin con 2+ sucursales */}
             {esSuperAdminShell && sucursalesPermitidas.length > 1 && (

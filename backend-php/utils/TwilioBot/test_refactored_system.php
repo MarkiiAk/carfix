@@ -9,7 +9,7 @@
  * Ejecutar desde línea de comandos:
  * php test_refactored_system.php
  * 
- * @author Sistema SAG Garage - Refactorización 2026
+ * @author Sistema CarFix - Refactorización 2026
  * @version 1.0.0
  */
 

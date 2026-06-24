@@ -1,6 +1,6 @@
 <?php
 /**
- * TWILIO CONVERSATIONAL BOT - SAG GARAGE **REFACTORIZADO**
+ * TWILIO CONVERSATIONAL BOT - CARFIX **REFACTORIZADO**
  * Sistema de agendamiento automático con WhatsApp
  * 
  * ESTA ES LA VERSIÓN REFACTORIZADA que internamente usa la nueva
@@ -12,7 +12,7 @@
  * - Manejo de respuestas de clientes  
  * - Generación de fechas disponibles
  * - Pre-agendamiento automático
- * - Notificaciones a SAG Garage
+ * - Notificaciones a CarFix
  * 
  * MEJORAS REFACTORIZADAS:
  * - Arquitectura SOLID (8 clases especializadas)
@@ -21,7 +21,7 @@
  * - Manejo de errores mejorado
  * - Código mantenible y testeable
  * 
- * @author Sistema SAG Garage - Refactorización 2026
+ * @author Sistema CarFix - Refactorización 2026
  * @version 2.0.0 REFACTORIZADO
  * @date 17/04/2026
  */

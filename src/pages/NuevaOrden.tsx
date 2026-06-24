@@ -56,7 +56,7 @@ export const NuevaOrden = () => {
       link.href = url;
       const nombreCliente = presupuesto.cliente.nombreCompleto.replace(/\s+/g, '_').toUpperCase();
       const modelo = presupuesto.vehiculo.modelo.replace(/\s+/g, '_').toUpperCase();
-      link.download = `SAG_Garage_${presupuesto.folio}_${modelo}_${nombreCliente}.pdf`;
+      link.download = `CarFix_${presupuesto.folio}_${modelo}_${nombreCliente}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -331,7 +331,7 @@ export const NuevaOrden = () => {
       <footer className="mt-12 py-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 no-print">
         <div className="container mx-auto px-4">
           <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-            <p className="font-semibold mb-1">SAG Garage - Sistema de Presupuestos</p>
+            <p className="font-semibold mb-1">CarFix - Sistema de Presupuestos</p>
             <p>© {new Date().getFullYear()} Todos los derechos reservados</p>
           </div>
         </div>

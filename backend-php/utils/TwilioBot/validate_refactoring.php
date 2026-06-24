@@ -11,7 +11,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-echo "\n🔧 VALIDANDO REFACTORIZACIÓN SAG GARAGE WHATSAPP\n";
+echo "\n🔧 VALIDANDO REFACTORIZACIÓN CARFIX WHATSAPP\n";
 echo str_repeat("=", 60) . "\n\n";
 
 $errores = [];
