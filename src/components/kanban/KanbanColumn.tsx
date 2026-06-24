@@ -68,9 +68,9 @@ export function KanbanColumn({ config, ordenes, onEstadoChange }: KanbanColumnPr
   const { setNodeRef, isOver } = useDroppable({ id: estado });
 
   return (
-    <div className="flex flex-col min-w-[280px] max-w-[320px] flex-shrink-0">
+    <div className="flex flex-col min-w-[190px] max-w-[210px] flex-shrink-0">
       {/* Column Header — fondo sólido de color con texto blanco */}
-      <div className={`${headerBg} rounded-xl mb-3 px-4 py-3 shadow-sm`}>
+      <div className={`${headerBg} rounded-xl mb-2 px-3 py-2 shadow-sm`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <svg
@@ -97,7 +97,7 @@ export function KanbanColumn({ config, ordenes, onEstadoChange }: KanbanColumnPr
       {/* Cards Container — drop zone con feedback visual cuando se arrastra sobre ella */}
       <div
         ref={setNodeRef}
-        className={`flex flex-col gap-3 overflow-y-auto max-h-[calc(100vh-320px)] pr-1 pb-2
+        className={`flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-320px)] pr-1 pb-2
                     rounded-xl transition-colors duration-150
                     ${isOver ? 'bg-slate-100 dark:bg-slate-700/40' : ''}`}
       >

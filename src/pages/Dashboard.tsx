@@ -65,7 +65,7 @@ export const Dashboard = () => {
   // Sensores con tolerancia mínima de movimiento para no interferir con el click de navegación
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 600, tolerance: 8 } }),
   );
 
   // Aplicar el tema al documento

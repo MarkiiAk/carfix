@@ -124,13 +124,13 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
       {...attributes}
       onClick={handleCardClick}
       className={`w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
-                 border-l-4 ${cardAccent} rounded-xl p-4 shadow-soft hover:shadow-medium hover:-translate-y-0.5
+                 border-l-4 ${cardAccent} rounded-xl p-3 shadow-soft hover:shadow-medium hover:-translate-y-0.5
                  transition-shadow duration-200 ease-out group select-none
                  focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1
                  ${isOverlay ? 'shadow-xl rotate-1 opacity-95' : 'kanban-card-enter'}`}
     >
       {/* Folio */}
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="flex items-center gap-1.5 mb-1">
         <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">
           {folio}
         </span>
@@ -142,23 +142,23 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
       </div>
 
       {/* Cliente */}
-      <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight mb-1 truncate">
+      <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight mb-0.5 truncate">
         {clienteNombre}
       </p>
 
       {/* Vehiculo */}
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 truncate">
         {[marca, modelo, anio].filter(Boolean).join(' ')}
       </p>
       {placas && (
         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono font-medium
-                         bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 mb-1.5">
+                         bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 mb-1">
           {placas}
         </span>
       )}
 
       {/* Serie y Kilometraje — siempre visibles */}
-      <div className="flex items-center gap-3 mb-3 flex-wrap">
+      <div className="flex items-center gap-3 mb-2 flex-wrap">
         <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
           <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -179,7 +179,7 @@ export function KanbanCard({ orden, isOverlay = false, cardAccent = 'border-l-sl
 
       {/* Footer */}
       {fecha && (
-        <div className="border-t border-gray-100 dark:border-gray-700 pt-2 mt-2 flex items-center justify-between">
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-2 mt-1 flex items-center justify-between">
           <span className="text-xs text-gray-400 dark:text-gray-500">
             {tiempoTranscurrido(fecha)}
           </span>
