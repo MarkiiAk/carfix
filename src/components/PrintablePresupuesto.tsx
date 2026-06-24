@@ -189,11 +189,11 @@ export const PrintablePresupuesto: React.FC<PrintablePresupuestoProps> = ({ pres
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
             <img 
               src="/logo.png" 
-              alt="SAG Garage Logo" 
+              alt="CarFix Logo" 
               style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '12px' }}
             />
             <div>
-              <h1 style={styles.title}>SAG GARAGE</h1>
+              <h1 style={styles.title}>CARFIX</h1>
               <p style={styles.subtitle}>Orden de Servicio y Presupuesto</p>
             </div>
           </div>
@@ -372,7 +372,7 @@ export const PrintablePresupuesto: React.FC<PrintablePresupuestoProps> = ({ pres
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={styles.firmaLine}>
-              <p style={{ fontWeight: 'bold', margin: '4px 0' }}>Firma de SAG Garage</p>
+              <p style={{ fontWeight: 'bold', margin: '4px 0' }}>Firma de CarFix</p>
               <p style={{ fontSize: '12px', color: '#6b7280' }}>Autorización del Servicio</p>
             </div>
           </div>
@@ -385,12 +385,12 @@ export const PrintablePresupuesto: React.FC<PrintablePresupuestoProps> = ({ pres
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
             <img 
               src="/logo.png" 
-              alt="SAG Garage Logo" 
+              alt="CarFix Logo" 
               style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '12px' }}
             />
             <div>
               <h1 style={styles.titleGarantia}>PÓLIZA DE GARANTÍA</h1>
-              <p style={styles.subtitle}>SAG Garage - Términos y Condiciones</p>
+              <p style={styles.subtitle}>CarFix - Términos y Condiciones</p>
             </div>
           </div>
         </div>
@@ -483,7 +483,7 @@ export const PrintablePresupuesto: React.FC<PrintablePresupuestoProps> = ({ pres
 
         {/* Footer */}
         <div style={styles.footer}>
-          <p>SAG Garage - Sistema de Presupuestos</p>
+          <p>CarFix - Sistema de Presupuestos</p>
           <p>© {new Date().getFullYear()} Todos los derechos reservados</p>
         </div>
       </div>

@@ -8,7 +8,7 @@
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/utils/TwilioConversationalBot.php';
 
-echo "=== TEST WHATSAPP SAG GARAGE ===\n";
+echo "=== TEST WHATSAPP CARFIX ===\n";
 echo "Fecha: " . date('Y-m-d H:i:s') . "\n\n";
 
 try {
@@ -39,7 +39,7 @@ try {
     $twilioBot = new TwilioConversationalBot();
     
     // Probar envío de mensaje de prueba
-    $testMessage = "🔧 SAG Garage - Test del sistema WhatsApp conversacional\n\n";
+    $testMessage = "🔧 CarFix - Test del sistema WhatsApp conversacional\n\n";
     $testMessage .= "Este es un mensaje de prueba del nuevo sistema automático.\n";
     $testMessage .= "Fecha: " . date('Y-m-d H:i:s') . "\n\n";
     $testMessage .= "Si recibes este mensaje, el sistema está funcionando correctamente! ✅";
@@ -62,7 +62,7 @@ try {
     
     // Verificar webhooks funcionando
     echo "🔗 Verificando webhook...\n";
-    $webhookUrl = "https://saggarage.com.mx/gestion/backend-php/webhook/twilio_whatsapp.php";
+    $webhookUrl = "https://tallercarfix.com.mx/gestion/backend-php/webhook/twilio_whatsapp.php";
     echo "URL del webhook: $webhookUrl\n";
     
     // Test básico del webhook con curl

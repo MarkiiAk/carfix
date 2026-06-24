@@ -17,7 +17,7 @@
  * - Código más mantenible y testeable
  * - Mejor organización de funcionalidades
  * 
- * @author Sistema SAG Garage - Refactorización 2026
+ * @author Sistema CarFix - Refactorización 2026
  * @version 2.0.0
  */
 
@@ -172,7 +172,7 @@ class TwilioConversationalBotRefactored
             // Enviar mensaje con plantilla usando el servicio refactorizado
             $resultado = $this->messageSender->sendTemplateMessage(
                 $telefonoLimpio,
-                $this->config->getConfig('template_interactive_sid'), // SID recordatorio inicial (sag_garage_recordatorio)
+                $this->config->getConfig('template_interactive_sid'), // SID recordatorio inicial (carfix_recordatorio)
                 [
                     '1' => $alerta['cliente_nombre'],
                     '2' => '6 meses',
@@ -195,7 +195,7 @@ class TwilioConversationalBotRefactored
                     ['{{1}}', '{{2}}', '{{3}}'],
                     [$alerta['cliente_nombre'], '6 meses', $serviciosStr],
                     "👋 ¡Hola {{1}}! Espero que estés muy bien 😊\n\n"
-                    . "🔧 Han pasado {{2}} desde tu {{3}} en SAG Garage y queremos asegurarnos de que tu vehículo siga en perfectas condiciones.\n\n"
+                    . "🔧 Han pasado {{2}} desde tu {{3}} en CarFix y queremos asegurarnos de que tu vehículo siga en perfectas condiciones.\n\n"
                     . "🚗💙 Sabemos lo importante que es tu auto para ti, por eso te recordamos con cariño que es momento del siguiente servicio.\n\n"
                     . "✨ ¿Te gustaría que te ayudemos a agendar una cita? Estamos aquí para cuidar tu vehículo como se merece 🙌"
                 );
@@ -829,7 +829,7 @@ class TwilioConversationalBotRefactored
             if ($intentos < 2) {
                 // --- Primer intento: advertencia amable ---
                 $mensajeWarning = $this->config->getConfig('mensaje_respuesta_invalida_warning')
-                    ?? "¡Casi! 😊 Por favor elige una de las opciones respondiendo con el número correspondiente.\n\nSi tienes alguna duda o necesitas atención personalizada, envía tu mensaje de nuevo y con gusto se lo haremos llegar al equipo de SAG Garage 🙌";
+                    ?? "¡Casi! 😊 Por favor elige una de las opciones respondiendo con el número correspondiente.\n\nSi tienes alguna duda o necesitas atención personalizada, envía tu mensaje de nuevo y con gusto se lo haremos llegar al equipo de CarFix 🙌";
 
                 $res = $this->messageSender->sendTextMessage($telefonoLimpio, $mensajeWarning);
                 if ($res['success']) {
@@ -848,7 +848,7 @@ class TwilioConversationalBotRefactored
 
             // Mensaje al cliente
             $mensajeEscalada = $this->config->getConfig('mensaje_atencion_personalizada_cliente')
-                ?? "Lo siento, no pude entender tu mensaje 😊 Enseguida le aviso a alguien del equipo de SAG Garage para que te atiendan personalmente. ¡Gracias por tu paciencia! 🙌";
+                ?? "Lo siento, no pude entender tu mensaje 😊 Enseguida le aviso a alguien del equipo de CarFix para que te atiendan personalmente. ¡Gracias por tu paciencia! 🙌";
 
             $resCliente = $this->messageSender->sendTextMessage($telefonoLimpio, $mensajeEscalada);
             if ($resCliente['success']) {
@@ -1026,7 +1026,7 @@ class TwilioConversationalBotRefactored
     }
 
     /**
-     * Notificar al admin de SAG Garage que hay una nueva cita pre-agendada
+     * Notificar al admin de CarFix que hay una nueva cita pre-agendada
      * Los errores aquí no bloquean el flujo del cliente.
      */
     private function notificarAdminPreAgenda(int $alertaId, array $alerta, array $slot, string $tipoServicio): void
@@ -1075,7 +1075,7 @@ class TwilioConversationalBotRefactored
     }
 
     /**
-     * PASO 4: Procesar confirmación del admin de SAG Garage
+     * PASO 4: Procesar confirmación del admin de CarFix
      *
      * El admin responde vía WhatsApp con "confirmar", "cancelar" o "reprogramar".
      * Actualiza la cita, libera el slot si es cancelación, y notifica al cliente.
@@ -1137,7 +1137,7 @@ class TwilioConversationalBotRefactored
 
             if ($accion === 'confirmado') {
                 $msgCliente = $this->config->getConfig('mensaje_cita_confirmada')
-                    ?? "¡Excelente noticia! 🎉 Tu cita está *confirmada* para el {$fechaFormato} a las {$horaFormato}.\n\n¡Te esperamos en SAG Garage! 🚗🔧";
+                    ?? "¡Excelente noticia! 🎉 Tu cita está *confirmada* para el {$fechaFormato} a las {$horaFormato}.\n\n¡Te esperamos en CarFix! 🚗🔧";
                 $msgCliente = str_replace(['{{fecha}}', '{{hora}}'], [$fechaFormato, $horaFormato], $msgCliente);
                 $step = 'cita_confirmada';
             } elseif ($accion === 'cancelado') {

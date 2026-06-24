@@ -1,4 +1,4 @@
-# Estados Enum — Referencia Canónica SAG Garage
+# Estados Enum — Referencia Canónica CarFix
 
 Este archivo es la fuente de verdad de todos los valores de estado del sistema.
 **No inventar nuevos estados sin actualizar este archivo primero.**

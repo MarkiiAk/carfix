@@ -1,6 +1,6 @@
 <?php
 /**
- * WEBHOOK BIDIRECCIONAL TWILIO WHATSAPP - SAG GARAGE
+ * WEBHOOK BIDIRECCIONAL TWILIO WHATSAPP - CARFIX
  * Procesador de mensajes entrantes y salientes
  * 
  * Flujo:
@@ -9,7 +9,7 @@
  * 3. Procesa según el estado actual de la conversación
  * 4. Envía respuesta automática correspondiente
  * 
- * @author Sistema SAG Garage
+ * @author Sistema CarFix
  * @version 2.0.0
  * @date 01/04/2026
  */

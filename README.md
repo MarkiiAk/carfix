@@ -1,12 +1,12 @@
-# 🚗 SAG Garage - Sistema de Gestión Integral
+# 🚗 CarFix - Sistema de Gestión Integral
 
 **Transformando la administración de talleres mecánicos con tecnología moderna**
 
 ---
 
-## 🎯 ¿Qué es SAG Garage?
+## 🎯 ¿Qué es CarFix?
 
-SAG Garage es un sistema digital completo que moderniza la forma en que los talleres mecánicos gestionan sus operaciones diarias. Desde la creación de presupuestos hasta el seguimiento automático de clientes, nuestro sistema elimina el papeleo y automatiza los procesos más importantes del negocio.
+CarFix es un sistema digital completo que moderniza la forma en que los talleres mecánicos gestionan sus operaciones diarias. Desde la creación de presupuestos hasta el seguimiento automático de clientes, nuestro sistema elimina el papeleo y automatiza los procesos más importantes del negocio.
 
 ---
 
@@ -135,7 +135,7 @@ SAG Garage es un sistema digital completo que moderniza la forma en que los tall
 
 ## 🚀 Empieza Tu Transformación Digital
 
-SAG Garage no es solo un software, es la evolución natural de tu taller hacia la era digital. Mientras otros talleres siguen con papeles y llamadas, tu tendrás un sistema que trabaja 24/7 para traerte más clientes.
+CarFix no es solo un software, es la evolución natural de tu taller hacia la era digital. Mientras otros talleres siguen con papeles y llamadas, tu tendrás un sistema que trabaja 24/7 para traerte más clientes.
 
 ### El Cambio es Simple
 1. **Configuración inicial** - Te ayudamos a configurar todo
@@ -151,4 +151,4 @@ SAG Garage no es solo un software, es la evolución natural de tu taller hacia l
 
 ---
 
-*SAG Garage - Llevando tu taller al siguiente nivel*
+*CarFix - Llevando tu taller al siguiente nivel*

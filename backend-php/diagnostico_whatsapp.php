@@ -1,6 +1,6 @@
 <?php
 /**
- * DIAGNÓSTICO RÁPIDO WHATSAPP - SAG GARAGE
+ * DIAGNÓSTICO RÁPIDO WHATSAPP - CARFIX
  * Verificar qué está fallando exactamente
  */
 

@@ -14,7 +14,7 @@
  * - Logging detallado de todas las operaciones
  * - Manejo robusto de errores de Twilio
  * 
- * @author Sistema SAG Garage - Refactorización 2026
+ * @author Sistema CarFix - Refactorización 2026
  * @version 1.0.0
  */
 

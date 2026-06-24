@@ -1,4 +1,4 @@
-// Tipos principales del sistema de presupuestos SAG Garage
+// Tipos principales del sistema de presupuestos CarFix
 
 export interface TallerInfo {
   nombre: string;

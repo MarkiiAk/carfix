@@ -1,6 +1,6 @@
 <?php
 /**
- * SAG Garage - Backend API PHP
+ * CarFix - Backend API PHP
  * Compatible con cPanel / Hosting compartido
  */
 
@@ -21,8 +21,17 @@ function getAllowedOrigin() {
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
         return in_array($origin, $allowedOrigins) ? $origin : 'http://localhost:3000';
     } else {
-        // Producción: solo saggarage.com.mx
-        return 'https://saggarage.com.mx';
+        // Producción: dominio del servidor actual
+        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+        // Permitir cualquier subdominio/ruta del mismo host
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $serverOrigin = $scheme . '://' . $host;
+        // Si el origen de la request coincide con el host del servidor, permitirlo
+        if ($origin && parse_url($origin, PHP_URL_HOST) === $host) {
+            return $origin;
+        }
+        return $serverOrigin;
     }
 }
 

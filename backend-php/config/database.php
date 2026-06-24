@@ -31,11 +31,11 @@ class Database {
             
             // Log del entorno detectado (solo en desarrollo)
             if ($this->isLocalEnvironment()) {
-                error_log('SAG Garage: Conectado a entorno LOCAL (XAMPP)');
+                error_log('CarFix: Conectado a entorno LOCAL (XAMPP)');
             }
             
         } catch (PDOException $e) {
-            error_log('SAG Garage: Error de conexión a base de datos');
+            error_log('CarFix: Error de conexión a base de datos');
             http_response_code(500);
             die(json_encode([
                 'success' => false,
@@ -54,7 +54,7 @@ class Database {
         // 1. PRIORIDAD MÁXIMA: .env.local (desarrollo local)
         if (file_exists($baseDir . '/.env.local')) {
             $this->loadEnvFile($baseDir . '/.env.local');
-            error_log('SAG Garage: Usando .env.local (desarrollo)');
+            error_log('CarFix: Usando .env.local (desarrollo)');
         }
         // 2. SEGUNDA PRIORIDAD: .env (producción)
         else if (file_exists($baseDir . '/.env')) {
