@@ -66,7 +66,7 @@ export const Dashboard = () => {
   // Mouse: drag al mover 8px. Touch: drag al mantener 300ms sin moverse — scroll si deslizas antes.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 1000, tolerance: 8 } }),
   );
 
   // Aplicar el tema al documento
